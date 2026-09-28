@@ -86,17 +86,24 @@ export default function CampaignDetails({ params }: { params: { id: string } }) 
         </aside>
       </div>
 
-      {phase === "locked" && <div className="unlockBox">
-        <div className="lockIcon">🔒</div>
-        <h2>Before you participate</h2>
-        <p>We want to make sure you understand exactly what the advertiser is asking you to do.</p>
-        <button className="primary" onClick={() => setPhase("understand")}>See how to participate →</button>
+      {phase === "locked" && <div className="testModalBackdrop">
+        <div className="testModal">
+          <div className="lockIcon">🔒</div>
+          <span className="eyebrow">CAMPAIGN LOCKED</span>
+          <h2>Before you participate</h2>
+          <p>{campaign.instructions || "Read the campaign instructions carefully. You will need to understand and follow them before you can join."}</p>
+          <p className="modalHint">Do you understand what this advertiser wants you to do?</p>
+          <div className="choiceRow">
+            <button className="primary" onClick={() => setPhase("understand")}>Yes, I understand →</button>
+            <button className="secondary" onClick={() => setPhase("locked")}>No, I don't</button>
+          </div>
+        </div>
       </div>}
 
       {phase === "understand" && <div className="unlockBox">
-        <span className="eyebrow">STEP 1</span>
-        <h2>Do you understand this campaign?</h2>
-        <p>{campaign.instructions || "Read the campaign instructions above. You will need to follow them exactly when creating your content."}</p>
+        <span className="eyebrow">STEP 1 · UNDERSTANDING CHECK</span>
+        <h2>Good. Now prove you understand it.</h2>
+        <p>You said you understand the campaign. The next step is a quick real-world test before the campaign is unlocked.</p>
         <div className="choiceRow">
           <button className="primary" onClick={() => setPhase("test")}>Yes, I understand →</button>
           <button className="secondary" onClick={() => setPhase("locked")}>No, show me again</button>
