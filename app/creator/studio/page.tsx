@@ -4,110 +4,235 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 
 type Platform = {
-  id: string; name: string; format: string; ratio: string;
-  safe: string; restricted: string; disclosure: string; placement: string; note: string;
+  id: string;
+  name: string;
+  format: string;
+  ratio: string;
+  automaticPlacement: string;
+  automaticTiming: string;
+  safeArea: string;
+  disclosure: string;
 };
 
 const platforms: Platform[] = [
-  {id:"tiktok",name:"TikTok",format:"TikTok video",ratio:"9:16",safe:"Keep important text and product elements away from platform controls.",restricted:"Do not add promotional watermarks, logos or promotional text as an unwanted overlay through the posting integration.",disclosure:"Commercial content disclosure required when promoting a brand, product or service.",placement:"Lower-middle clear area",note:"The creator must review the final TikTok preview and complete the required commercial-content disclosure before posting."},
-  {id:"youtube",name:"YouTube",format:"YouTube video",ratio:"16:9 or source",safe:"Keep the product placement inside the creator's content and away from important visual information.",restricted:"Do not burn a third-party pre-roll, mid-roll, post-roll or bumper into the creator video.",disclosure:"Paid promotion declaration required for paid product placement, sponsorship or endorsement.",placement:"Natural scene/product area",note:"AdBridge treats YouTube product placement and endorsement differently from an embedded third-party video ad."},
-  {id:"shorts",name:"YouTube Shorts",format:"Shorts",ratio:"9:16",safe:"Keep the creator and key text visible and avoid covering important content.",restricted:"Third-party video ad breaks cannot simply be burned into the Short.",disclosure:"Paid promotion declaration required when the Short contains branded content.",placement:"Lower clear area",note:"The final Short still needs the creator's YouTube paid-promotion declaration."},
-  {id:"facebook",name:"Facebook Feed",format:"Feed video/image",ratio:"Source-aware",safe:"Keep the product inside clear content space and avoid covering important creator content.",restricted:"The AI will not intentionally cover faces, key text, logos or detected platform UI.",disclosure:"Branded-content disclosure may be required depending on the collaboration and posting method.",placement:"Clear side/lower area",note:"The exact Facebook publishing options can vary by account and content type, so AdBridge will show the creator the final check."},
-  {id:"reels",name:"Facebook Reels",format:"Reel",ratio:"9:16",safe:"Use a vertical safe area and keep important content away from interface zones.",restricted:"Do not cover key creator content or add unwanted promotional branding through the posting integration.",disclosure:"Branded-content disclosure may be required.",placement:"Lower-middle clear area",note:"The creator gets a final preview before anything is posted."},
-  {id:"instagram",name:"Instagram Reels",format:"Reel",ratio:"9:16",safe:"Use a vertical safe area and preserve faces, captions and important visual information.",restricted:"Do not cover important creator content with the advertiser placement.",disclosure:"Paid partnership/branded-content disclosure may be required.",placement:"Lower-middle clear area",note:"The final publishing step remains under the creator's control."}
+  {
+    id: "tiktok", name: "TikTok", format: "Vertical video", ratio: "9:16",
+    automaticPlacement: "AI chooses the clearest lower/side area after detecting the creator, captions and interface-sensitive areas.",
+    automaticTiming: "AI selects the least disruptive moments instead of using one fixed timestamp.",
+    safeArea: "Avoids detected TikTok interface areas and important creator content.",
+    disclosure: "AdBridge prepares the creator for TikTok's required commercial-content disclosure."
+  },
+  {
+    id: "youtube", name: "YouTube", format: "YouTube video", ratio: "16:9 / source",
+    automaticPlacement: "AI chooses a natural in-video product placement or eligible static card location based on the content.",
+    automaticTiming: "AI selects an appropriate moment from the actual video; it does not assume a universal 10–15 second rule.",
+    safeArea: "Avoids faces, important text and key visual information.",
+    disclosure: "AdBridge prepares the creator for YouTube's paid-promotion declaration."
+  },
+  {
+    id: "shorts", name: "YouTube Shorts", format: "Short video", ratio: "9:16",
+    automaticPlacement: "AI chooses clear space while keeping the creator and important content visible.",
+    automaticTiming: "AI chooses timing from the actual video rather than a fixed timestamp.",
+    safeArea: "Preserves important creator content and avoids interface-sensitive areas.",
+    disclosure: "AdBridge prepares the creator for YouTube's paid-promotion declaration."
+  },
+  {
+    id: "facebook", name: "Facebook Feed", format: "Feed video/image", ratio: "Source-aware",
+    automaticPlacement: "AI finds clear space without covering faces, important text or the main subject.",
+    automaticTiming: "AI chooses timing based on movement and scene changes when the format supports an in-video placement.",
+    safeArea: "Protects detected important content and interface-sensitive areas.",
+    disclosure: "AdBridge prepares the creator for applicable branded-content disclosure."
+  },
+  {
+    id: "facebook-reels", name: "Facebook Reels", format: "Vertical Reel", ratio: "9:16",
+    automaticPlacement: "AI chooses the clearest area while protecting the creator and key content.",
+    automaticTiming: "AI chooses the least disruptive moment from the actual video.",
+    safeArea: "Protects important content and interface-sensitive areas.",
+    disclosure: "AdBridge prepares the creator for applicable branded-content disclosure."
+  },
+  {
+    id: "instagram", name: "Instagram Reels", format: "Vertical Reel", ratio: "9:16",
+    automaticPlacement: "AI finds clear space around faces, captions and the main subject.",
+    automaticTiming: "AI chooses the least disruptive moment from the actual video.",
+    safeArea: "Protects faces, captions, important visual information and interface-sensitive areas.",
+    disclosure: "AdBridge prepares the creator for applicable paid-partnership disclosure."
+  }
 ];
 
 const placements = [
-  {id:"card",name:"Product card",description:"Small product panel that sits naturally in clear space."},
-  {id:"floating",name:"Floating product",description:"Product follows a detected clear area while the scene moves."},
-  {id:"logo",name:"Logo + CTA",description:"Compact brand mark and call-to-action in a safe area."},
-  {id:"natural",name:"Natural placement",description:"AI places the product into a detected surface or scene."}
+  {id:"card", name:"Product card", description:"A compact product panel placed automatically in clear space."},
+  {id:"floating", name:"Floating product", description:"The product follows a safe area while the scene moves."},
+  {id:"logo", name:"Logo + CTA", description:"A compact brand mark and call-to-action placed automatically."},
+  {id:"natural", name:"Natural placement", description:"The AI places the product into a suitable part of the scene."}
 ];
 
 export default function Studio() {
-  const [platform,setPlatform]=useState("tiktok");
-  const [placement,setPlacement]=useState("floating");
-  const [videoUrl,setVideoUrl]=useState("");
-  const [fileName,setFileName]=useState("");
-  const [analyzing,setAnalyzing]=useState(false);
-  const [done,setDone]=useState(false);
+  const [platform, setPlatform] = useState("tiktok");
+  const [placement, setPlacement] = useState("floating");
+  const [videoUrl, setVideoUrl] = useState("");
+  const [fileName, setFileName] = useState("");
+  const [analyzing, setAnalyzing] = useState(false);
+  const [done, setDone] = useState(false);
 
-  const selected=useMemo(()=>platforms.find(item=>item.id===platform) ?? platforms[0],[platform]);
+  const selected = useMemo(
+    () => platforms.find(item => item.id === platform) ?? platforms[0],
+    [platform]
+  );
 
-  function choosePlatform(id:string){setPlatform(id);setDone(false);}
-  function chooseVideo(file:File|undefined){
-    if(!file)return;
+  function choosePlatform(id: string) {
+    setPlatform(id);
+    setDone(false);
+  }
+
+  function chooseVideo(file: File | undefined) {
+    if (!file) return;
     setFileName(file.name);
     setVideoUrl(URL.createObjectURL(file));
     setDone(false);
   }
-  function analyze(){
-    setAnalyzing(true); setDone(false);
-    window.setTimeout(()=>{setAnalyzing(false);setDone(true);},1100);
+
+  function analyze() {
+    setAnalyzing(true);
+    setDone(false);
+    window.setTimeout(() => {
+      setAnalyzing(false);
+      setDone(true);
+    }, 1300);
   }
 
   return <main className="formPage studioPage">
     <Link href="/creator" className="back">← Creator Dashboard</Link>
+
     <div className="formCard wide studioCard">
       <span className="eyebrow">ADBRIDGE AI STUDIO</span>
-      <h1>Make it fit <em>where you post.</em></h1>
-      <p>Choose the exact destination first. AdBridge then prepares the content for that platform, checks its rules, finds clear space and shows you exactly where the advertiser's product can go.</p>
+      <h1>Choose where you're posting. <em>AI does the rest.</em></h1>
+      <p>
+        You don't need to learn platform rules. Pick the destination and AdBridge automatically
+        analyzes your content, finds safe space, chooses timing and prepares the advertiser placement for that platform.
+      </p>
 
       <div className="studioSteps">
         <div className="active"><b>01</b><span>Choose platform</span></div>
-        <div><b>02</b><span>Analyze content</span></div>
-        <div><b>03</b><span>Place advertiser</span></div>
-        <div><b>04</b><span>Check & export</span></div>
+        <div><b>02</b><span>AI analyzes</span></div>
+        <div><b>03</b><span>AI places ad</span></div>
+        <div><b>04</b><span>Final check</span></div>
       </div>
 
       <label>Where are you posting?</label>
       <div className="platformGrid">
-        {platforms.map(item=><button key={item.id} className={platform===item.id ? "platformButton selected":"platformButton"} onClick={()=>choosePlatform(item.id)} type="button">
-          <strong>{item.name}</strong><small>{item.format} · {item.ratio}</small>
-        </button>)}
+        {platforms.map(item =>
+          <button
+            key={item.id}
+            className={platform === item.id ? "platformButton selected" : "platformButton"}
+            onClick={() => choosePlatform(item.id)}
+            type="button"
+          >
+            <strong>{item.name}</strong>
+            <small>{item.format} · {item.ratio}</small>
+          </button>
+        )}
       </div>
 
-      <div className="ruleBanner"><div><span className="ruleDot"/><strong>{selected.name} rules active</strong></div><small>AdBridge changes the placement and checks below for this destination.</small></div>
+      <div className="autoBanner">
+        <div className="autoIcon">✦</div>
+        <div>
+          <strong>{selected.name} selected — automatic mode</strong>
+          <small>AdBridge will apply the destination's current rules automatically. You don't need to read them.</small>
+        </div>
+      </div>
 
       <div className="studioWorkspace">
         <section className="studioPanel">
           <label>Your content</label>
-          <input type="file" accept="video/*,image/*" onChange={event=>chooseVideo(event.target.files?.[0])}/>
-          {fileName&&<div className="filePicked">✓ {fileName}</div>}
+          <input type="file" accept="video/*,image/*" onChange={event => chooseVideo(event.target.files?.[0])}/>
+          {fileName && <div className="filePicked">✓ {fileName}</div>}
 
           <label>Campaign</label>
-          <select defaultValue="glowskin"><option value="glowskin">GlowSkin Creator Launch</option><option value="nova">Nova Sneakers</option><option value="volt">Volt Energy Mention</option></select>
+          <select defaultValue="glowskin">
+            <option value="glowskin">GlowSkin Creator Launch</option>
+            <option value="nova">Nova Sneakers</option>
+            <option value="volt">Volt Energy Mention</option>
+          </select>
 
-          <label>How should the advertiser appear?</label>
+          <label>Advertiser placement</label>
           <div className="placementChoices">
-            {placements.map(item=><button type="button" key={item.id} className={placement===item.id?"placementChoice selected":"placementChoice"} onClick={()=>setPlacement(item.id)}>
-              <strong>{item.name}</strong><small>{item.description}</small>
-            </button>)}
+            {placements.map(item =>
+              <button
+                type="button"
+                key={item.id}
+                className={placement === item.id ? "placementChoice selected" : "placementChoice"}
+                onClick={() => setPlacement(item.id)}
+              >
+                <strong>{item.name}</strong>
+                <small>{item.description}</small>
+              </button>
+            )}
           </div>
-          <button className="primary fullButton" onClick={analyze} disabled={analyzing}>{analyzing?"Analyzing your content…":"Analyze & create my preview →"}</button>
+
+          <button className="primary fullButton" onClick={analyze} disabled={analyzing}>
+            {analyzing ? "AI is analyzing your video…" : "Let AI place the ad →"}
+          </button>
         </section>
 
         <section className="studioPanel previewPanel">
-          <div className="previewHeader"><div><span className="eyebrow">LIVE PREVIEW</span><h2>{selected.name}</h2></div><span className="formatBadge">{selected.ratio}</span></div>
-          <div className={"aiPreview "+(selected.ratio==="16:9 or source"?"widePreview":"")}>
-            {videoUrl?<video src={videoUrl} controls muted playsInline/>:<div className="previewPlaceholder"><span>▶</span><b>Upload your content</b><small>The AI preview will appear here.</small></div>}
-            {done&&<><div className="safeZone safeOne">SAFE</div><div className="safeZone safeTwo">SAFE</div><div className="blockedZone">KEEP CLEAR</div><div className="placementMock"><span>AD</span><b>{placement==="natural"?"Product placed naturally":"GlowSkin"}</b><small>AI placement</small></div></>}
+          <div className="previewHeader">
+            <div><span className="eyebrow">AI PREVIEW</span><h2>{selected.name}</h2></div>
+            <span className="formatBadge">{selected.ratio}</span>
           </div>
-          {done&&<div className="analysisResult"><div className="resultTitle"><span>✓</span><strong>AI placement ready</strong></div><p>AdBridge found clear visual space and avoided the main content area for {selected.name}.</p><div className="checkList"><div><span>✓</span> Format: {selected.ratio}</div><div><span>✓</span> Placement: {selected.placement}</div><div><span>✓</span> Restricted area check completed</div><div><span>✓</span> Disclosure requirement identified</div></div></div>}
+
+          <div className={"aiPreview " + (selected.ratio === "16:9 / source" ? "widePreview" : "")}>
+            {videoUrl
+              ? <video src={videoUrl} controls muted playsInline/>
+              : <div className="previewPlaceholder"><span>▶</span><b>Upload your content</b><small>AI will choose the placement automatically.</small></div>
+            }
+
+            {done && <>
+              <div className="safeZone safeOne">SAFE AREA</div>
+              <div className="safeZone safeTwo">SAFE AREA</div>
+              <div className="blockedZone">KEEP CLEAR</div>
+              <div className="placementMock">
+                <span>AD</span>
+                <b>{placement === "natural" ? "Product placed naturally" : "Advertiser product"}</b>
+                <small>AI selected this position</small>
+              </div>
+            </>}
+          </div>
+
+          {done && <div className="analysisResult">
+            <div className="resultTitle"><span>✓</span><strong>Placement selected automatically</strong></div>
+            <p>{selected.automaticPlacement}</p>
+            <div className="checkList">
+              <div><span>✓</span> Destination format: {selected.ratio}</div>
+              <div><span>✓</span> Safe area detected</div>
+              <div><span>✓</span> Timing selected from your actual video</div>
+              <div><span>✓</span> Platform requirements checked</div>
+            </div>
+          </div>}
         </section>
       </div>
 
-      <div className="complianceBox">
-        <div className="complianceTop"><div><span className="eyebrow">DESTINATION CHECK</span><h2>{selected.name}</h2></div><span className="statusPill">RULES LOADED</span></div>
+      <div className="automaticResult">
+        <div className="complianceTop">
+          <div><span className="eyebrow">WHAT AI DECIDED</span><h2>{selected.name}</h2></div>
+          <span className="statusPill">AUTOMATIC</span>
+        </div>
+
         <div className="complianceGrid">
-          <div><b>✓ Safe area</b><p>{selected.safe}</p></div>
-          <div><b>✓ What we avoid</b><p>{selected.restricted}</p></div>
-          <div><b>! Disclosure</b><p>{selected.disclosure}</p></div>
-          <div><b>AI recommendation</b><p>{selected.placement}. {selected.note}</p></div>
+          <div><b>📍 Where</b><p>{selected.automaticPlacement}</p></div>
+          <div><b>⏱ When</b><p>{selected.automaticTiming}</p></div>
+          <div><b>🛡 Protected</b><p>{selected.safeArea}</p></div>
+          <div><b>✓ Posting</b><p>{selected.disclosure}</p></div>
         </div>
       </div>
 
-      {done&&<div className="finalCheck"><div><span className="eyebrow">FINAL CHECK</span><h2>Ready for your review</h2><p>The creator always sees the final result before posting. AdBridge does not silently publish content or hide required platform disclosures.</p></div><button className="secondary" type="button">Approve & export →</button></div>}
+      {done && <div className="finalCheck">
+        <div>
+          <span className="eyebrow">FINAL CHECK</span>
+          <h2>Everything is ready for your review</h2>
+          <p>AdBridge checks the destination before export. The creator reviews the final result and remains in control of posting.</p>
+        </div>
+        <button className="secondary" type="button">Approve & export →</button>
+      </div>}
     </div>
   </main>
 }
