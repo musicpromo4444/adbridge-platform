@@ -137,12 +137,16 @@ Deno.serve(async (req: Request) => {
 
     if (!existing?.length) {
       const { data: campaign } = await db.from("campaigns")
-        .select("payment_method,payment_rate,desired_results,status")
+        .select("payment_method,payment_rate,desired_results,max_budget,status")
         .eq("id", submission.campaign_id)
         .single();
       if (campaign && ["views", "cpm"].includes(String(campaign.payment_method).toLowerCase())) {
         const rate = Number(campaign.payment_rate || 0);
-        const amount = Number((rate * (target / 1000)).toFixed(2));
+        const requestedAmount = Number((rate * (target / 1000)).toFixed(2));
+        const { data: paidRows } = await db.from("campaign_payments").select("amount").eq("campaign_id", submission.campaign_id).eq("type", "creator_payment").in("status", ["released","approved","pending"]);
+        const alreadyPaid = (paidRows || []).reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
+        const remainingBudget = Math.max(0, Number(campaign.max_budget || 0) - alreadyPaid);
+        const amount = Number(Math.min(requestedAmount, remainingBudget).toFixed(2));
         if (amount > 0) {
           await db.from("campaign_payments").insert({
             campaign_id: submission.campaign_id,
