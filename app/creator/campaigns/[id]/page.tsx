@@ -26,7 +26,6 @@ export default function CampaignDetails() {
   const storageKey="adbridge-unlocked-"+params.id;
 
   useEffect(()=>{
-    if(localStorage.getItem(storageKey)==="yes") setPhase("unlocked");
     async function load(){
       if(!supabase){setError("AdBridge database is not connected yet.");setLoading(false);return}
       const [{data,error:campaignError},{data:assetData},{data:testData,error:testError}]=await Promise.all([
@@ -36,7 +35,15 @@ export default function CampaignDetails() {
       ]);
       if(campaignError||!data){setError("This campaign could not be found.");setLoading(false);return}
       if(testError){setError("The campaign test could not be loaded.");setLoading(false);return}
-      setCampaign(data); setAssets(assetData??[]); setCampaignTest(testData??null); setLoading(false);
+      setCampaign(data); setAssets(assetData??[]); setCampaignTest(testData??null);
+      const creatorId=localStorage.getItem("adbridge-creator-id");
+      let alreadyAccepted=false;
+      if(creatorId){
+        const {data:job}=await supabase.from("creator_campaigns").select("id,status").eq("campaign_id",params.id).eq("creator_id",creatorId).limit(1).maybeSingle();
+        alreadyAccepted=Boolean(job);
+      }
+      if(localStorage.getItem(storageKey)==="yes" || alreadyAccepted) setPhase("unlocked");
+      setLoading(false);
     }
     load();
   },[params.id,storageKey]);
@@ -60,7 +67,7 @@ export default function CampaignDetails() {
     setSaving(true); setError("");
     if(supabase&&campaignTest){
       const {error:e}=await supabase.from("creator_campaign_tests").insert({
-        campaign_test_id:campaignTest.id, creator_id:null, understood:true, action_started:true, completed:true, completed_at:new Date().toISOString()
+        campaign_test_id:campaignTest.id, creator_id:creatorId, understood:true, action_started:true, completed:true, completed_at:new Date().toISOString()
       });
       if(e){setError("We couldn't save the test completion yet.");setSaving(false);return}
     }
@@ -99,6 +106,13 @@ function AcceptCampaign({campaignId,getCreatorId}:{campaignId:string;getCreatorI
   if(!supabase)return;setBusy(true);setError("");
   const creatorId=await getCreatorId();
   if(!creatorId){setError("We could not create your creator profile yet.");setBusy(false);return}
+  const {data:existing}=await supabase.from("creator_campaigns").select("id").eq("campaign_id",campaignId).eq("creator_id",creatorId).limit(1).maybeSingle();
+  if(existing?.id){
+    const ids=JSON.parse(localStorage.getItem("adbridge-jobs")||"[]") as string[];
+    if(!ids.includes(existing.id))ids.push(existing.id);
+    localStorage.setItem("adbridge-jobs",JSON.stringify(ids));
+    window.location.href="/creator/work"; return;
+  }
   const {data,error:e}=await supabase.from("creator_campaigns").insert({campaign_id:campaignId,creator_id:creatorId,status:"accepted"}).select("id").single();
   if(e||!data){setError(e?.message||"Could not accept campaign.");setBusy(false);return}
   const ids=JSON.parse(localStorage.getItem("adbridge-jobs")||"[]") as string[];
