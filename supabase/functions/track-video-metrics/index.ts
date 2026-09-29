@@ -94,6 +94,51 @@ Deno.serve(async (req: Request) => {
     if (!r.ok || !item) return json({ error: "TikTok could not return this video.", details: data }, 502);
     views = Number(item.view_count || 0);
     raw = item;
+  } else if (platform === "x" || platform === "twitter") {
+    platform = "x";
+    videoId ||= (submission.posted_url || "").match(/status\/(\\d+)/)?.[1] || null;
+    if (!videoId) return json({ error: "Could not identify the X post." }, 400);
+    const { data: connection } = await db.from("creator_platform_connections")
+      .select("access_token,connected").eq("creator_id", submission.creator_id).eq("platform", "x").eq("connected", true).maybeSingle();
+    const token = connection?.access_token || Deno.env.get("X_BEARER_TOKEN");
+    if (!token) return json({ error: "X tracking requires an authorized creator connection or X API token." }, 409);
+    const u = new URL(`https://api.x.com/2/tweets/${videoId}`);
+    u.searchParams.set("tweet.fields", "public_metrics");
+    const r = await fetch(u, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await r.json();
+    if (!r.ok || !data?.data) return json({ error: "X could not return this post.", details: data }, 502);
+    views = Number(data.data.public_metrics?.view_count || 0);
+    raw = data.data;
+  } else if (platform === "instagram") {
+    videoId ||= (submission.posted_url || "").match(/(?:reel|reels|p)\/([A-Za-z0-9_-]+)/)?.[1] || null;
+    if (!videoId) return json({ error: "Could not identify the Instagram post/reel." }, 400);
+    const { data: connection } = await db.from("creator_platform_connections")
+      .select("access_token,connected").eq("creator_id", submission.creator_id).eq("platform", "instagram").eq("connected", true).maybeSingle();
+    if (!connection?.access_token) return json({ error: "Instagram tracking requires a connected professional creator/business account." }, 409);
+    const u = new URL(`https://graph.facebook.com/v23.0/${videoId}/insights`);
+    u.searchParams.set("metric", "views");
+    u.searchParams.set("access_token", connection.access_token);
+    const r = await fetch(u);
+    const data = await r.json();
+    if (!r.ok) return json({ error: "Instagram could not return this media's insights.", details: data }, 502);
+    views = Number(data?.data?.find((x: any) => x.name === "views")?.values?.at(-1)?.value || 0);
+    raw = data;
+  } else if (platform === "facebook") {
+    videoId ||= (submission.posted_url || "").match(/(?:videos|reel|watch)\/(\d+)/)?.[1] || null;
+    if (!videoId) return json({ error: "Could not identify the Facebook video." }, 400);
+    const { data: connection } = await db.from("creator_platform_connections")
+      .select("access_token,connected").eq("creator_id", submission.creator_id).eq("platform", "facebook").eq("connected", true).maybeSingle();
+    if (!connection?.access_token) return json({ error: "Facebook tracking requires a connected Page/creator account." }, 409);
+    const u = new URL(`https://graph.facebook.com/v23.0/${videoId}/insights`);
+    u.searchParams.set("metric", "post_media_view");
+    u.searchParams.set("access_token", connection.access_token);
+    const r = await fetch(u);
+    const data = await r.json();
+    if (!r.ok) return json({ error: "Facebook could not return this video's insights.", details: data }, 502);
+    views = Number(data?.data?.find((x: any) => x.name === "post_media_view")?.values?.at(-1)?.value || 0);
+    raw = data;
+  } else if (platform === "snapchat") {
+    return json({ error: "Snapchat tracking requires the creator to authorize/share eligible Public Profile or Spotlight insights. Automatic API retrieval is not enabled for this account yet.", code: "SNAPCHAT_AUTH_REQUIRED", platform }, 409);
   } else {
     return json({ error: "Automatic tracking for this platform is not connected yet.", platform }, 409);
   }
