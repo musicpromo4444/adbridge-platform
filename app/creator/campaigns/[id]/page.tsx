@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -12,7 +13,8 @@ type Campaign = {
 type Asset = { asset_type: string; asset_url: string | null };
 type CampaignTest = { id: string; title: string; instructions: string; action_label: string; action_url: string | null; required: boolean };
 
-export default function CampaignDetails({ params }: { params: { id: string } }) {
+export default function CampaignDetails() {
+  const params = useParams<{ id: string }>();
   const [campaign,setCampaign]=useState<Campaign|null>(null);
   const [assets,setAssets]=useState<Asset[]>([]);
   const [campaignTest,setCampaignTest]=useState<CampaignTest|null>(null);
