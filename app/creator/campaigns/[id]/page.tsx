@@ -44,6 +44,16 @@ export default function CampaignDetails({ params }: { params: { id: string } }) 
 
   const actionAsset=assets.find(a=>a.asset_type==="website_app_link"&&a.asset_url)||null;
 
+  async function getCreatorId(){
+    const key="adbridge-creator-id";
+    const existing=localStorage.getItem(key);
+    if(existing) return existing;
+    if(!supabase) return null;
+    const {data,error}=await supabase.from("profiles").insert({role:"creator",display_name:"AdBridge Creator"}).select("id").single();
+    if(error||!data) return null;
+    localStorage.setItem(key,data.id); return data.id;
+  }
+
   async function completeTest(){
     setSaving(true); setError("");
     if(supabase&&campaignTest){
@@ -74,7 +84,8 @@ export default function CampaignDetails({ params }: { params: { id: string } }) 
 
       {error&&<div className="successBox">{error}</div>}
 
-      {phase==="unlocked"&&<div className="unlockBox"><div className="successBox">✓ You completed the campaign test.</div><h2>Campaign unlocked</h2><p>You have shown that you understand what the advertiser wants. You can now participate.</p><Link className="primary" href={"/creator/work?campaign="+campaign.id}>Accept & start campaign →</Link></div>}
+      {phase==="unlocked"&&<AcceptCampaign campaignId={campaign.id} getCreatorId={getCreatorId}/>}
+
     </div>
   </main>;
 }
