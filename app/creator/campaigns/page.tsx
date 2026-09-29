@@ -24,7 +24,7 @@ type AcceptedJob = {
 };
 
 const label = (value: string | null | undefined) =>
-  (value || "Not specified").replaceAll("_", " ").replace(/\\b\\w/g, (c) => c.toUpperCase());
+  (value || "Not specified").replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 export default function Campaigns() {
   const [search, setSearch] = useState("");
