@@ -89,3 +89,19 @@ export default function CampaignDetails({ params }: { params: { id: string } }) 
     </div>
   </main>;
 }
+
+
+function AcceptCampaign({campaignId,getCreatorId}:{campaignId:string;getCreatorId:()=>Promise<string|null>}){
+ const [busy,setBusy]=useState(false);const [error,setError]=useState("");
+ async function accept(){
+  if(!supabase)return;setBusy(true);setError("");
+  const creatorId=await getCreatorId();
+  if(!creatorId){setError("We could not create your creator profile yet.");setBusy(false);return}
+  const {data,error:e}=await supabase.from("creator_campaigns").insert({campaign_id:campaignId,creator_id:creatorId,status:"accepted"}).select("id").single();
+  if(e||!data){setError(e?.message||"Could not accept campaign.");setBusy(false);return}
+  const ids=JSON.parse(localStorage.getItem("adbridge-jobs")||"[]") as string[];
+  if(!ids.includes(data.id))ids.push(data.id);localStorage.setItem("adbridge-jobs",JSON.stringify(ids));
+  window.location.href="/creator/work";
+ }
+ return <div className="unlockBox"><div className="successBox">✓ You completed the campaign test.</div><h2>Campaign unlocked</h2><p>You have shown that you understand what the advertiser wants. You can now participate.</p>{error&&<div className="successBox">{error}</div>}<button className="primary" disabled={busy} onClick={accept}>{busy?"Accepting…":"Accept & start campaign →"}</button></div>
+}
