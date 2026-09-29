@@ -2,6 +2,7 @@
 import Link from "next/link";
 import {useEffect,useState} from "react";
 import {supabase} from "@/lib/supabase";
+import AdPlacement from "@/components/AdPlacement";
 
 type Campaign={id:string;name:string;goal:string;platform:string|null;status:string;max_budget:number|null;desired_results:number|null};
 
@@ -13,6 +14,7 @@ export default function Advertiser(){
  const totalBudget=campaigns.reduce((sum,c)=>sum+Number(c.max_budget||0),0);
  return <main className="dashboard"><div className="dashTop"><Link href="/" className="back">← AdBridge</Link><span className="testBadge">LIVE DATABASE</span><Link href="/creator" className="switch">Creator side →</Link></div>
  <div className="dashHero"><div><span className="eyebrow">ADVERTISER DASHBOARD</span><h1>Put your product<br/><em>in the story.</em></h1><p>Create campaigns, choose your creator requirements, fund the work and review submissions.</p></div><Link className="primary" href="/advertiser/new">＋ Start a new ad</Link></div>
+ <AdPlacement placementKey="main_feed" />
  <div className="dashGrid"><section><div className="sectionHead"><h2>Your campaigns</h2><span>{loading?"Loading…":campaigns.length+" campaigns"}</span></div>
  {campaigns.slice(0,5).map(c=><div className="campaign" key={c.id}><div className="campaignIcon">✦</div><div><b>{c.name}</b><small>{c.goal} · {c.platform||"Any platform"}</small></div><strong>{c.desired_results??0} results</strong><span className={c.status==="active"?"live":"review"}>{c.status}</span></div>)}
  {!loading&&campaigns.length===0&&<div className="successBox">No campaigns yet. Start your first campaign above.</div>}</section>
