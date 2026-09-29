@@ -15,6 +15,7 @@ type Payment = {
 
 export default function Earnings() {
   const [payments, setPayments] = useState<Payment[]>([]);
+  const [withdrawals, setWithdrawals] = useState<{id:string;amount:number;status:string;created_at:string}[]>([]);
   const [amount, setAmount] = useState("");
   const [message, setMessage] = useState("");
   const [loading, setLoading] = useState(true);
@@ -49,7 +50,7 @@ export default function Earnings() {
     const value = Number(amount);
     if (!supabase || !creatorId) return setMessage("Create your creator profile before requesting payment.");
     if (!value || value <= 0) return setMessage("Enter a valid withdrawal amount.");
-    if (value > available) return setMessage("That amount is greater than your available balance.");
+    if (value > withdrawable) return setMessage("That amount is greater than your withdrawable balance.");
     setBusy(true);
     const { error } = await supabase.from("campaign_payments").insert({
       creator_id: creatorId,
@@ -72,7 +73,7 @@ export default function Earnings() {
         <h1>Your work. Your <em>money.</em></h1>
 
         <div className="statsGrid">
-          <div><b>Available</b><strong>₦{available.toLocaleString()}</strong></div>
+          <div><b>Available</b><strong>₦{withdrawable.toLocaleString()}</strong></div>
           <div><b>Pending</b><strong>₦{pending.toLocaleString()}</strong></div>
           <div><b>Payments</b><strong>{payments.length}</strong></div>
         </div>
