@@ -1,5 +1,84 @@
 "use client";
-import Link from "next/link";import {useEffect,useState} from "react";import {supabase} from "@/lib/supabase";
-type C={id:string;name:string;goal:string;platform:string|null;status:string;max_budget:number|null;desired_results:number|null};
-export default function Campaigns(){const [cs,setCs]=useState<C[]>([]);useEffect(()=>{supabase?.from("campaigns").select("id,name,goal,platform,status,max_budget,desired_results").order("created_at",{ascending:false}).then(({data})=>setCs(data??[]))},[]);
-return <main className="formPage"><Link href="/advertiser" className="back">← Advertiser Dashboard</Link><div className="formCard wide"><span className="eyebrow">YOUR CAMPAIGNS</span><h1>Everything you're <em>running.</em></h1><Link className="primary" href="/advertiser/new">＋ Start a new campaign</Link><div className="opps">{cs.map(c=><article key={c.id}><b>{c.status.toUpperCase()}</b><h3>{c.name}</h3><p>{c.platform||"Any platform"} · {c.goal}</p><strong>₦{Number(c.max_budget||0).toLocaleString()}</strong><Link href={"/advertiser/results?campaign="+c.id}>View results →</Link></article>)}{!cs.length&&<div className="successBox">No campaigns yet.</div>}</div></div></main>}
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+type Campaign = {
+  id:string; name:string; goal:string; platform:string|null; status:string;
+  max_budget:number|null; desired_results:number|null; payment_method:string|null;
+  payment_rate:number|null; funded_amount:number|null; created_at:string;
+};
+
+const pretty=(v:string|null|undefined)=> (v||"Not specified").replaceAll("_"," ");
+
+export default function Campaigns(){
+  const [cs,setCs]=useState<Campaign[]>([]);
+  const [tab,setTab]=useState("all");
+  const [search,setSearch]=useState("");
+  const [loading,setLoading]=useState(true);
+  const [error,setError]=useState("");
+  const [busy,setBusy]=useState("");
+  const [message,setMessage]=useState("");
+
+  async function load(){
+    if(!supabase){setError("AdBridge database is not connected yet.");setLoading(false);return}
+    const {data,error:e}=await supabase.from("campaigns").select("id,name,goal,platform,status,max_budget,desired_results,payment_method,payment_rate,funded_amount,created_at").order("created_at",{ascending:false});
+    if(e)setError("We couldn't load your campaigns right now."); else setCs(data??[]);
+    setLoading(false);
+  }
+  useEffect(()=>{load()},[]);
+
+  const filtered=useMemo(()=>cs.filter(c=>{
+    if(tab!=="all"&&c.status!==tab)return false;
+    return [c.name,c.goal,c.platform||"",c.payment_method||""].join(" ").toLowerCase().includes(search.toLowerCase());
+  }),[cs,tab,search]);
+
+  async function changeStatus(id:string,status:string){
+    if(!supabase)return; setBusy(id); setMessage(""); setError("");
+    const {error:e}=await supabase.from("campaigns").update({status,updated_at:new Date().toISOString()}).eq("id",id);
+    if(e)setError("We couldn't update this campaign."); else {setMessage(status==="paused"?"Campaign paused.":status==="closed"?"Campaign closed.":"Campaign reopened.");await load()}
+    setBusy("");
+  }
+
+  return <main className="formPage">
+    <Link href="/advertiser" className="back">← Advertiser Dashboard</Link>
+    <div className="formCard wide">
+      <span className="eyebrow">YOUR CAMPAIGNS</span>
+      <h1>Everything you're <em>running.</em></h1>
+      <p>Manage live campaigns, pause work, reopen campaigns, or close finished campaigns.</p>
+      <Link className="primary" href="/advertiser/new">＋ Start a new campaign</Link>
+
+      <div className="filterRow">
+        <input className="textInput" value={search} onChange={e=>setSearch(e.target.value)} placeholder="Search campaigns..." />
+        <select className="textInput" value={tab} onChange={e=>setTab(e.target.value)}>
+          <option value="all">All campaigns</option><option value="active">Active</option><option value="paused">Paused</option><option value="closed">Closed</option>
+        </select>
+      </div>
+
+      {loading&&<div className="successBox">Loading campaigns...</div>}
+      {!loading&&error&&<div className="successBox">{error}</div>}
+      {!loading&&!error&&message&&<div className="successBox">✓ {message}</div>}
+
+      {!loading&&!error&&filtered.length>0&&<div className="opps">{filtered.map(c=>
+        <article key={c.id}>
+          <b>{c.status.toUpperCase()}</b>
+          <h3>{c.name}</h3>
+          <p>{c.platform||"Any platform"} · {c.goal}</p>
+          <p>{pretty(c.payment_method)} · ₦{Number(c.payment_rate||0).toLocaleString()} per creator result</p>
+          <strong>₦{Number(c.max_budget||0).toLocaleString()} maximum budget</strong>
+          <small>{c.desired_results??0} desired results · Funded ₦{Number(c.funded_amount||0).toLocaleString()}</small>
+          <div className="choiceRow">
+            <Link className="secondary" href={"/advertiser/results?campaign="+c.id}>Results</Link>
+            <Link className="secondary" href={"/advertiser/review?campaign="+c.id}>Review work</Link>
+            {c.status==="active"&&<button className="secondary" disabled={busy===c.id} onClick={()=>changeStatus(c.id,"paused")}>{busy===c.id?"Saving…":"Pause"}</button>}
+            {c.status==="paused"&&<button className="primary" disabled={busy===c.id} onClick={()=>changeStatus(c.id,"active")}>{busy===c.id?"Saving…":"Reopen"}</button>}
+            {c.status!=="closed"&&<button className="secondary" disabled={busy===c.id} onClick={()=>changeStatus(c.id,"closed")}>{busy===c.id?"Saving…":"Close"}</button>}
+          </div>
+        </article>
+      )}</div>}
+
+      {!loading&&!error&&filtered.length===0&&<div className="successBox">No campaigns match this view.</div>}
+    </div>
+  </main>;
+}
