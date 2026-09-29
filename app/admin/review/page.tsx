@@ -1,0 +1,11 @@
+"use client";
+import Link from "next/link";
+import {useEffect,useState} from "react";
+import {supabase} from "@/lib/supabase";
+export default function AdminReview(){
+ const [rows,setRows]=useState<any[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(""),[message,setMessage]=useState(""),[error,setError]=useState("");
+ async function load(){if(!supabase)return;const {data,error:e}=await supabase.from("submissions").select("id,campaign_id,creator_id,posted_url,note,status,created_at,campaigns(name,payment_rate,payment_method)").order("created_at",{ascending:false});if(e)setError("Could not load submissions.");setRows(data||[]);setLoading(false)}
+ useEffect(()=>{load()},[]);
+ async function update(id:string,status:"approved"|"changes_requested"){if(!supabase)return;setBusy(id);setError("");const {error:e}=await supabase.from("submissions").update({status}).eq("id",id);if(e)setError("Could not update submission.");else{setMessage(status==="approved"?"Submission approved.":"Changes requested.");await load()}setBusy("")}
+ return <main className="formPage"><Link href="/admin" className="back">← Admin</Link><div className="formCard wide"><span className="eyebrow">ADMIN · REVIEW QUEUE</span><h1>Creator work <em>review.</em></h1><p>Monitor every submission and intervene when a campaign needs an admin decision.</p>{error&&<div className="successBox">{error}</div>}{message&&<div className="successBox">✓ {message}</div>}{loading?<div className="successBox">Loading submissions…</div>:<div className="opps">{rows.map(r=><article key={r.id}><b>{String(r.status).toUpperCase()}</b><h3>{r.campaigns?.name||"Campaign"}</h3><p>Creator: {r.creator_id}</p><p>{r.note||"No note provided"}</p><a className="secondary" href={r.posted_url} target="_blank" rel="noreferrer">Open submitted work ↗</a>{r.status!=="approved"&&<div className="choiceRow"><button className="primary" disabled={!!busy} onClick={()=>update(r.id,"approved")}>{busy===r.id?"Saving…":"Approve"}</button><button className="secondary" disabled={!!busy} onClick={()=>update(r.id,"changes_requested")}>Request changes</button></div>}</article>)}{!rows.length&&<div className="successBox">No submissions yet.</div>}</div>}</div></main>
+}
