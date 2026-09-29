@@ -28,7 +28,7 @@ export default function Submit(){
   setSent(true);setSaving(false)
  }
  return <main className="formPage"><Link href="/creator/work" className="back">← My Work</Link><div className="formCard"><span className="eyebrow">SEND COMPLETED WORK</span><h1>Ready to <em>submit?</em></h1><p>Submit the public link. AdBridge will track campaign results where the platform provides verified metrics.</p>
- <label>Platform</label><select className="textInput" value={platform} onChange={e=>setPlatform(e.target.value)}><option>TikTok</option><option>YouTube</option><option>Instagram</option><option>Facebook</option></select>
+ <label>Platform</label><select className="textInput" value={platform} onChange={e=>setPlatform(e.target.value)}><option>TikTok</option><option>YouTube</option><option>Instagram</option><option>Facebook</option><option>X</option><option>Snapchat</option></select>
  <label>Posted work link</label><input className="textInput" value={posted} onChange={e=>setPosted(e.target.value)} placeholder="https://tiktok.com/..."/>
  <label>Anything the advertiser should know?</label><textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Optional note"/>
  {error&&<div className="successBox">{error}</div>}<button className="primary" disabled={saving||sent} onClick={submit}>{saving?"Sending…":sent?"Sent for approval ✓":"Send for approval →"}</button>
