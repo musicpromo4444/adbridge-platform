@@ -6,7 +6,7 @@ import {supabase} from "@/lib/supabase";
 
 export default function Submit(){
  const p=useSearchParams();const job=p.get("job")||"";
- const [posted,setPosted]=useState("");const [note,setNote]=useState("");const [platform,setPlatform]=useState("TikTok");
+ const [posted,setPosted]=useState("");const [evidence,setEvidence]=useState("");const [note,setNote]=useState("");const [platform,setPlatform]=useState("TikTok");
  const [sent,setSent]=useState(false);const [saving,setSaving]=useState(false);const [error,setError]=useState("");
  async function submit(){
   if(!supabase||!job){setError("Open this page from an accepted campaign.");return}
@@ -30,7 +30,7 @@ export default function Submit(){
  return <main className="formPage"><Link href="/creator/work" className="back">← My Work</Link><div className="formCard"><span className="eyebrow">SEND COMPLETED WORK</span><h1>Ready to <em>submit?</em></h1><p>Submit the public link. AdBridge will track campaign results where the platform provides verified metrics.</p>
  <label>Platform</label><select className="textInput" value={platform} onChange={e=>setPlatform(e.target.value)}><option>TikTok</option><option>YouTube</option><option>Instagram</option><option>Facebook</option><option>X</option><option>Snapchat</option></select>
  <label>Posted work link</label><input className="textInput" value={posted} onChange={e=>setPosted(e.target.value)} placeholder="https://tiktok.com/..."/>
- <label>Anything the advertiser should know?</label><textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Optional note"/>
+ {platform==="Snapchat"&&<><label>Evidence / Insights link (Snapchat)</label><input className="textInput" value={evidence} onChange={e=>setEvidence(e.target.value)} placeholder="Paste your Snapchat Insights evidence link"/></>}<label>Anything the advertiser should know?</label><textarea value={note} onChange={e=>setNote(e.target.value)} placeholder="Optional note"/>
  {error&&<div className="successBox">{error}</div>}<button className="primary" disabled={saving||sent} onClick={submit}>{saving?"Sending…":sent?"Sent for approval ✓":"Send for approval →"}</button>
  {sent&&<><div className="successBox"><b>Submission received.</b><br/>For view-based campaigns, AdBridge will keep checking the published video until the agreed target is reached and verified.</div><Link className="secondary" href="/creator/work">Back to my work →</Link></>}
  </div></main>
