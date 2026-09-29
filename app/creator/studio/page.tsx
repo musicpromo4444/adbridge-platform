@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 type Platform = {
   id: string;
@@ -73,8 +74,11 @@ export default function Studio() {
   const [fileName, setFileName] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [done, setDone] = useState(false);
+  const [campaigns, setCampaigns] = useState<{id:string;name:string;platform:string|null}[]>([]);
+  const [campaignId, setCampaignId] = useState("");
+  const [saveMessage, setSaveMessage] = useState("");
 
-  const selected = useMemo(
+  useEffect(() => {\n    const requested = new URLSearchParams(window.location.search).get("campaign");\n    (async () => {\n      if (!supabase) return;\n      const ids = JSON.parse(localStorage.getItem("adbridge-jobs") || "[]");\n      let query = supabase.from("creator_campaigns").select("campaign_id,campaigns(id,name,platform)").eq("status", "accepted");\n      if (ids.length) query = query.in("id", ids);\n      const { data } = await query;\n      const list = (data ?? []).map((row:any) => row.campaigns).filter(Boolean);\n      setCampaigns(list);\n      setCampaignId(requested && list.some(x => x.id === requested) ? requested : (list[0]?.id || ""));\n    })();\n  }, []);\n\n  const selectedCampaign = campaigns.find(c => c.id === campaignId);\n\n  const selected = useMemo(
     () => platforms.find(item => item.id === platform) ?? platforms[0],
     [platform]
   );
@@ -225,13 +229,13 @@ export default function Studio() {
         </div>
       </div>
 
-      {done && <div className="finalCheck">
+      {saveMessage && <div className="successBox">{saveMessage}</div>}\n\n      {done && <div className="finalCheck">
         <div>
           <span className="eyebrow">FINAL CHECK</span>
           <h2>Everything is ready for your review</h2>
           <p>AdBridge checks the destination before export. The creator reviews the final result and remains in control of posting.</p>
         </div>
-        <button className="secondary" type="button">Approve & export →</button>
+        <button className="secondary" type="button" onClick={() => setSaveMessage("Preview approved. Submit the finished post from your campaign workspace.")}>Approve & export →</button>
       </div>}
     </div>
   </main>
