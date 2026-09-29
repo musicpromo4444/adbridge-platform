@@ -47,6 +47,9 @@ export default function Fund(){
   });
   if(testError){setError("Campaign was created, but its creator test could not be saved.");setSaving(false);return}
 
+  const tracking={campaign_id:data.id,track_views:method==="views",track_clicks:method==="clicks",track_installs:method==="installs",track_signups:method==="actions",track_purchases:method==="actions",track_leads:method==="actions",track_traffic:method==="clicks",fraud_detection:true};
+  await supabase.from("campaign_tracking_rules").upsert(tracking,{onConflict:"campaign_id"});
+  await supabase.from("campaign_payments").insert({campaign_id:data.id,amount:Number(budget)||0,type:"funding",status:"held"});
   setFunded(true); setSaving(false);
  }
  return <main className="formPage"><Link href={"/advertiser/new/payment?goal="+encodeURIComponent(goal)+"&platform="+encodeURIComponent(platform)+"&method="+encodeURIComponent(method)} className="back">← Payment</Link><div className="formCard wide"><span className="eyebrow">STEP 4 OF 5</span><h1>Review and <em>fund your campaign.</em></h1><p>Check everything before your campaign goes live.</p>
