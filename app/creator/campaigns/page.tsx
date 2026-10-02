@@ -45,7 +45,7 @@ export default function Campaigns() {
         return;
       }
 
-      const creatorId = localStorage.getItem("adbridge-creator-id");
+      const { data: { user } } = await supabase.auth.getUser(); const creatorId = user?.id || null;
       const [{ data, error: queryError }, acceptedResult] = await Promise.all([
         supabase
           .from("campaigns")
