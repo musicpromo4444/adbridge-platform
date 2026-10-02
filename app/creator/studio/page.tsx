@@ -52,6 +52,20 @@ const platforms: Platform[] = [
     disclosure: "AdBridge prepares the creator for applicable branded-content disclosure."
   },
   {
+    id: "x", name: "X", format: "Post video", ratio: "Source-aware",
+    automaticPlacement: "Keeps the brand placement clear without covering the main subject or important text.",
+    automaticTiming: "Uses the actual video structure rather than a fixed timestamp.",
+    safeArea: "Protects captions, faces and key visual information.",
+    disclosure: "Prepares the creator for applicable paid-content disclosure."
+  },
+  {
+    id: "snapchat", name: "Snapchat", format: "Vertical video", ratio: "9:16",
+    automaticPlacement: "Keeps the placement inside clear visual space while protecting the main content.",
+    automaticTiming: "Selects timing from the actual video when the format supports it.",
+    safeArea: "Protects faces, captions and interface-sensitive areas.",
+    disclosure: "Prepares the creator for applicable commercial-content disclosure."
+  },
+  {
     id: "instagram", name: "Instagram Reels", format: "Vertical Reel", ratio: "9:16",
     automaticPlacement: "AI finds clear space around faces, captions and the main subject.",
     automaticTiming: "AI chooses the least disruptive moment from the actual video.",
