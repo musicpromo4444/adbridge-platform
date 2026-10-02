@@ -22,6 +22,14 @@ export default function Submit(){
   const finalNote=special?[note.trim(),evidence.trim()?"Proof/evidence: "+evidence.trim():""].filter(Boolean).join("\n"):note.trim();
   const {data:submission,error:e}=await supabase.from("submissions").insert({campaign_id:jc.campaign_id,creator_id:jc.creator_id,creator_campaign_id:jc.id,posted_url:posted.trim(),note:finalNote,status:"waiting",tracking_platform:trackingPlatform,target_metric:targetMetric,current_metric:0,metric_status:targetMetric?"pending":"not_required"}).select("id").single();
   if(e){setError(e.message||"Submission failed.");setSaving(false);return}
+  if(paymentMethod==="clicks"){
+    const {data:destination}=await supabase.from("campaign_destination_urls").select("target_url").eq("campaign_id",jc.campaign_id).maybeSingle();
+    if(destination?.target_url){
+      const slug=`c_${crypto.randomUUID().replaceAll("-","").slice(0,20)}`;
+      const {error:linkError}=await supabase.from("tracking_links").insert({campaign_id:jc.campaign_id,creator_id:jc.creator_id,submission_id:submission.id,slug,target_url:destination.target_url});
+      if(!linkError) setTrackingUrl(`${window.location.origin}/go/${slug}`);
+    }
+  }
   await supabase.from("creator_campaigns").update({status:"submitted"}).eq("id",job);setSent(true);setSaving(false)
  }
  const special=["placement","brand_mention"].includes(method);
