@@ -20,12 +20,12 @@ export default function CampaignDetails(){
  ]);
  if(campaignError||!data){setError("This campaign could not be found.");setLoading(false);return}if(testError){setError("The campaign test could not be loaded.");setLoading(false);return}
  setCampaign(data);setAssets(assetData??[]);setCampaignTest(testData??null);const required=Boolean(settings?.require_creator_verification);setVerificationRequired(required);
- const creatorId=localStorage.getItem("adbridge-creator-id");let alreadyAccepted=false;
+ const {data:{user}}=await supabase.auth.getUser();const creatorId=user?.id||null;let alreadyAccepted=false;
  if(creatorId){const {data:job}=await supabase.from("creator_campaigns").select("id,status").eq("campaign_id",params.id).eq("creator_id",creatorId).limit(1).maybeSingle();alreadyAccepted=Boolean(job)}
  if(localStorage.getItem(storageKey)==="yes"||alreadyAccepted)setPhase("unlocked");
  setLoading(false)}load()},[params.id,storageKey]);
 
- async function getCreatorId(){const key="adbridge-creator-id";const existing=localStorage.getItem(key);if(existing)return existing;if(!supabase)return null;const {data,error}=await supabase.from("profiles").insert({role:"creator",display_name:"AdBridge Creator",verified:false}).select("id").single();if(error||!data)return null;localStorage.setItem(key,data.id);return data.id}
+ async function getCreatorId(){if(!supabase)return null;const {data:{user}}=await supabase.auth.getUser();if(!user)return null;const {data}=await supabase.from("profiles").select("id").eq("id",user.id).maybeSingle();return data?.id||null}
 
  async function completeTest(){setSaving(true);setError("");if(supabase&&campaignTest){const creatorId=await getCreatorId();if(!creatorId){setError("We could not create your creator profile yet.");setSaving(false);return}const {error:e}=await supabase.from("creator_campaign_tests").insert({campaign_test_id:campaignTest.id,creator_id:creatorId,understood:true,action_started:true,completed:true,completed_at:new Date().toISOString()});if(e){setError("We couldn't save the test completion yet.");setSaving(false);return}}localStorage.setItem(storageKey,"yes");setPhase("unlocked");setSaving(false)}
 
