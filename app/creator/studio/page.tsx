@@ -78,7 +78,23 @@ export default function Studio() {
   const [campaignId, setCampaignId] = useState("");
   const [saveMessage, setSaveMessage] = useState("");
 
-  useEffect(() => {\n    const requested = new URLSearchParams(window.location.search).get("campaign");\n    (async () => {\n      if (!supabase) return;\n      const ids = JSON.parse(localStorage.getItem("adbridge-jobs") || "[]");\n      let query = supabase.from("creator_campaigns").select("campaign_id,campaigns(id,name,platform)").eq("status", "accepted");\n      if (ids.length) query = query.in("id", ids);\n      const { data } = await query;\n      const list = (data ?? []).map((row:any) => row.campaigns).filter(Boolean);\n      setCampaigns(list);\n      setCampaignId(requested && list.some(x => x.id === requested) ? requested : (list[0]?.id || ""));\n    })();\n  }, []);\n\n  const selectedCampaign = campaigns.find(c => c.id === campaignId);\n\n  const selected = useMemo(
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("campaign");
+    (async () => {
+      if (!supabase) return;
+      const ids = JSON.parse(localStorage.getItem("adbridge-jobs") || "[]");
+      let query = supabase.from("creator_campaigns").select("campaign_id,campaigns(id,name,platform)").eq("status", "accepted");
+      if (ids.length) query = query.in("id", ids);
+      const { data } = await query;
+      const list = (data ?? []).map((row:any) => row.campaigns).filter(Boolean);
+      setCampaigns(list);
+      setCampaignId(requested && list.some(x => x.id === requested) ? requested : (list[0]?.id || ""));
+    })();
+  }, []);
+
+  const selectedCampaign = campaigns.find(c => c.id === campaignId);
+
+  const selected = useMemo(
     () => platforms.find(item => item.id === platform) ?? platforms[0],
     [platform]
   );
@@ -152,10 +168,9 @@ export default function Studio() {
           {fileName && <div className="filePicked">✓ {fileName}</div>}
 
           <label>Campaign</label>
-          <select defaultValue="glowskin">
-            <option value="glowskin">GlowSkin Creator Launch</option>
-            <option value="nova">Nova Sneakers</option>
-            <option value="volt">Volt Energy Mention</option>
+          <select value={campaignId} onChange={event => setCampaignId(event.target.value)}>
+            <option value="">Choose an accepted campaign</option>
+            {campaigns.map(item => <option key={item.id} value={item.id}>{item.name}{item.platform ? " · " + item.platform : ""}</option>)}
           </select>
 
           <label>Advertiser placement</label>
@@ -229,7 +244,9 @@ export default function Studio() {
         </div>
       </div>
 
-      {saveMessage && <div className="successBox">{saveMessage}</div>}\n\n      {done && <div className="finalCheck">
+      {saveMessage && <div className="successBox">{saveMessage}</div>}
+
+      {done && <div className="finalCheck">
         <div>
           <span className="eyebrow">FINAL CHECK</span>
           <h2>Everything is ready for your review</h2>
