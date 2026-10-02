@@ -1,0 +1,1 @@
+import VerifyClient from "./verify-client";import{Suspense}from"react";export default function Page(){return <Suspense fallback={<main className="formPage"><div className="formCard"><h1>Confirming payment…</h1></div></main>}><VerifyClient/></Suspense>}
