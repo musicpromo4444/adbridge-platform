@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import DetailsClient from "./DetailsClient";
+import DetailsClient from "./details-client";
 
 export default function Page() {
   return (
