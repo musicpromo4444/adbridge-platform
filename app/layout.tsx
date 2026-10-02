@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
-import "./globals.css";
-export const metadata: Metadata = { title: "AdBridge — Where brands meet creators", description: "A creator advertising marketplace for brands and creators." };
-export default function RootLayout({ children }: { children: React.ReactNode }) { return <html lang="en"><body>{children}</body></html>; }
+import type { Metadata } from "next";import "./globals.css";import AdPlacement from "@/components/AdPlacement";
+export const metadata: Metadata={title:"AdBridge — Where brands meet creators",description:"A creator advertising marketplace for brands and creators."};
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}<div style={{position:"fixed",left:12,bottom:12,zIndex:50,maxWidth:360,width:"calc(100% - 24px)"}}><AdPlacement/></div></body></html>}
