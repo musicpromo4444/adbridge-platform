@@ -12,13 +12,13 @@ export default function Admin(){
  async function load(){
   if(!supabase){setError("Database connection is not ready.");setLoading(false);return}
   const [users,campaigns,subs,payments,withdrawals,settings,ads]=await Promise.all([
-   supabase.from("profiles").select("id,role,created_at,display_name").order("created_at",{ascending:false}),
-   supabase.from("campaigns").select("id,name,status,max_budget,funded_amount,created_at").order("created_at",{ascending:false}),
-   supabase.from("submissions").select("id,status,created_at").order("created_at",{ascending:false}),
-   supabase.from("campaign_payments").select("id,amount,status,type,created_at,campaigns(name)").order("created_at",{ascending:false}),
-   supabase.from("creator_withdrawals").select("id,amount,status,created_at").order("created_at",{ascending:false}),
+   supabase.from("profiles").select("id,role,submitted_at,display_name").order("submitted_at",{ascending:false}),
+   supabase.from("campaigns").select("id,name,status,max_budget,funded_amount,submitted_at").order("submitted_at",{ascending:false}),
+   supabase.from("submissions").select("id,status,submitted_at").order("submitted_at",{ascending:false}),
+   supabase.from("campaign_payments").select("id,amount,status,type,submitted_at,campaigns(name)").order("submitted_at",{ascending:false}),
+   supabase.from("creator_withdrawals").select("id,amount,status,submitted_at").order("submitted_at",{ascending:false}),
    supabase.from("platform_settings").select("allow_new_campaigns").eq("id",1).maybeSingle(),
-   supabase.from("ad_placements").select("id,enabled,created_at").order("created_at",{ascending:false})
+   supabase.from("ad_placements").select("id,enabled,submitted_at").order("submitted_at",{ascending:false})
   ]);
   const failed=[users,campaigns,subs,payments,withdrawals,settings,ads].some((x:any)=>x.error);
   if(failed)setError("Some dashboard data could not be loaded.");
@@ -33,9 +33,9 @@ export default function Admin(){
    withdrawals:ws.length,pendingWithdrawals:ws.filter((x:any)=>x.status==="pending").length,ads:ad.length,activeAds:ad.filter((x:any)=>x.enabled).length
   });
   const a:Activity[]=[];
-  cs.slice(0,4).forEach((x:any)=>a.push({label:"Campaign",detail:x.name,time:x.created_at}));
-  ss.slice(0,3).forEach((x:any)=>a.push({label:"Submission",detail:"Creator work submitted",time:x.created_at}));
-  ps.slice(0,3).forEach((x:any)=>a.push({label:"Payment",detail:"₦"+Number(x.amount||0).toLocaleString()+" · "+(x.campaigns?.name||"Campaign"),time:x.created_at}));
+  cs.slice(0,4).forEach((x:any)=>a.push({label:"Campaign",detail:x.name,time:x.submitted_at}));
+  ss.slice(0,3).forEach((x:any)=>a.push({label:"Submission",detail:"Creator work submitted",time:x.submitted_at}));
+  ps.slice(0,3).forEach((x:any)=>a.push({label:"Payment",detail:"₦"+Number(x.amount||0).toLocaleString()+" · "+(x.campaigns?.name||"Campaign"),time:x.submitted_at}));
   setActivity(a.sort((x,y)=>new Date(y.time).getTime()-new Date(x.time).getTime()).slice(0,8));setLoading(false)
  }
  useEffect(()=>{load()},[]);
