@@ -1,14 +1,14 @@
 "use client";
 
-import {useEffect,useState} from "react";
+import {useEffect,useState} from "react";import {usePathname} from "next/navigation";
 import {supabase} from "@/lib/supabase";
 
 type Placement={id:string;name:string;placement_key:string;description:string|null;enabled:boolean;format:string;provider:string|null;campaign_id:string|null;icon:string|null;action_url:string|null;frequency_cap:number;target_pages:string[];starts_at:string|null;ends_at:string|null};
 const labels:Record<string,string>={direct_sponsor:"Sponsored",banner:"Sponsored",interstitial:"Sponsored",rewarded:"Reward",playable:"Play","offerwall/game":"Offers",link:"Sponsored"};
 
-export default function AdPlacement({placementKey,className=""}:{placementKey:string;className?:string}){
+export default function AdPlacement({placementKey,className=""}:{placementKey?:string;className?:string}){ const path=usePathname();
  const [placement,setPlacement]=useState<Placement|null>(null);
- useEffect(()=>{let cancelled=false;async function load(){if(!supabase)return;const now=new Date().toISOString();const {data}=await supabase.from("ad_placements").select("id,name,placement_key,description,enabled,format,provider,campaign_id,icon,action_url,frequency_cap,target_pages,starts_at,ends_at").eq("placement_key",placementKey).eq("enabled",true).maybeSingle();if(cancelled||!data)return;if(data.starts_at&&data.starts_at>now)return;if(data.ends_at&&data.ends_at<now)return;setPlacement(data as Placement)}load();return()=>{cancelled=true}},[placementKey]);
+ useEffect(()=>{let cancelled=false;async function load(){if(!supabase)return;const now=new Date().toISOString();const {data}=await supabase.from("ad_placements").select("id,name,placement_key,description,enabled,format,provider,campaign_id,icon,action_url,frequency_cap,target_pages,starts_at,ends_at").eq("enabled",true).order("created_at",{ascending:false});const found=(data||[]).find((x:any)=>{const pages=x.target_pages||[];return (!placementKey||x.placement_key===placementKey) && (!pages.length||pages.includes(path)||pages.includes("*")) && (!x.starts_at||x.starts_at<=now) && (!x.ends_at||x.ends_at>=now)});if(cancelled||!found)return;setPlacement(found as Placement)}load();return()=>{cancelled=true}},[placementKey,path]);
  if(!placement)return null;
  const label=labels[placement.format]||"Sponsored";
  const clickable=!!placement.action_url;
