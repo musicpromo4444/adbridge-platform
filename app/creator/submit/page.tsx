@@ -1,9 +1,9 @@
 "use client";
 import Link from "next/link";
 import {useSearchParams} from "next/navigation";
-import {useState} from "react";
+import {useState,Suspense} from "react";
 import {supabase} from "@/lib/supabase";
-export default function Submit(){
+function Submit(){
  const p=useSearchParams();const job=p.get("job")||"";
  const [posted,setPosted]=useState(""),[evidence,setEvidence]=useState(""),[note,setNote]=useState(""),[platform,setPlatform]=useState("TikTok");
  const [sent,setSent]=useState(false),[saving,setSaving]=useState(false),[error,setError]=useState(""),[method,setMethod]=useState(""),[trackingUrl,setTrackingUrl]=useState("");
@@ -43,3 +43,5 @@ export default function Submit(){
  {sent&&<><div className="successBox"><b>Submission received.</b><br/>{trackingUrl&&<>Your unique campaign link: <a href={trackingUrl} target="_blank" rel="noreferrer">{trackingUrl}</a><br/>Use this link wherever you promote the campaign.</>}{special?"The advertiser can now review your post and proof before payment is released.":"For view-based campaigns, AdBridge will keep checking the published video until the agreed target is reached and verified."}</div><Link className="secondary" href="/creator/work">Back to my work →</Link></>}
  </div></main>
 }
+
+export default function SubmitPage(){return <Suspense fallback={<main className="formPage"><div className="formCard"><h1>Loading…</h1></div></main>}><Submit /></Suspense>}
