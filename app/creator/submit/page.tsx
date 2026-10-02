@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import SubmitClient from "./SubmitClient";
+import SubmitClient from "./submit-client";
 
 export default function Page() {
   return (
