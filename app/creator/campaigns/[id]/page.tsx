@@ -41,7 +41,7 @@ export default function CampaignDetails(){
  {phase==="understand"&&<div className="unlockBox"><span className="eyebrow">STEP 1 · UNDERSTANDING CHECK</span><h2>Good. Now prove you understand it.</h2><p>{campaignTest?.instructions||"The advertiser requires a short understanding check before participation."}</p><div className="choiceRow"><button className="primary" onClick={()=>setPhase("test")}>Continue to test →</button><button className="secondary" onClick={()=>setPhase("locked")}>Show me again</button></div></div>}
  {phase==="test"&&<div className="unlockBox"><span className="eyebrow">STEP 2 · CAMPAIGN TEST</span><h2>{campaignTest?.title||"Complete this short campaign test"}</h2><p>{campaignTest?.instructions||"Review the campaign instructions, then confirm that you understand what a viewer must do."}</p>{campaignTest?.action_url&&<a className="secondary" href={campaignTest.action_url} target="_blank" rel="noreferrer">{campaignTest.action_label||"Open campaign resource"} ↗</a>}{actionAsset?.asset_url&&<a className="secondary" href={actionAsset.asset_url} target="_blank" rel="noreferrer">Open advertiser link ↗</a>}<button className="primary" disabled={saving} onClick={completeTest}>{saving?"Saving…":"I completed the test →"}</button><small>The completion is saved in AdBridge before the campaign is unlocked.</small></div>}
  {error&&<div className="successBox">{error}</div>}
- {phase==="unlocked"&&<AcceptCampaign campaignId={campaign.id} getCreatorId={getCreatorId} verificationRequired={verificationRequired}/>}
+ {phase==="unlocked"&&<><CampaignRequirements campaign={campaign}/><AcceptCampaign campaignId={campaign.id} getCreatorId={getCreatorId} verificationRequired={verificationRequired}/></>}
  </div></main>
 }
 
