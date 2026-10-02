@@ -82,9 +82,9 @@ export default function Studio() {
     const requested = new URLSearchParams(window.location.search).get("campaign");
     (async () => {
       if (!supabase) return;
-      const ids = JSON.parse(localStorage.getItem("adbridge-jobs") || "[]");
-      let query = supabase.from("creator_campaigns").select("campaign_id,campaigns(id,name,platform)").eq("status", "accepted");
-      if (ids.length) query = query.in("id", ids);
+      const {data:{user}} = await supabase.auth.getUser();
+      if (!user) { window.location.href="/login"; return; }
+      const query = supabase.from("creator_campaigns").select("campaign_id,campaigns(id,name,platform)").eq("status", "accepted").eq("creator_id", user.id);
       const { data } = await query;
       const list = (data ?? []).map((row:any) => row.campaigns).filter(Boolean);
       setCampaigns(list);
@@ -189,13 +189,13 @@ export default function Studio() {
           </div>
 
           <button className="primary fullButton" onClick={analyze} disabled={analyzing}>
-            {analyzing ? "AI is analyzing your video…" : "Let AI place the ad →"}
+            {analyzing ? "Preparing placement preview…" : "Prepare placement preview →"}
           </button>
         </section>
 
         <section className="studioPanel previewPanel">
           <div className="previewHeader">
-            <div><span className="eyebrow">AI PREVIEW</span><h2>{selected.name}</h2></div>
+            <div><span className="eyebrow">PLACEMENT PREVIEW</span><h2>{selected.name}</h2></div>
             <span className="formatBadge">{selected.ratio}</span>
           </div>
 
