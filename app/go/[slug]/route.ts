@@ -15,7 +15,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .maybeSingle();
 
   if (error || !link) return NextResponse.json({ error: "Tracking link not found." }, { status: 404 });
-  if (!/^https?:\\/\\//i.test(link.target_url)) return NextResponse.json({ error: "Invalid destination." }, { status: 400 });
+  try { const destination = new URL(link.target_url); if (!["http:", "https:"].includes(destination.protocol)) throw new Error("invalid"); } catch { return NextResponse.json({ error: "Invalid destination." }, { status: 400 }); }
 
   const visitor = request.cookies.get("adbridge_visitor")?.value || crypto.randomUUID();
   const already = Boolean(request.cookies.get(`adbridge_click_${slug}`)?.value);
