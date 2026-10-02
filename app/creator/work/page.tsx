@@ -5,7 +5,7 @@ import {supabase} from "@/lib/supabase";
 type Job={id:string;status:string;campaign_id:string;campaign?:{name:string;goal:string;platform:string|null;payment_rate:number|null;instructions:string|null}};
 export default function Work(){
  const [jobs,setJobs]=useState<Job[]>([]); const [loading,setLoading]=useState(true);
- useEffect(()=>{async function load(){if(!supabase){setLoading(false);return}const ids=JSON.parse(localStorage.getItem("adbridge-jobs")||"[]") as string[];if(!ids.length){setLoading(false);return}const {data}=await supabase.from("creator_campaigns").select("id,status,campaign_id,campaigns(name,goal,platform,payment_rate,instructions)").in("id",ids);setJobs((data??[]) as any);setLoading(false)}load()},[]);
+ useEffect(()=>{async function load(){if(!supabase){setLoading(false);return}const {data:{user}}=await supabase.auth.getUser();if(!user){window.location.href="/login";return}const {data}=await supabase.from("creator_campaigns").select("id,status,campaign_id,campaigns(name,goal,platform,payment_rate,instructions)").eq("creator_id",user.id);setJobs((data??[]) as any);setLoading(false)}load()},[]);
  return <main className="formPage"><Link href="/creator" className="back">← Creator Dashboard</Link><div className="formCard wide"><span className="eyebrow">MY WORK</span><h1>Track your <em>campaign jobs.</em></h1><p>Accepted campaigns move through creation, submission, review and payment.</p>
  {loading&&<div className="successBox">Loading your work...</div>}
  {!loading&&!jobs.length&&<div className="successBox">You have no accepted campaigns yet. <Link href="/creator/campaigns">Find a campaign →</Link></div>}
