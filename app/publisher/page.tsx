@@ -1,108 +1,23 @@
 "use client";
-
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { supabase } from "@/lib/supabase";
-
-type Campaign = { id: string; name: string; goal: string; platform: string | null; status: string };
-type Asset = { asset_type: string; asset_url: string | null };
-
-const destinations = [
-  { id: "web", title: "Web", icon: "◎", desc: "Universal browser embed or direct ad URL", badge: "HTML / JS" },
-  { id: "webapp", title: "Web App", icon: "▣", desc: "Web-app friendly package with responsive delivery", badge: "WEB APP" },
-  { id: "android", title: "Android App", icon: "▱", desc: "Android-ready SDK configuration and placement package", badge: "SDK" },
-];
-
-function baseUrl() {
-  if (typeof window === "undefined") return "https://adbridge-platform.vercel.app";
-  return window.location.origin;
-}
-
-export default function PublisherCenter() {
-  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
-  const [campaignId, setCampaignId] = useState("");
-  const [destination, setDestination] = useState("web");
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [message, setMessage] = useState("");
-
-  useEffect(() => {
-    (async () => {
-      if (!supabase) { setLoading(false); return; }
-      const { data } = await supabase.from("campaigns").select("id,name,goal,platform,status").eq("status", "active").order("created_at", { ascending: false });
-      const list = data ?? [];
-      setCampaigns(list);
-      if (list[0]) setCampaignId(list[0].id);
-      setLoading(false);
-    })();
-  }, []);
-
-  useEffect(() => {
-    if (!supabase || !campaignId) return;
-    (async () => {
-      const { data } = await supabase.from("campaign_assets").select("asset_type,asset_url").eq("campaign_id", campaignId);
-      setAssets(data ?? []);
-    })();
-  }, [campaignId]);
-
-  const campaign = campaigns.find(c => c.id === campaignId);
-  const asset = assets.find(a => a.asset_url)?.asset_url || "";
-  const deliveryUrl = useMemo(() => campaignId ? baseUrl() + "/ad/" + campaignId + "?destination=" + destination : "", [campaignId, destination]);
-
-  const webCode = '<script async src="' + baseUrl() + '/api/adbridge/embed" data-campaign="' + campaignId + '" data-destination="' + destination + '"></script>';
-  const androidCode = "AdBridge Android adapter\\nCampaign ID: " + campaignId + "\\nDelivery URL: " + deliveryUrl + "\\nDestination: android\\n\\nUse this generated campaign URL inside your Android app/WebView or connect it to the AdBridge Android SDK adapter when enabled.";
-
-  async function copy(value: string) {
-    await navigator.clipboard?.writeText(value);
-    setMessage("Copied. The publisher can paste this directly into the selected destination.");
-    setTimeout(() => setMessage(""), 3000);
-  }
-
-  function downloadConfig() {
-    const body = destination === "android" ? androidCode : webCode;
-    const blob = new Blob([body], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = destination === "android" ? "adbridge-android-integration.txt" : "adbridge-web-integration.txt";
-    a.click();
-    URL.revokeObjectURL(url);
-  }
-
-  return <main className="formPage publisherPage">
-    <div className="dashTop"><Link href="/" className="back">← AdBridge</Link><span className="testBadge">PUBLISHER DELIVERY CENTER</span><Link href="/creator" className="switch">Creator Dashboard →</Link></div>
-    <div className="formCard wide">
-      <span className="eyebrow">ONE-CLICK AD FORMAT DELIVERY</span>
-      <h1>Pick the destination.<br/><em>AdBridge prepares the format.</em></h1>
-      <p>Publishers should not have to convert an advertiser's creative themselves. Select where the ad will run and AdBridge prepares the delivery package for that destination.</p>
-
-      <label>1. Choose an active advertiser campaign</label>
-      <select className="textInput" value={campaignId} onChange={e => setCampaignId(e.target.value)}>
-        <option value="">{loading ? "Loading campaigns…" : "Select a campaign"}</option>
-        {campaigns.map(c => <option key={c.id} value={c.id}>{c.name} · {c.goal}</option>)}
-      </select>
-
-      <label>2. Where will you place the ad?</label>
-      <div className="destinationGrid">
-        {destinations.map(d => <button type="button" key={d.id} className={"destinationCard " + (destination === d.id ? "selected" : "")} onClick={() => setDestination(d.id)}>
-          <span className="destinationIcon">{d.icon}</span><strong>{d.title}</strong><small>{d.desc}</small><b>{d.badge}</b>
-        </button>)}
-      </div>
-
-      <div className="deliveryBox"><div><span className="eyebrow">READY TO TAKE</span><h2>{destination === "android" ? "Android SDK package" : destination === "webapp" ? "Web App package" : "Web package"}</h2><p>{destination === "android" ? "The publisher receives Android-ready integration instructions and a campaign-specific SDK configuration." : "The publisher receives a campaign-specific delivery URL and paste-ready integration code."}</p></div><span className="statusPill">AUTOMATIC</span></div>
-
-      {campaignId && <div className="generatedPanel">
-        <div className="generatedHead"><div><span className="eyebrow">GENERATED FOR {campaign?.name || "CAMPAIGN"}</span><h2>{destination.toUpperCase()}</h2></div><span className="formatBadge">{destination === "android" ? "SDK" : "EMBED"}</span></div>
-        <label>{destination === "android" ? "SDK configuration" : "Publisher delivery link"}</label>
-        <div className="copyRow"><input className="textInput" readOnly value={destination === "android" ? androidCode : deliveryUrl}/><button className="secondary" onClick={() => copy(destination === "android" ? androidCode : deliveryUrl)}>Copy</button></div>
-        {destination !== "android" && <><label>One-click embed code</label><textarea readOnly value={webCode}/></>}
-        <div className="choiceRow"><button className="primary" onClick={downloadConfig}>Export integration →</button><a className="secondary" href={deliveryUrl} target="_blank" rel="noreferrer">Preview ad ↗</a></div>
-      </div>}
-
-      {asset && <div className="successBox">✓ Advertiser creative detected. AdBridge will deliver the linked campaign asset through the selected destination adapter.</div>}
-      {message && <div className="successBox">{message}</div>}
-
-      <div className="conversionInfo"><span className="eyebrow">THE ADAPTER LAYER</span><div className="conversionGrid"><div><b>Advertiser input</b><p>Creative + CTA + required action</p></div><div><b>AdBridge engine</b><p>Validates, packages and selects the destination adapter</p></div><div><b>Publisher output</b><p>Web, Web App or Android-ready delivery</p></div></div></div>
-    </div>
-  </main>;
-}
+import Link from "next/link";import{useEffect,useMemo,useState}from"react";import{supabase}from"@/lib/supabase";
+type Campaign={id:string;name:string;goal:string;platform:string|null;status:string};type Asset={asset_type:string;asset_url:string|null};type Format={campaign_id:string;format:string;status:string;requirements:string};
+const formatNames:Record<string,string>={web:"Web",web_app:"Web App",android_app:"Android App",ios_app:"iOS App"};
+const formatMeta:Record<string,{icon:string;desc:string;badge:string}>={web:{icon:"◎",desc:"Website / browser placement",badge:"HTML / JS"},web_app:{icon:"▣",desc:"Web application placement",badge:"WEB APP"},android_app:{icon:"▱",desc:"Android application placement",badge:"ANDROID"},ios_app:{icon:"⌁",desc:"iOS application placement",badge:"iOS"}};
+function baseUrl(){if(typeof window==="undefined")return"https://adbridge-platform.vercel.app";return window.location.origin}
+export default function PublisherCenter(){const[campaigns,setCampaigns]=useState<Campaign[]>([]),[campaignId,setCampaignId]=useState(""),[destination,setDestination]=useState(""),[assets,setAssets]=useState<Asset[]>([]),[formats,setFormats]=useState<Format[]>([]),[loading,setLoading]=useState(true),[message,setMessage]=useState("");
+ useEffect(()=>{(async()=>{if(!supabase){setLoading(false);return}const[{data:campaignData},{data:formatData}]=await Promise.all([supabase.from("campaigns").select("id,name,goal,platform,status").eq("status","active").order("created_at",{ascending:false}),supabase.from("campaign_formats").select("campaign_id,format,status,requirements")]);const list=(campaignData??[]).filter(c=>(formatData??[]).some(f=>f.campaign_id===c.id));setCampaigns(list);setFormats(formatData??[]);if(list[0]){setCampaignId(list[0].id);const first=(formatData??[]).find(f=>f.campaign_id===list[0].id);if(first)setDestination(first.format)}setLoading(false)})()},[]);
+ useEffect(()=>{if(!supabase||!campaignId)return;(async()=>{const{data}=await supabase.from("campaign_assets").select("asset_type,asset_url").eq("campaign_id",campaignId);setAssets(data??[]);const first=formats.find(f=>f.campaign_id===campaignId);setDestination(d=>formats.some(f=>f.campaign_id===campaignId&&f.format===d)?d:(first?.format||""))})()},[campaignId,formats]);
+ const campaign=campaigns.find(c=>c.id===campaignId);const campaignFormats=useMemo(()=>formats.filter(f=>f.campaign_id===campaignId),[formats,campaignId]);const selectedFormat=campaignFormats.find(f=>f.format===destination);const asset=assets.find(a=>a.asset_url)?.asset_url||"";const deliveryUrl=useMemo(()=>campaignId&&destination?baseUrl()+"/ad/"+campaignId+"?destination="+destination:"",[campaignId,destination]);
+ const webCode='<script async src="'+baseUrl()+'/api/adbridge/embed" data-campaign="'+campaignId+'" data-destination="'+destination+'"></script>';
+ const adapterCode=selectedFormat?("AdBridge "+formatNames[destination]+" delivery package\nCampaign ID: "+campaignId+"\nDelivery URL: "+deliveryUrl+"\nDestination: "+destination+"\nRequirements: "+selectedFormat.requirements):"";
+ async function copy(v:string){await navigator.clipboard?.writeText(v);setMessage("Copied.");setTimeout(()=>setMessage(""),2500)}
+ function download(){const body=destination==="web"?webCode:adapterCode;const blob=new Blob([body],{type:"text/plain;charset=utf-8"});const url=URL.createObjectURL(blob);const a=document.createElement("a");a.href=url;a.download="adbridge-"+destination+"-integration.txt";a.click();URL.revokeObjectURL(url)}
+ return <main className="formPage publisherPage"><div className="dashTop"><Link href="/" className="back">← AdBridge</Link><span className="testBadge">PUBLISHER DELIVERY CENTER</span><Link href="/creator" className="switch">Creator Dashboard →</Link></div><div className="formCard wide"><span className="eyebrow">FORMAT-SPECIFIC DELIVERY</span><h1>Take the format the advertiser <em>actually selected.</em></h1><p>Advertisers choose the delivery formats. Publishers only see those selected formats, with the exact destination requirements.</p>
+ <label>1. Choose an active campaign</label><select className="textInput" value={campaignId} onChange={e=>setCampaignId(e.target.value)}><option value="">{loading?"Loading campaigns…":"Select a campaign"}</option>{campaigns.map(c=><option key={c.id} value={c.id}>{c.name} · {c.goal}</option>)}</select>
+ <label>2. Choose the format you support</label>{campaignFormats.length?<div className="destinationGrid">{campaignFormats.map(f=>{const m=formatMeta[f.format]||{icon:"◎",desc:"Selected delivery format",badge:f.format};return <button type="button" key={f.format} className={"destinationCard "+(destination===f.format?"selected":"")} onClick={()=>setDestination(f.format)}><span className="destinationIcon">{m.icon}</span><strong>{formatNames[f.format]||f.format}</strong><small>{m.desc}</small><b>{m.badge}</b></button>})}</div>:<div className="successBox">This campaign has no delivery format configured.</div>}
+ {selectedFormat&&<div className="requirementCallout"><span className="eyebrow">REQUIREMENTS</span><h2>{formatNames[destination]}</h2><p>{selectedFormat.requirements}</p></div>}
+ {selectedFormat&&<div className="deliveryBox"><div><span className="eyebrow">READY TO TAKE</span><h2>{formatNames[destination]} delivery</h2><p>AdBridge prepared this campaign for the exact format selected by the advertiser.</p></div><span className="statusPill">{selectedFormat.status==="ready"?"READY":"ADAPTER"}</span></div>}
+ {selectedFormat&&<div className="generatedPanel"><div className="generatedHead"><div><span className="eyebrow">GENERATED FOR {campaign?.name||"CAMPAIGN"}</span><h2>{formatNames[destination]}</h2></div><span className="formatBadge">{formatMeta[destination]?.badge||destination}</span></div><label>{destination==="web"?"Publisher delivery link":"Delivery package / integration configuration"}</label><div className="copyRow"><input className="textInput" readOnly value={destination==="web"?deliveryUrl:adapterCode}/><button className="secondary" onClick={()=>copy(destination==="web"?deliveryUrl:adapterCode)}>Copy</button></div>{destination==="web"&&<><label>One-click embed code</label><textarea readOnly value={webCode}/></>}<div className="choiceRow"><button className="primary" onClick={download}>Export format →</button><a className="secondary" href={deliveryUrl} target="_blank" rel="noreferrer">Preview ↗</a></div></div>}
+ {asset&&<div className="successBox">✓ Advertiser creative detected and linked to this selected delivery format.</div>}{message&&<div className="successBox">{message}</div>}
+ <div className="conversionInfo"><span className="eyebrow">HOW ADBRIDGE HANDLES IT</span><div className="conversionGrid"><div><b>Advertiser</b><p>Chooses exactly which delivery formats are wanted.</p></div><div><b>AdBridge</b><p>Prepares only those selected format packages and labels them clearly.</p></div><div><b>Publisher</b><p>Takes the package that matches the destination he actually supports.</p></div></div></div>
+ </div></main>}
