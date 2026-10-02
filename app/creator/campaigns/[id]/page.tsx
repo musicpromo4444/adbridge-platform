@@ -6,20 +6,21 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Campaign={id:string;name:string;goal:string;instructions:string|null;platform:string|null;payment_method:string|null;payment_rate:number|null;max_budget:number|null};
-type Asset={asset_type:string;asset_url:string|null};
+type Asset={asset_type:string;asset_url:string|null};type CampaignFormat={format:string;status:string;requirements:string};
 type CampaignTest={id:string;title:string;instructions:string;action_label:string;action_url:string|null;required:boolean};
 
 export default function CampaignDetails(){
- const params=useParams<{id:string}>();const [campaign,setCampaign]=useState<Campaign|null>(null);const [assets,setAssets]=useState<Asset[]>([]);const [campaignTest,setCampaignTest]=useState<CampaignTest|null>(null);const [loading,setLoading]=useState(true);const [phase,setPhase]=useState<"locked"|"understand"|"test"|"unlocked"|"verification">("locked");const [saving,setSaving]=useState(false);const [error,setError]=useState("");const [verificationRequired,setVerificationRequired]=useState(false);
+ const params=useParams<{id:string}>();const [campaign,setCampaign]=useState<Campaign|null>(null);const [assets,setAssets]=useState<Asset[]>([]);const [formats,setFormats]=useState<CampaignFormat[]>([]);const [campaignTest,setCampaignTest]=useState<CampaignTest|null>(null);const [loading,setLoading]=useState(true);const [phase,setPhase]=useState<"locked"|"understand"|"test"|"unlocked"|"verification">("locked");const [saving,setSaving]=useState(false);const [error,setError]=useState("");const [verificationRequired,setVerificationRequired]=useState(false);
  const storageKey="adbridge-unlocked-"+params.id;
- useEffect(()=>{async function load(){if(!supabase){setError("AdBridge database is not connected yet.");setLoading(false);return}const [{data,error:campaignError},{data:assetData},{data:testData,error:testError},{data:settings}]=await Promise.all([
+ useEffect(()=>{async function load(){if(!supabase){setError("AdBridge database is not connected yet.");setLoading(false);return}const [{data,error:campaignError},{data:assetData},{data:formatData},{data:testData,error:testError},{data:settings}]=await Promise.all([
   supabase.from("campaigns").select("id,name,goal,instructions,platform,payment_method,payment_rate,max_budget").eq("id",params.id).single(),
   supabase.from("campaign_assets").select("asset_type,asset_url").eq("campaign_id",params.id),
+  supabase.from("campaign_formats").select("format,status,requirements").eq("campaign_id",params.id),
   supabase.from("campaign_tests").select("id,title,instructions,action_label,action_url,required").eq("campaign_id",params.id).eq("required",true).order("created_at",{ascending:false}).limit(1).maybeSingle(),
   supabase.from("platform_settings").select("require_creator_verification").eq("id",1).maybeSingle()
  ]);
  if(campaignError||!data){setError("This campaign could not be found.");setLoading(false);return}if(testError){setError("The campaign test could not be loaded.");setLoading(false);return}
- setCampaign(data);setAssets(assetData??[]);setCampaignTest(testData??null);const required=Boolean(settings?.require_creator_verification);setVerificationRequired(required);
+ setCampaign(data);setAssets(assetData??[]);setFormats(formatData??[]);setCampaignTest(testData??null);const required=Boolean(settings?.require_creator_verification);setVerificationRequired(required);
  const {data:{user}}=await supabase.auth.getUser();const creatorId=user?.id||null;let alreadyAccepted=false;
  if(creatorId){const {data:job}=await supabase.from("creator_campaigns").select("id,status").eq("campaign_id",params.id).eq("creator_id",creatorId).limit(1).maybeSingle();alreadyAccepted=Boolean(job)}
  if(localStorage.getItem(storageKey)==="yes"||alreadyAccepted)setPhase("unlocked");
@@ -31,7 +32,7 @@ export default function CampaignDetails(){
 
  if(loading)return <main className="formPage"><div className="formCard"><span className="eyebrow">CAMPAIGN</span><h1>Loading...</h1></div></main>;
  if(error||!campaign)return <main className="formPage"><Link href="/creator/campaigns" className="back">← Campaigns</Link><div className="formCard"><div className="successBox">{error||"Campaign unavailable."}</div></div></main>;
- const actionAsset=assets.find(a=>a.asset_type==="website_app_link"&&a.asset_url)||null;
+ const actionAsset=assets.find(a=>a.asset_type==="website_app_link"&&a.asset_url)||null;const formatNames:Record<string,string>={web:"Web",web_app:"Web App",android_app:"Android App",ios_app:"iOS App"};
 
  return <main className="formPage"><Link href="/creator/campaigns" className="back">← Campaigns</Link><div className="formCard wide">
  <span className="eyebrow">CAMPAIGN DETAILS</span><div className="lockHero"><div className="lockIcon">{phase==="unlocked"?"🔓":"🔒"}</div><div><h1>{campaign.name}</h1><p>{phase==="unlocked"?"Campaign unlocked. You can now participate.":"Complete the short campaign test before you can participate."}</p></div></div>
