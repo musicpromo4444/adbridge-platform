@@ -9,7 +9,7 @@ type Campaign={id:string;name:string;goal:string;platform:string|null;status:str
 export default function Advertiser(){
  const [campaigns,setCampaigns]=useState<Campaign[]>([]);
  const [loading,setLoading]=useState(true);
- useEffect(()=>{async function load(){if(!supabase){setLoading(false);return}const {data:{user}}=await supabase.auth.getUser();if(!user){window.location.href="/login";return}const {data}=await supabase.from("campaigns").select("id,name,goal,platform,status,max_budget,desired_results").eq("advertiser_id",user.id).select("id,name,goal,platform,status,max_budget,desired_results").order("created_at",{ascending:false});setCampaigns(data??[]);setLoading(false)}load()},[]);
+ useEffect(()=>{async function load(){if(!supabase){setLoading(false);return}const {data:{user}}=await supabase.auth.getUser();if(!user){window.location.href="/login";return}const {data}=await supabase.from("campaigns").select("id,name,goal,platform,status,max_budget,desired_results").eq("advertiser_id",user.id).order("created_at",{ascending:false});setCampaigns(data??[]);setLoading(false)}load()},[]);
  const active=campaigns.filter(c=>c.status==="active");
  const totalBudget=campaigns.reduce((sum,c)=>sum+Number(c.max_budget||0),0);
  return <main className="dashboard"><div className="dashTop"><Link href="/" className="back">← AdBridge</Link><span className="testBadge">LIVE DATABASE</span><Link href="/creator" className="switch">Creator side →</Link></div>
