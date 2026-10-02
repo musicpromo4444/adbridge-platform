@@ -33,9 +33,9 @@ export default function Admin(){
    withdrawals:ws.length,pendingWithdrawals:ws.filter((x:any)=>x.status==="pending").length,ads:ad.length,activeAds:ad.filter((x:any)=>x.enabled).length
   });
   const a:Activity[]=[];
-  cs.slice(0,4).forEach((x:any)=>a.push({label:"Campaign",detail:x.name,time:x.submitted_at}));
+  cs.slice(0,4).forEach((x:any)=>a.push({label:"Campaign",detail:x.name,time:x.created_at}));
   ss.slice(0,3).forEach((x:any)=>a.push({label:"Submission",detail:"Creator work submitted",time:x.submitted_at}));
-  ps.slice(0,3).forEach((x:any)=>a.push({label:"Payment",detail:"₦"+Number(x.amount||0).toLocaleString()+" · "+(x.campaigns?.name||"Campaign"),time:x.submitted_at}));
+  ps.slice(0,3).forEach((x:any)=>a.push({label:"Payment",detail:"₦"+Number(x.amount||0).toLocaleString()+" · "+(x.campaigns?.name||"Campaign"),time:x.created_at}));
   setActivity(a.sort((x,y)=>new Date(y.time).getTime()-new Date(x.time).getTime()).slice(0,8));setLoading(false)
  }
  useEffect(()=>{load()},[]);
