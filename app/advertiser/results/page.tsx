@@ -1,6 +1,6 @@
 "use client";
-import Link from "next/link";import {useSearchParams} from "next/navigation";import {useEffect,useState} from "react";import {supabase} from "@/lib/supabase";
-export default function Results(){
+import Link from "next/link";import {useSearchParams} from "next/navigation";import {useEffect,useState,Suspense} from "react";import {supabase} from "@/lib/supabase";
+function Results(){
  const p=useSearchParams();const id=p.get("campaign");const [c,setC]=useState<any>(null),[subs,setSubs]=useState<any[]>([]),[clicks,setClicks]=useState<any[]>([]),[conversions,setConversions]=useState(0),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
  async function load(){if(!supabase)return;let q=supabase.from("campaigns").select("id,name,goal,platform,max_budget,desired_results,payment_method,payment_rate").limit(1);if(id)q=q.eq("id",id);const {data}=await q.single();if(!data)return;setC(data);const {data:s}=await supabase.from("submissions").select("id,status,creator_id,posted_url,tracking_platform,current_metric,target_metric,metric_status,last_metric_check_at").eq("campaign_id",data.id).order("submitted_at",{ascending:false});setSubs(s||[]);const {data:links}=await supabase.from("tracking_links").select("id,creator_id,submission_id,slug,click_count,unique_click_count,target_url").eq("campaign_id",data.id);setClicks(links||[]);const {count}=await supabase.from("cpa_conversion_events").select("id",{count:"exact",head:true}).eq("campaign_id",data.id).eq("status","approved");setConversions(count||0)}
  useEffect(()=>{load()},[id]);
@@ -12,3 +12,5 @@ export default function Results(){
  {subs.length>0&&<div className="quick"><h2>Creator videos</h2>{subs.map(s=><div key={s.id} style={{padding:"14px 0",borderBottom:"1px solid rgba(255,255,255,.08)"}}><b>{s.tracking_platform||"Platform"}</b><p>{Number(s.current_metric||0).toLocaleString()} / {Number(s.target_metric||c.desired_results||0).toLocaleString()} views · {s.metric_status||"pending"}</p>{s.last_metric_check_at&&<small>Last checked {new Date(s.last_metric_check_at).toLocaleString()}</small>}<br/><a href={s.posted_url||"#"} target="_blank" rel="noreferrer">Open published video →</a></div>)}</div>}
  <div className="quick"><h2>Campaign budget</h2><p>₦{Number(c.max_budget||0).toLocaleString()} maximum budget · ₦{Number(c.payment_rate||0).toLocaleString()} per result</p><Link href="/advertiser/review">Review creator work →</Link></div></>:<div className="successBox">Select a campaign from Your Campaigns.</div>}</div></main>
 }
+
+export default function ResultsPage(){return <Suspense fallback={<main className="formPage"><div className="formCard"><h1>Loading…</h1></div></main>}><Results /></Suspense>}
