@@ -96,7 +96,7 @@ Deno.serve(async (req: Request) => {
     raw = item;
   } else if (platform === "x" || platform === "twitter") {
     platform = "x";
-    videoId ||= (submission.posted_url || "").match(/status\/(\\d+)/)?.[1] || null;
+    videoId ||= (submission.posted_url || "").match(/status\/(\d+)/)?.[1] || null;
     if (!videoId) return json({ error: "Could not identify the X post." }, 400);
     const { data: connection } = await db.from("creator_platform_connections")
       .select("access_token,connected").eq("creator_id", submission.creator_id).eq("platform", "x").eq("connected", true).maybeSingle();
