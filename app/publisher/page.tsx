@@ -49,7 +49,7 @@ export default function PublisherCenter() {
   const asset = assets.find(a => a.asset_url)?.asset_url || "";
   const deliveryUrl = useMemo(() => campaignId ? baseUrl() + "/ad/" + campaignId + "?destination=" + destination : "", [campaignId, destination]);
 
-  const webCode = '<script async src="' + baseUrl() + '/adbridge.js" data-campaign="' + campaignId + '" data-destination="' + destination + '"></script>';
+  const webCode = '<script async src="' + baseUrl() + '/api/adbridge/embed" data-campaign="' + campaignId + '" data-destination="' + destination + '"></script>';
   const androidCode = "AdBridge Android adapter\\nCampaign ID: " + campaignId + "\\nDelivery URL: " + deliveryUrl + "\\nDestination: android\\n\\nUse this generated campaign URL inside your Android app/WebView or connect it to the AdBridge Android SDK adapter when enabled.";
 
   async function copy(value: string) {
