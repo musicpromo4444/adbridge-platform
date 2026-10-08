@@ -39,7 +39,7 @@ export default function PublisherCenter(){
  const allFormatSelected=compatibleFormats.length>0&&selectedFormats.length===compatibleFormats.length;
 
  useEffect(()=>{setSelectedPlatforms([]);setSelectedFormats([])},[campaignId]);
- function toggle(setter:React.Dispatch<React.SetStateAction<string[]>>,id:string){setter(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id])}
+ function toggle(setter:(value:string[]|((prev:string[])=>string[]))=>void,id:string){setter(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id])}
  function toggleAllPlatforms(){setSelectedPlatforms(allPlatformSelected?[]:compatiblePlatforms.map(x=>x[0]))}
  function toggleAllFormats(){setSelectedFormats(allFormatSelected?[]:compatibleFormats.map(x=>x.format))}
 
