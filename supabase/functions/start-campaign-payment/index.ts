@@ -1,0 +1,22 @@
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Content-Type":"application/json"};
+const json=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:cors});
+Deno.serve(async(req)=>{
+ if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
+ if(req.method!=="POST")return json({error:"POST required"},405);
+ const auth=req.headers.get("Authorization")||"";const token=auth.replace(/^Bearer\s+/i,"");if(!token)return json({error:"Authentication required"},401);
+ const db=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
+ const {data:{user},error:ue}=await db.auth.getUser(token);if(ue||!user)return json({error:"Authentication failed"},401);
+ const {campaign_id}=await req.json().catch(()=>({}));if(!campaign_id)return json({error:"campaign_id is required"},400);
+ const {data:c,error:ce}=await db.from("campaigns").select("id,name,max_budget,advertiser_id,status").eq("id",campaign_id).eq("advertiser_id",user.id).single();if(ce||!c)return json({error:"Campaign not found"},404);
+ const amount=Number(c.max_budget||0);if(!Number.isFinite(amount)||amount<=0)return json({error:"Campaign maximum budget must be greater than zero before funding."},400);
+ const secret=Deno.env.get("PAYSTACK_SECRET_KEY")||"";if(!secret)return json({error:"Paystack is not configured yet. Add PAYSTACK_SECRET_KEY to Supabase Edge Function Secrets."},503);
+ const app=Deno.env.get("APP_URL")||"";
+ if(!app)return json({error:"APP_URL is not configured."},503);
+ const reference="adbridge_"+crypto.randomUUID().replaceAll("-","");
+ const r=await fetch("https://api.paystack.co/transaction/initialize",{method:"POST",headers:{"Authorization":"Bearer "+secret,"Content-Type":"application/json"},body:JSON.stringify({email:user.email,amount:Math.round(amount*100),reference,callback_url:app+"/advertiser/fund/verify?campaign="+encodeURIComponent(campaign_id)})});
+ const data=await r.json();if(!r.ok||!data.status)return json({error:"Paystack could not initialize the payment.",details:data},502);
+ await db.from("campaign_payments").insert({campaign_id,amount,type:"funding",status:"pending",provider:"paystack",provider_reference:reference,checkout_url:data.data?.authorization_url||null});
+ return json({authorization_url:data.data?.authorization_url,reference});
+});
