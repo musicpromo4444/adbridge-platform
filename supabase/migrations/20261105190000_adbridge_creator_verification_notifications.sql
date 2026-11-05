@@ -39,3 +39,19 @@ drop policy if exists "users update own notifications" on public.notifications;
 create policy "users update own notifications" on public.notifications for update to authenticated using (user_id=auth.uid()) with check (user_id=auth.uid());
 drop policy if exists "admins create notifications" on public.notifications;
 create policy "admins create notifications" on public.notifications for insert to authenticated with check (exists(select 1 from public.profiles p where p.id=auth.uid() and p.role='admin'));
+
+-- Prevent creators from self-assigning the verified flag through profile updates.
+create or replace function public.adbridge_protect_creator_verified_flag()
+returns trigger language plpgsql security definer set search_path=public as $$
+begin
+  if new.verified is distinct from old.verified
+     and not exists (select 1 from public.profiles p where p.id=auth.uid() and p.role='admin') then
+    raise exception 'Creator verification can only be changed by an administrator';
+  end if;
+  return new;
+end;
+$$;
+drop trigger if exists adbridge_protect_creator_verified_flag on public.profiles;
+create trigger adbridge_protect_creator_verified_flag
+before update of verified on public.profiles
+for each row execute function public.adbridge_protect_creator_verified_flag();
