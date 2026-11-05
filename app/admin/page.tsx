@@ -64,6 +64,7 @@ export default function Admin(){
   <div className="quickGrid adminGrid">
    <Link href="/admin/campaigns"><b>◈</b><span>Campaigns</span><small>Review, pause, reopen and monitor</small></Link>
    <Link href="/admin/users"><b>●</b><span>Users</span><small>Creators and advertisers</small></Link>
+   <Link href="/admin/verification"><b>✓</b><span>Creator verification</span><small>Review AdBridge promotional posts</small></Link>
    <Link href="/admin/payments"><b>₦</b><span>Payments</span><small>Funding and released money</small></Link>
    <Link href="/admin/withdrawals"><b>↗</b><span>Withdrawals</span><small>{stats.pendingWithdrawals} pending requests</small></Link>
    <Link href="/admin/ads"><b>✦</b><span>Ads Manager</span><small>Formats, providers, targeting and caps</small></Link>
