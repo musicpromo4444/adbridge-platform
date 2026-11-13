@@ -141,12 +141,12 @@ async function scanVideoFrames(videoUrl: string, platformId: string): Promise<Sc
     if (!context) throw new Error("The browser could not start the local video scanner.");
 
     const verticalPlatforms = ["tiktok", "shorts", "facebook-reels", "snapchat", "instagram"];
-    const isVertical = verticalPlatforms.includes(platformId);
+    const isVertical = verticalPlatforms.includes(platformId) || video.videoHeight > video.videoWidth;
     const candidates: PlacementCandidate[] = isVertical
       ? [
           { label: "Upper-left", left: "8%", top: "13%", width: "38%", x: 0.08, y: 0.13, widthRatio: 0.38, heightRatio: 0.14 },
           { label: "Middle-left", left: "8%", top: "36%", width: "38%", x: 0.08, y: 0.36, widthRatio: 0.38, heightRatio: 0.14 },
-          { label: "Upper-centre", left: "53%", top: "13%", width: "38%", x: 0.53, y: 0.13, widthRatio: 0.38, heightRatio: 0.14 }
+          { label: "Lower-left", left: "8%", top: "57%", width: "38%", x: 0.08, y: 0.57, widthRatio: 0.38, heightRatio: 0.14 }
         ]
       : [
           { label: "Top-left", left: "6%", top: "9%", width: "28%", x: 0.06, y: 0.09, widthRatio: 0.28, heightRatio: 0.18 },
