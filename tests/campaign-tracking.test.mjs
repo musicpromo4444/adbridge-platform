@@ -44,7 +44,7 @@ test("conversion postbacks require AdBridge click attribution", () => {
   }), null);
   assert.equal(normalizeConversionPayload({
     campaign_id: "123e4567-e89b-12d3-a456-426614174000",
-    click_id: "unknown",
+    click_id: "bad",
     external_conversion_id: "order-9841",
   }), null);
   assert.equal(normalizeConversionPayload({

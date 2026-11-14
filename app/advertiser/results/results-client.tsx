@@ -104,18 +104,18 @@ export default function Results() {
             <div className="statsGrid">
               <div><b>Verified views</b><strong>{totalViews.toLocaleString()}</strong></div>
               <div><b>Clicks</b><strong>{totalClicks.toLocaleString()}</strong></div>
-              <div><b>Conversions</b><strong>{conversions.toLocaleString()}</strong></div>
+              <div><b>Accepted actions</b><strong>{conversions.toLocaleString()}</strong></div>
               <div><b>Submissions</b><strong>{submissions.length}</strong></div>
             </div>
 
             <div className="quick">
               <h2>Result tracking</h2>
               {clickBased && <p>Creator links use AdBridge's server-side redirect. Click totals are recorded by the tracking service.</p>}
-              {actionBased && <p>CPA/CPI postbacks are accepted only when they include a valid AdBridge click ID. AdBridge resolves the creator from the saved link.</p>}
+              {actionBased && <p>CPA/CPI postbacks are accepted only when they include a valid AdBridge click ID. AdBridge resolves the creator from the saved link; the postback does not independently prove a purchase or install.</p>}
               {viewBased && <p>AdBridge retrieves published view metrics from connected platform APIs.</p>}
               {!clickBased && !actionBased && !viewBased && <p>AdBridge checks published work and available verified metrics.</p>}
               {clickBased && <p><b>Tracked clicks:</b> {totalClicks.toLocaleString()} · <b>Unique visitors:</b> {uniqueClicks.toLocaleString()}</p>}
-              {actionBased && <p><b>Verified actions:</b> {conversions.toLocaleString()} / {Number(campaign.desired_results || 0).toLocaleString()}</p>}
+              {actionBased && <p><b>Accepted actions:</b> {conversions.toLocaleString()} / {Number(campaign.desired_results || 0).toLocaleString()}</p>}
               {viewBased && (
                 <>
                   <button className="primary" disabled={busy || !submissions.length} onClick={refresh}>
@@ -144,7 +144,7 @@ export default function Results() {
 
             {actionBased && (
               <div className="quick">
-                <h2>{paymentMethod === "cpi" ? "Recent verified installs" : "Recent verified conversions"}</h2>
+                <h2>{paymentMethod === "cpi" ? "Recent accepted installs" : "Recent accepted conversions"}</h2>
                 {conversionEvents.length ? conversionEvents.map((event) => (
                   <div key={event.id} style={{ padding: "12px 0", borderBottom: "1px solid rgba(255,255,255,.08)" }}>
                     <b>{String(event.action_type || "conversion").replaceAll("_", " ")}</b>
@@ -152,7 +152,7 @@ export default function Results() {
                     <small>{event.status} · {event.created_at ? new Date(event.created_at).toLocaleString() : "Recorded"}</small>
                     <p>Reported value: {Number(event.value || 0).toLocaleString()}</p>
                   </div>
-                )) : <p>No verified conversion events yet.</p>}
+                )) : <p>No accepted conversion events yet.</p>}
               </div>
             )}
 

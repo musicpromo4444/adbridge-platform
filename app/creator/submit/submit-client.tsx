@@ -217,7 +217,7 @@ export default function Submit() {
               {trackingError && <p role="alert">{trackingError}</p>}
               {special
                 ? "AdBridge will review your post and proof before payment is released."
-                : "AdBridge will verify tracked results according to the campaign model."}
+                : "AdBridge will record tracked results according to the campaign model."}
             </div>
             <Link className="secondary" href="/creator/work">Back to my work →</Link>
           </>
