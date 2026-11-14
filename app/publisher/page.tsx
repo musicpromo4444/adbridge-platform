@@ -8,7 +8,7 @@ type Format={campaign_id:string;format:string;status:string;requirements:string|
 type Target={campaign_id:string;platform:string};
 type Property={id:string;property_type:string;name:string;url:string|null;platforms:string[];ad_formats:string[];verified:boolean};
 
-const platforms=[["instagram","Instagram"],["tiktok","TikTok"],["youtube","YouTube"],["facebook","Facebook"],["x","X"],["snapchat","Snapchat"],["linkedin","LinkedIn"],["website","Website"],["web_app","Web App"],["android_app","Android App"],["ios_app","iOS App"],["mobile_app","Mobile App"]];
+const platforms: Array<[string,string]>=[["instagram","Instagram"],["tiktok","TikTok"],["youtube","YouTube"],["facebook","Facebook"],["x","X"],["snapchat","Snapchat"],["linkedin","LinkedIn"],["website","Website"],["web_app","Web App"],["android_app","Android App"],["ios_app","iOS App"],["mobile_app","Mobile App"]];
 const formats=[["web","Web"],["web_app","Web App"],["android_app","Android App"],["ios_app","iOS App"],["social_post","Social Post"],["social_story","Social Story"],["social_reel","Social Reel"],["social_video","Social Video"],["web_banner","Web Banner"],["web_native","Web Native"],["web_interstitial","Web Interstitial"],["web_video","Web Video"],["app_banner","App Banner"],["app_native","App Native"],["app_interstitial","App Interstitial"],["app_video","App Video"],["app_rewarded_video","Rewarded Video"]];
 const label=(items:string[],map:Array<[string,string]>)=>items.map(x=>map.find(m=>m[0]===x)?.[1]||x).join(" · ");
 

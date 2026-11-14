@@ -1,9 +1,101 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";import{createClient}from"https://esm.sh/@supabase/supabase-js@2";
-const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization, x-client-info, apikey, content-type","Content-Type":"application/json"};const json=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:cors});
-Deno.serve(async req=>{if(req.method==="OPTIONS")return new Response("ok",{headers:cors});if(req.method!=="POST")return json({error:"POST required"},405);const token=(req.headers.get("Authorization")||"").replace(/^Bearer\s+/i,"");if(!token)return json({error:"Authentication required"},401);const db=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);const{data:{user}}=await db.auth.getUser(token);if(!user)return json({error:"Authentication failed"},401);const{submission_id,status}=await req.json().catch(()=>({}));if(!submission_id||!["approved","changes_requested"].includes(status))return json({error:"submission_id and a valid review status are required"},400);
-const{submission}=await db.from("submissions").select("id,campaign_id,creator_id,creator_campaign_id,status,campaigns!inner(advertiser_id,payment_method,payment_rate,max_budget,status)").eq("id",submission_id).single().then(r=>({submission:r.data}));const s:any=submission;if(!s)return json({error:"Submission not found"},404);const c=s.campaigns;const {data:actor}=await db.from("profiles").select("role").eq("id",user.id).maybeSingle();const isAdmin=actor?.role==="admin";if(!isAdmin&&c.advertiser_id!==user.id)return json({error:"You do not own this campaign"},403);if(s.status!=="waiting")return json({error:"This submission is no longer waiting for review"},409);
-if(status==="changes_requested"){await db.from("submissions").update({status,reviewed_at:new Date().toISOString()}).eq("id",submission_id);if(s.creator_campaign_id)await db.from("creator_campaigns").update({status}).eq("id",s.creator_campaign_id);return json({success:true,status});}
-if(["cpm","views","cpc","link_traffic","cpi","cpa"].includes(String(c.payment_method).toLowerCase()))return json({error:"This payment model requires verified results before payment is released."},409);
-const{data:funding}=await db.from("campaign_payments").select("amount").eq("campaign_id",s.campaign_id).eq("type","funding").eq("status","held").maybeSingle();if(!funding)return json({error:"Campaign funding has not been confirmed yet."},409);const{data:released}=await db.from("campaign_payments").select("amount").eq("campaign_id",s.campaign_id).eq("type","creator_payment").eq("status","released");const spent=(released||[]).reduce((n:any,p:any)=>n+Number(p.amount||0),0);
-const{data:existing}=await db.from("campaign_payments").select("id").eq("submission_id",submission_id).eq("type","creator_payment").maybeSingle();if(!existing){const amount=Math.min(Number(c.payment_rate||0),Math.max(0,Number(funding.amount||0)-spent));if(amount<=0)return json({error:"Campaign funding has been exhausted or creator payment amount is not valid."},409);const{error:pe}=await db.from("campaign_payments").insert({campaign_id:s.campaign_id,creator_id:s.creator_id,submission_id,amount,type:"creator_payment",status:"released"});if(pe)return json({error:"Creator payment could not be recorded."},500);}
-await db.from("submissions").update({status:"approved",reviewed_at:new Date().toISOString()}).eq("id",submission_id);if(s.creator_campaign_id)await db.from("creator_campaigns").update({status:"completed"}).eq("id",s.creator_campaign_id);return json({success:true,status:"approved"});});
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Content-Type": "application/json",
+};
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), { status, headers: cors });
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method !== "POST") return json({ error: "POST required" }, 405);
+
+  const token = (req.headers.get("Authorization") || "").replace(/^Bearer\s+/i, "");
+  if (!token) return json({ error: "Authentication required" }, 401);
+
+  const db = createClient(
+    Deno.env.get("SUPABASE_URL")!,
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+  const { data: { user }, error: authError } = await db.auth.getUser(token);
+  if (authError || !user) return json({ error: "Authentication failed" }, 401);
+
+  const body = await req.json().catch(() => ({}));
+  const submissionId = body?.submission_id;
+  const status = body?.status;
+  if (!submissionId || !["approved", "changes_requested"].includes(status)) {
+    return json({ error: "submission_id and a valid review status are required" }, 400);
+  }
+
+  const { data: submission, error: submissionError } = await db
+    .from("submissions")
+    .select("id,campaign_id,creator_id,creator_campaign_id,status,campaigns!inner(advertiser_id,payment_method,payment_rate,max_budget,status)")
+    .eq("id", submissionId)
+    .single();
+
+  if (submissionError || !submission) return json({ error: "Submission not found" }, 404);
+  const campaign = Array.isArray(submission.campaigns) ? submission.campaigns[0] : submission.campaigns;
+  if (!campaign) return json({ error: "Campaign not found" }, 404);
+
+  const { data: actor } = await db.from("profiles").select("role").eq("id", user.id).maybeSingle();
+  const isAdmin = actor?.role === "admin";
+  if (!isAdmin && campaign.advertiser_id !== user.id) {
+    return json({ error: "You do not own this campaign" }, 403);
+  }
+  if (submission.status !== "waiting") {
+    return json({ error: "This submission is no longer waiting for review" }, 409);
+  }
+
+  if (status === "changes_requested") {
+    const { error: updateError } = await db
+      .from("submissions")
+      .update({ status, reviewed_at: new Date().toISOString() })
+      .eq("id", submissionId)
+      .eq("status", "waiting");
+    if (updateError) return json({ error: "The submission status could not be updated." }, 503);
+
+    if (submission.creator_campaign_id) {
+      const { error: jobError } = await db
+        .from("creator_campaigns")
+        .update({ status })
+        .eq("id", submission.creator_campaign_id);
+      if (jobError) return json({ error: "The creator campaign status could not be updated." }, 503);
+    }
+
+    const { error: notificationError } = await db.from("notifications").insert({
+      user_id: submission.creator_id,
+      title: "Changes requested on your campaign submission",
+      body: "AdBridge has requested an update to your submitted work. Open My Work to review the status.",
+      kind: "campaign_review",
+      link: "/creator/work",
+    });
+    return json({ success: true, status, notification_sent: !notificationError });
+  }
+
+  if (["cpm", "views", "cpc", "clicks", "link_traffic", "cpi", "cpa", "actions"].includes(String(campaign.payment_method).toLowerCase())) {
+    return json({ error: "This payment model requires tracked results before payment is released." }, 409);
+  }
+
+  const { data: payment, error: paymentError } = await db.rpc("release_creator_campaign_payment", {
+    p_campaign_id: submission.campaign_id,
+    p_creator_id: submission.creator_id,
+    p_amount: Number(campaign.payment_rate || 0),
+    p_submission_id: submission.id,
+    p_allow_partial: true,
+    p_complete_submission: true,
+    p_notify_creator: true,
+  });
+
+  if (paymentError) return json({ error: "The creator payment could not be safely released." }, 503);
+  if (!payment?.paid) return json({ error: "Campaign funding or remaining budget is unavailable." }, 409);
+
+  return json({
+    success: true,
+    status: "approved",
+    payment_amount: Number(payment.amount || 0),
+    duplicate_payment: Boolean(payment.duplicate),
+  });
+});
