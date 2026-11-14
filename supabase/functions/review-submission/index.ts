@@ -1,4 +1,3 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
@@ -77,7 +76,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (["cpm", "views", "cpc", "clicks", "link_traffic", "cpi", "cpa", "actions"].includes(String(campaign.payment_method).toLowerCase())) {
-    return json({ error: "This payment model requires verified results before payment is released." }, 409);
+    return json({ error: "This payment model requires tracked results before payment is released." }, 409);
   }
 
   const { data: payment, error: paymentError } = await db.rpc("release_creator_campaign_payment", {

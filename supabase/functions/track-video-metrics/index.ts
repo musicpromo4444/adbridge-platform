@@ -1,4 +1,3 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
@@ -76,6 +75,9 @@ Deno.serve(async (req: Request) => {
   }
   if (!["waiting", "approved"].includes(String(submission.status))) {
     return json({ error: "This submission is not eligible for metric tracking" }, 409);
+  }
+  if (!["views", "cpm"].includes(String(campaign.payment_method).toLowerCase())) {
+    return json({ error: "This campaign does not use view-based tracking" }, 409);
   }
 
   let platform = String(submission.tracking_platform || "").toLowerCase();
@@ -229,7 +231,7 @@ Deno.serve(async (req: Request) => {
 
   let paymentReleased = false;
   let paymentReason: string | null = null;
-  if (reached && ["views", "cpm"].includes(String(campaign.payment_method).toLowerCase())) {
+  if (reached) {
     const rate = Number(campaign.payment_rate || 0);
     const requestedAmount = Number((rate * (target / 1000)).toFixed(2));
     if (requestedAmount > 0) {
