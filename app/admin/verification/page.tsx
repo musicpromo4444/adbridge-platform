@@ -1,11 +1,134 @@
 "use client";
+
 import Link from "next/link";
-import {useEffect,useState} from "react";
-import {supabase} from "@/lib/supabase";
-export default function AdminCreatorVerification(){
- const [rows,setRows]=useState<any[]>([]),[busy,setBusy]=useState(""),[note,setNote]=useState<Record<string,string>>({}),[error,setError]=useState(""),[message,setMessage]=useState("");
- async function load(){if(!supabase)return;const {data:{user}}=await supabase.auth.getUser();if(!user){location.href="/login";return}const {data:p}=await supabase.from("profiles").select("role").eq("id",user.id).maybeSingle();if(p?.role!=="admin"){setError("Administrator access required.");return}const {data,error:e}=await supabase.from("creator_verification_submissions").select("id,creator_id,platform,post_type,post_url,note,status,created_at").order("created_at",{ascending:false});if(e)setError(e.message);setRows(data||[])}
- useEffect(()=>{void load()},[]);
- async function decide(r:any,status:"approved"|"rejected"){if(!supabase)return;setBusy(r.id);setError("");setMessage("");const {data:{user}}=await supabase.auth.getUser();const adminNote=note[r.id]?.trim()||null;const {error:e}=await supabase.from("creator_verification_submissions").update({status,admin_note:adminNote,reviewed_by:user?.id,reviewed_at:new Date().toISOString()}).eq("id",r.id);if(e){setError(e.message);setBusy("");return}if(status==="approved"){const {error:pe}=await supabase.from("profiles").update({verified:true}).eq("id",r.creator_id);if(pe)setError("Submission approved but profile verification failed: "+pe.message)}else{await supabase.from("profiles").update({verified:false}).eq("id",r.creator_id)}const title=status==="approved"?"Creator listing verified":"Creator verification needs attention";const body=status==="approved"?"Your AdBridge promotional post was approved. Your creator listing is now verified.":("Your AdBridge promotional post was not approved. "+(adminNote||"Please review the requirements and submit a new public post."));await supabase.from("notifications").insert({user_id:r.creator_id,title,body,kind:"creator_verification",link:"/creator/verification"});setMessage(status==="approved"?"Creator verified and notified.":"Verification rejected and creator notified.");await load();setBusy("")}
- return <main className="formPage"><Link href="/admin" className="back">← Admin Dashboard</Link><div className="formCard wide"><span className="eyebrow">ADMIN · CREATOR VERIFICATION</span><h1>Review creator <em>promotions.</em></h1><p>Open each public AdBridge promotional post and confirm it is live, relevant and genuinely promotes the platform before approving the creator listing.</p>{error&&<div className="successBox">{error}</div>}{message&&<div className="successBox">{message}</div>}{rows.map(r=><article className="infoBox" key={r.id}><b>{r.status.toUpperCase()} · {r.platform} · {r.post_type}</b><h3>Creator ID: {r.creator_id}</h3><p>{r.note||"No extra details."}</p><a className="secondary" href={r.post_url} target="_blank" rel="noreferrer">Open public post ↗</a>{r.status==="pending"&&<><label>Review note (optional)</label><textarea value={note[r.id]||""} onChange={e=>setNote(old=>({...old,[r.id]:e.target.value}))} placeholder="Explain why this post is rejected, if applicable."/><div className="choiceRow"><button className="primary" disabled={!!busy} onClick={()=>void decide(r,"approved")}>{busy===r.id?"Saving…":"Approve & verify creator"}</button><button className="secondary" disabled={!!busy} onClick={()=>void decide(r,"rejected")}>Reject</button></div></>}</article>)}{!rows.length&&<div className="successBox">No verification submissions yet.</div>}</div></main>
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+type ReviewStatus = "approved" | "rejected";
+
+export default function AdminCreatorVerification() {
+  const [rows, setRows] = useState<any[]>([]);
+  const [busy, setBusy] = useState("");
+  const [note, setNote] = useState<Record<string, string>>({});
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  async function load() {
+    if (!supabase) return;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      window.location.href = "/login";
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profile?.role !== "admin") {
+      setError("Administrator access required.");
+      return;
+    }
+
+    const { data, error: loadError } = await supabase
+      .from("creator_verification_submissions")
+      .select("id,creator_id,platform,post_type,post_url,note,status,created_at")
+      .order("created_at", { ascending: false });
+
+    if (loadError) setError(loadError.message);
+    setRows(data || []);
+  }
+
+  useEffect(() => {
+    void load();
+  }, []);
+
+  async function decide(row: any, status: ReviewStatus) {
+    if (!supabase) return;
+
+    setBusy(row.id);
+    setError("");
+    setMessage("");
+
+    const adminNote = note[row.id]?.trim() || null;
+    const { error: reviewError } = await supabase.rpc("review_creator_verification", {
+      p_submission_id: row.id,
+      p_status: status,
+      p_admin_note: adminNote,
+    });
+
+    if (reviewError) {
+      setError(reviewError.message || "The verification decision could not be saved.");
+      setBusy("");
+      return;
+    }
+
+    setMessage(status === "approved"
+      ? "Creator verified and notified."
+      : "Verification rejected and creator notified.");
+
+    await load();
+    setBusy("");
+  }
+
+  return (
+    <main className="formPage">
+      <Link href="/admin" className="back">← Admin Dashboard</Link>
+      <div className="formCard wide">
+        <span className="eyebrow">ADMIN · CREATOR VERIFICATION</span>
+        <h1>Review creator <em>promotions.</em></h1>
+        <p>
+          Open each public AdBridge promotional post and confirm it is live, relevant and genuinely promotes
+          the platform before approving the creator listing.
+        </p>
+
+        {error && <div className="successBox" role="alert">{error}</div>}
+        {message && <div className="successBox" role="status">{message}</div>}
+
+        {rows.map((row) => (
+          <article className="infoBox" key={row.id}>
+            <b>{String(row.status).toUpperCase()} · {row.platform} · {row.post_type}</b>
+            <h3>Creator ID: {row.creator_id}</h3>
+            <p>{row.note || "No extra details."}</p>
+            <a className="secondary" href={row.post_url} target="_blank" rel="noreferrer">
+              Open public post ↗
+            </a>
+
+            {row.status === "pending" && (
+              <>
+                <label>Review note (optional)</label>
+                <textarea
+                  value={note[row.id] || ""}
+                  maxLength={500}
+                  onChange={(event) => setNote((current) => ({ ...current, [row.id]: event.target.value }))}
+                  placeholder="Explain why this post is rejected, if applicable."
+                />
+                <div className="choiceRow">
+                  <button
+                    className="primary"
+                    disabled={Boolean(busy)}
+                    onClick={() => void decide(row, "approved")}
+                  >
+                    {busy === row.id ? "Saving…" : "Approve & verify creator"}
+                  </button>
+                  <button
+                    className="secondary"
+                    disabled={Boolean(busy)}
+                    onClick={() => void decide(row, "rejected")}
+                  >
+                    Reject
+                  </button>
+                </div>
+              </>
+            )}
+          </article>
+        ))}
+
+        {!rows.length && <div className="successBox">No verification submissions yet.</div>}
+      </div>
+    </main>
+  );
 }
