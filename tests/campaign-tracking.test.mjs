@@ -70,7 +70,8 @@ test("migration keeps click and ledger writes behind service-role functions", as
   assert.match(sql, /grant all on table public\.campaign_click_visitors to service_role/i);
   assert.match(sql, /last_clicked_at <= v_now - interval '30 seconds'/i);
   assert.match(sql, /for update/i);
-  assert.match(sql, /release_creator_campaign_payment/i);
+  assert.match(sql, /record_campaign_click[\s\S]*release_creator_campaign_payment/i);
+  assert.match(sql, /p_notify_creator boolean default true/i);
   assert.match(sql, /record_cpa_conversion/i);
   assert.match(sql, /revoke all on function public\.record_cpa_conversion[\s\S]*from public, anon, authenticated/i);
   assert.match(sql, /grant execute on function public\.record_cpa_conversion[\s\S]*to service_role/i);

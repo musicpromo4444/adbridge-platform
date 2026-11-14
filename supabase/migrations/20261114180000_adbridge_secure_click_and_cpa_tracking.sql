@@ -31,12 +31,16 @@ security definer
 set search_path = ''
 as $function$
 declare
+  v_campaign_id uuid;
+  v_campaign record;
   v_link record;
-  v_campaign_status text;
   v_submission_status text;
   v_rows integer := 0;
   v_unique boolean := false;
   v_counted boolean := false;
+  v_paid boolean := false;
+  v_paid_count bigint := 0;
+  v_payment jsonb;
   v_now timestamptz := pg_catalog.now();
 begin
   if p_slug is null or p_slug !~ '^[A-Za-z0-9_-]{6,80}$' then
@@ -46,10 +50,31 @@ begin
     raise exception using errcode = '22023', message = 'Invalid visitor hash';
   end if;
 
+  -- Lock campaign before link so CPC and CPA postbacks use the same lock order.
+  select tl.campaign_id
+    into v_campaign_id
+    from public.tracking_links tl
+   where tl.slug = p_slug;
+
+  if not found then
+    raise exception using errcode = 'P0002', message = 'Tracking link not found';
+  end if;
+
+  select c.status, c.payment_method, c.payment_rate, c.desired_results
+    into v_campaign
+    from public.campaigns c
+   where c.id = v_campaign_id
+   for update;
+
+  if not found or v_campaign.status not in ('active', 'funded') then
+    raise exception using errcode = 'P0002', message = 'Campaign is not active';
+  end if;
+
   select tl.id, tl.campaign_id, tl.creator_id, tl.submission_id, tl.target_url
     into v_link
     from public.tracking_links tl
    where tl.slug = p_slug
+     and tl.campaign_id = v_campaign_id
    for update;
 
   if not found or v_link.creator_id is null or v_link.submission_id is null then
@@ -58,15 +83,6 @@ begin
 
   if v_link.target_url is null or v_link.target_url !~* '^https?://' then
     raise exception using errcode = 'P0002', message = 'Tracking destination unavailable';
-  end if;
-
-  select c.status
-    into v_campaign_status
-    from public.campaigns c
-   where c.id = v_link.campaign_id;
-
-  if not found or v_campaign_status not in ('active', 'funded') then
-    raise exception using errcode = 'P0002', message = 'Campaign is not active';
   end if;
 
   select s.status
@@ -124,6 +140,35 @@ begin
     v_counted := v_rows = 1;
   end if;
 
+  if v_counted and pg_catalog.lower(coalesce(v_campaign.payment_method, '')) in ('cpc', 'clicks', 'link_traffic') then
+    select count(*)
+      into v_paid_count
+      from public.campaign_payments cp
+     where cp.campaign_id = v_campaign_id
+       and cp.type = 'creator_payment'
+       and cp.status in ('released', 'approved', 'pending');
+
+    if coalesce(v_campaign.desired_results, 0) > 0
+       and v_paid_count >= v_campaign.desired_results then
+      raise exception using errcode = 'P0001', message = 'Campaign click target already reached';
+    end if;
+
+    v_payment := public.release_creator_campaign_payment(
+      v_campaign_id,
+      v_link.creator_id,
+      v_campaign.payment_rate,
+      null,
+      false,
+      false,
+      false
+    );
+
+    if coalesce((v_payment ->> 'paid')::boolean, false) is not true then
+      raise exception using errcode = 'P0001', message = 'Campaign funding or remaining budget is unavailable';
+    end if;
+    v_paid := true;
+  end if;
+
   if v_counted then
     update public.tracking_links tl
        set click_count = coalesce(tl.click_count, 0) + 1,
@@ -135,7 +180,8 @@ begin
   return pg_catalog.jsonb_build_object(
     'target_url', v_link.target_url,
     'counted', v_counted,
-    'unique', v_unique
+    'unique', v_unique,
+    'paid', v_paid
   );
 end;
 $function$;
@@ -146,7 +192,8 @@ create or replace function public.release_creator_campaign_payment(
   p_amount numeric,
   p_submission_id uuid default null,
   p_allow_partial boolean default false,
-  p_complete_submission boolean default false
+  p_complete_submission boolean default false,
+  p_notify_creator boolean default true
 )
 returns jsonb
 language plpgsql
@@ -193,6 +240,9 @@ begin
 
     if not found then
       raise exception using errcode = 'P0002', message = 'Submission does not belong to this creator and campaign';
+    end if;
+    if p_complete_submission and v_creator_campaign_id is null then
+      raise exception using errcode = '22023', message = 'Submission is missing its campaign job';
     end if;
 
     select cp.id
@@ -291,14 +341,16 @@ begin
        and creator_id = p_creator_id;
   end if;
 
-  insert into public.notifications (user_id, title, body, kind, link)
-  values (
-    p_creator_id,
-    'Campaign earnings released',
-    'A verified campaign payment has been added to your AdBridge balance.',
-    'campaign_payment',
-    '/creator/earnings'
-  );
+  if p_notify_creator then
+    insert into public.notifications (user_id, title, body, kind, link)
+    values (
+      p_creator_id,
+      'Campaign earnings released',
+      'A campaign payment has been added to your AdBridge balance.',
+      'campaign_payment',
+      '/creator/earnings'
+    );
+  end if;
 
   return pg_catalog.jsonb_build_object(
     'paid', true,
@@ -409,7 +461,8 @@ begin
     v_campaign.payment_rate,
     null,
     false,
-    false
+    false,
+    true
   );
 
   if coalesce((v_payment ->> 'paid')::boolean, false) is not true then
@@ -479,13 +532,12 @@ create policy "advertisers and admins read cpa conversion events"
 revoke all on function public.record_campaign_click(text, text, text) from public, anon, authenticated;
 grant execute on function public.record_campaign_click(text, text, text) to service_role;
 
-revoke all on function public.release_creator_campaign_payment(uuid, uuid, numeric, uuid, boolean, boolean) from public, anon, authenticated;
-grant execute on function public.release_creator_campaign_payment(uuid, uuid, numeric, uuid, boolean, boolean) to service_role;
+revoke all on function public.release_creator_campaign_payment(uuid, uuid, numeric, uuid, boolean, boolean, boolean) from public, anon, authenticated;
+grant execute on function public.release_creator_campaign_payment(uuid, uuid, numeric, uuid, boolean, boolean, boolean) to service_role;
 
 revoke all on function public.record_cpa_conversion(uuid, text, text, text, numeric) from public, anon, authenticated;
 grant execute on function public.record_cpa_conversion(uuid, text, text, text, numeric) to service_role;
 
--- The old browser-callable redirect RPC is no longer part of the application path.
 do $$
 begin
   if pg_catalog.to_regprocedure('public.record_tracking_click(text,text,text,text)') is not null then

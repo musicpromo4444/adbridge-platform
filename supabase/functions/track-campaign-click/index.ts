@@ -37,17 +37,22 @@ Deno.serve(async (req: Request) => {
   });
 
   if (error) {
-    const status = error.code === "P0002" ? 404 : error.code === "22023" ? 400 : 503;
+    const status = error.code === "P0002" ? 404
+      : error.code === "22023" ? 400
+      : error.code === "P0001" ? 409
+      : 503;
     return json({
       error: status === 404
         ? "Tracking link not found."
         : status === 400
           ? "Invalid tracking request."
-          : "Tracking is temporarily unavailable.",
+          : status === 409
+            ? "Campaign target, funding or budget does not allow another paid click."
+            : "Tracking is temporarily unavailable.",
     }, status);
   }
 
-  const result = data as { target_url?: unknown; counted?: unknown; unique?: unknown } | null;
+  const result = data as { target_url?: unknown; counted?: unknown; unique?: unknown; paid?: unknown } | null;
   if (typeof result?.target_url !== "string" || !isSafeHttpUrl(result.target_url)) {
     return json({ error: "Tracking destination is invalid." }, 502);
   }
@@ -56,5 +61,6 @@ Deno.serve(async (req: Request) => {
     target_url: result.target_url,
     counted: Boolean(result.counted),
     unique: Boolean(result.unique),
+    paid: Boolean(result.paid),
   });
 });

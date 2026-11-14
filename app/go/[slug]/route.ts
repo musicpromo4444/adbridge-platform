@@ -55,9 +55,15 @@ export async function GET(
 
   const result = await trackingResponse.json().catch(() => null) as { target_url?: unknown } | null;
   if (!trackingResponse.ok) {
-    const status = trackingResponse.status === 404 ? 404 : trackingResponse.status === 400 ? 400 : 503;
+    const status = trackingResponse.status === 404 ? 404
+      : trackingResponse.status === 400 ? 400
+      : trackingResponse.status === 409 ? 409
+      : 503;
     return NextResponse.json(
-      { error: status === 404 ? "Tracking link not found." : status === 400 ? "Invalid tracking link." : "Tracking is temporarily unavailable." },
+      { error: status === 404 ? "Tracking link not found."
+        : status === 400 ? "Invalid tracking link."
+        : status === 409 ? "This campaign has reached its target or paid-click budget."
+        : "Tracking is temporarily unavailable." },
       { status },
     );
   }

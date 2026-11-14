@@ -111,6 +111,7 @@ export default function Results() {
             <div className="quick">
               <h2>Result tracking</h2>
               {clickBased && <p>Creator links use AdBridge's server-side redirect. Click totals are recorded by the tracking service.</p>}
+              {paymentMethod === "cpc" && <p>For CPC campaigns, each counted click releases the agreed per-click amount from confirmed campaign funds.</p>}
               {actionBased && <p>CPA/CPI postbacks are accepted only when they include a valid AdBridge click ID. AdBridge resolves the creator from the saved link; the postback does not independently prove a purchase or install.</p>}
               {viewBased && <p>AdBridge retrieves published view metrics from connected platform APIs.</p>}
               {!clickBased && !actionBased && !viewBased && <p>AdBridge checks published work and available verified metrics.</p>}

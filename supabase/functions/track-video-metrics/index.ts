@@ -242,6 +242,7 @@ Deno.serve(async (req: Request) => {
         p_submission_id: submission.id,
         p_allow_partial: true,
         p_complete_submission: true,
+        p_notify_creator: true,
       });
       if (paymentError) return json({ error: "The creator payment could not be safely released." }, 503);
       paymentReleased = Boolean(payment?.paid);
