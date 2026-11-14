@@ -1,0 +1,7 @@
+project_id = "wilfmtzxxnkdcyiozamq"
+
+[functions.track-campaign-click]
+verify_jwt = false
+
+[functions.track-conversion]
+verify_jwt = false
