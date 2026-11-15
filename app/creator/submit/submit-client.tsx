@@ -20,9 +20,26 @@ const hosts: Record<string, string[]> = {
 const trackedModels = ["cpc", "clicks", "link_traffic", "cpi", "cpa", "actions"];
 const specialModels = ["product_placement", "brand_mention", "partnership", "job", "placement"];
 
+type SubmissionResult = {
+  success?: boolean;
+  submission_id?: string;
+  status?: string;
+  payment_method?: string | null;
+  tracking_slug?: string | null;
+};
+
+function submissionErrorMessage(code?: string) {
+  if (code === "28000") return "Please sign in again before submitting your work.";
+  if (code === "42501") return "Only a creator account can submit campaign work.";
+  if (code === "P0002") return "This campaign job is no longer available.";
+  if (code === "P0001") return "This campaign or job cannot accept another submission right now.";
+  if (code === "22023") return "Check that the published post URL and platform are valid.";
+  return "AdBridge could not save your submission. Please try again.";
+}
+
 export default function Submit() {
-  const p = useSearchParams();
-  const job = p.get("job") || "";
+  const params = useSearchParams();
+  const job = params.get("job") || "";
   const [posted, setPosted] = useState("");
   const [evidence, setEvidence] = useState("");
   const [note, setNote] = useState("");
@@ -32,7 +49,6 @@ export default function Submit() {
   const [error, setError] = useState("");
   const [method, setMethod] = useState("");
   const [trackingUrl, setTrackingUrl] = useState("");
-  const [trackingError, setTrackingError] = useState("");
 
   async function submit() {
     if (!supabase || !job) {
@@ -43,128 +59,73 @@ export default function Submit() {
     let publicUrl: URL;
     try {
       publicUrl = new URL(posted.trim());
-      if (!["http:", "https:"].includes(publicUrl.protocol)) throw new Error("Invalid protocol");
+      if (
+        !["http:", "https:"].includes(publicUrl.protocol)
+        || !publicUrl.hostname
+        || publicUrl.username
+        || publicUrl.password
+      ) {
+        throw new Error("Invalid public URL");
+      }
     } catch {
       setError("Enter a valid public post URL.");
       return;
     }
 
-    if (!hosts[platform]?.some((host) => publicUrl.hostname === host || publicUrl.hostname.endsWith("." + host))) {
+    if (!hosts[platform]?.some((host) =>
+      publicUrl.hostname === host || publicUrl.hostname.endsWith("." + host)
+    )) {
       setError("That link does not match the selected platform.");
+      return;
+    }
+
+    const finalNote = [
+      note.trim(),
+      evidence.trim() ? "Proof/evidence: " + evidence.trim() : "",
+    ].filter(Boolean).join("\n");
+
+    if (finalNote.length > 2000) {
+      setError("Your note and evidence must be 2,000 characters or fewer.");
       return;
     }
 
     setSaving(true);
     setError("");
-    setTrackingError("");
     setTrackingUrl("");
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setError("Please sign in again.");
+    const { data, error: submissionError } = await supabase.rpc(
+      "submit_creator_campaign_work",
+      {
+        p_job_id: job,
+        p_posted_url: posted.trim(),
+        p_platform: platform,
+        p_note: finalNote || null,
+      },
+    );
+
+    if (submissionError) {
+      setError(submissionErrorMessage(submissionError.code));
       setSaving(false);
       return;
     }
 
-    const { data: jobRecord, error: jobError } = await supabase
-      .from("creator_campaigns")
-      .select("id,campaign_id,creator_id,status")
-      .eq("id", job)
-      .eq("creator_id", user.id)
-      .single();
-
-    if (jobError || !jobRecord) {
-      setError("Campaign job not found.");
-      setSaving(false);
-      return;
-    }
-    if (["submitted", "approved", "completed"].includes(jobRecord.status)) {
-      setError("This campaign has already been submitted.");
+    const result = data as SubmissionResult | null;
+    if (!result?.success || !result.submission_id) {
+      setError("AdBridge did not confirm that your submission was saved. Please try again.");
       setSaving(false);
       return;
     }
 
-    const { data: campaign, error: campaignError } = await supabase
-      .from("campaigns")
-      .select("payment_method,desired_results,platform,status")
-      .eq("id", jobRecord.campaign_id)
-      .single();
-
-    if (campaignError || !campaign) {
-      setError("Campaign details could not be loaded.");
-      setSaving(false);
-      return;
-    }
-    if (!["active", "funded"].includes(String(campaign.status))) {
-      setError("This campaign is not accepting submissions yet.");
-      setSaving(false);
-      return;
-    }
-
-    const paymentMethod = String(campaign.payment_method || "").toLowerCase();
+    const paymentMethod = String(result.payment_method || "").toLowerCase();
     setMethod(paymentMethod);
-    const targetMetric = ["cpm", "views"].includes(paymentMethod)
-      ? Number(campaign.desired_results || 0)
-      : null;
-    const special = specialModels.includes(paymentMethod);
-    const finalNote = special
-      ? [note.trim(), evidence.trim() ? "Proof/evidence: " + evidence.trim() : ""].filter(Boolean).join("\n")
-      : note.trim();
-
-    const { data: submission, error: submissionError } = await supabase
-      .from("submissions")
-      .insert({
-        campaign_id: jobRecord.campaign_id,
-        creator_id: user.id,
-        creator_campaign_id: jobRecord.id,
-        posted_url: posted.trim(),
-        note: finalNote,
-        status: "waiting",
-        tracking_platform: platform.toLowerCase(),
-        target_metric: targetMetric,
-        current_metric: 0,
-        metric_status: targetMetric ? "pending" : "not_required",
-      })
-      .select("id")
-      .single();
-
-    if (submissionError || !submission) {
-      setError(submissionError?.message || "Submission failed.");
-      setSaving(false);
-      return;
-    }
 
     if (trackedModels.includes(paymentMethod)) {
-      const { data: destination, error: destinationError } = await supabase
-        .from("campaign_destination_urls")
-        .select("target_url")
-        .eq("campaign_id", jobRecord.campaign_id)
-        .maybeSingle();
-
-      if (destinationError || !destination?.target_url) {
-        setTrackingError("Your submission was saved, but AdBridge could not load the advertiser's destination URL. Contact AdBridge before promoting this campaign.");
-      } else {
-        const slug = "c_" + crypto.randomUUID().replaceAll("-", "").slice(0, 20);
-        const { error: linkError } = await supabase.from("tracking_links").insert({
-          campaign_id: jobRecord.campaign_id,
-          creator_id: user.id,
-          submission_id: submission.id,
-          slug,
-          target_url: destination.target_url,
-        });
-        if (linkError) {
-          setTrackingError("Your submission was saved, but the tracked link could not be created. Do not promote an untracked destination URL.");
-        } else {
-          setTrackingUrl(window.location.origin + "/go/" + slug);
-        }
+      if (!result.tracking_slug) {
+        setError("Your submission was saved, but its tracking link was not returned. Do not promote it until AdBridge confirms the link.");
+        setSaving(false);
+        return;
       }
-    }
-
-    const { error: statusError } = await supabase.rpc("mark_creator_campaign_submitted", { p_job_id: job });
-    if (statusError) {
-      setError(statusError.message || "The submission was saved but the campaign status could not be updated.");
-      setSaving(false);
-      return;
+      setTrackingUrl(window.location.origin + "/go/" + result.tracking_slug);
     }
 
     setSent(true);
@@ -172,6 +133,7 @@ export default function Submit() {
   }
 
   const special = specialModels.includes(method);
+  const tracked = trackedModels.includes(method);
 
   return (
     <main className="formPage">
@@ -179,45 +141,82 @@ export default function Submit() {
       <div className="formCard">
         <span className="eyebrow">SEND COMPLETED WORK</span>
         <h1>Ready to <em>submit?</em></h1>
-        <p>Submit the public link. AdBridge verifies results where the configured platform integration supports it.</p>
+        <p>Submit the public link. AdBridge records results only through the tracking or platform integrations configured for the campaign.</p>
+
         <label>Platform</label>
         <select className="textInput" value={platform} onChange={(event) => setPlatform(event.target.value)}>
           {Object.keys(hosts).map((name) => <option key={name}>{name}</option>)}
         </select>
+
         <label>Published work link</label>
-        <input className="textInput" value={posted} onChange={(event) => setPosted(event.target.value)} placeholder="https://tiktok.com/..." />
+        <input
+          className="textInput"
+          value={posted}
+          onChange={(event) => setPosted(event.target.value)}
+          placeholder="https://tiktok.com/..."
+          maxLength={2048}
+        />
+
         {platform === "Snapchat" && (
           <>
             <label>Evidence / Insights link</label>
-            <input className="textInput" value={evidence} onChange={(event) => setEvidence(event.target.value)} placeholder="Paste eligible Insights evidence link" />
+            <input
+              className="textInput"
+              value={evidence}
+              onChange={(event) => setEvidence(event.target.value)}
+              placeholder="Paste eligible Insights evidence link"
+              maxLength={1500}
+            />
           </>
         )}
+
         {special && (
           <>
             <label>Proof / evidence</label>
-            <input className="textInput" value={evidence} onChange={(event) => setEvidence(event.target.value)} placeholder="Optional screenshot, transcript or proof link" />
+            <input
+              className="textInput"
+              value={evidence}
+              onChange={(event) => setEvidence(event.target.value)}
+              placeholder="Optional screenshot, transcript or proof link"
+              maxLength={1500}
+            />
           </>
         )}
+
         <label>{special ? "Add a note for AdBridge review" : "Anything AdBridge should know?"}</label>
-        <textarea value={note} onChange={(event) => setNote(event.target.value)} placeholder="Optional note" />
+        <textarea
+          value={note}
+          onChange={(event) => setNote(event.target.value)}
+          placeholder="Optional note"
+          maxLength={2000}
+        />
+
         {error && <div className="successBox" role="alert">{error}</div>}
+
         <button className="primary" disabled={saving || sent} onClick={submit}>
           {saving ? "Sending…" : sent ? "Sent for approval ✓" : "Send for approval →"}
         </button>
+
         {sent && (
           <>
             <div className="successBox">
-              <b>Submission received.</b><br />
+              <b>Submission received.</b>
               {trackingUrl && (
                 <>
-                  Your unique campaign link: <a href={trackingUrl} target="_blank" rel="noreferrer">{trackingUrl}</a><br />
-                  Use this link wherever you promote the campaign.
+                  <br />
+                  Your unique campaign link:{" "}
+                  <a href={trackingUrl} target="_blank" rel="noreferrer">{trackingUrl}</a>
+                  <br />
+                  Use this AdBridge link wherever you promote the campaign.
                 </>
               )}
-              {trackingError && <p role="alert">{trackingError}</p>}
-              {special
-                ? "AdBridge will review your post and proof before payment is released."
-                : "AdBridge will record tracked results according to the campaign model."}
+              <p>
+                {tracked
+                  ? "AdBridge records eligible clicks. CPI/CPA actions are counted only when a valid postback is attributed to this link; a click alone is not proof of an install or purchase."
+                  : special
+                    ? "AdBridge will review your post and the evidence you supplied before approval."
+                    : "AdBridge will process the submission using the campaign's configured review and measurement rules."}
+              </p>
             </div>
             <Link className="secondary" href="/creator/work">Back to my work →</Link>
           </>
