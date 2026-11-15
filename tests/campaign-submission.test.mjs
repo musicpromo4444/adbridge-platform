@@ -25,8 +25,8 @@ test("creator submission and tracked-link creation are atomic and server-owned",
   assert.match(sql, /insert into public\.tracking_links/i);
   assert.match(sql, /update public\.creator_campaigns[\s\S]*set status = 'submitted'/i);
   assert.match(sql, /insert into public\.notifications/i);
-  assert.match(sql, /revoke insert on table public\.submissions from public, anon, authenticated/i);
-  assert.match(sql, /revoke insert on table public\.tracking_links from public, anon, authenticated/i);
+  assert.match(sql, /revoke insert, update, delete on table public\.submissions from public, anon, authenticated/i);
+  assert.match(sql, /revoke insert, update, delete on table public\.tracking_links from public, anon, authenticated/i);
   assert.match(sql, /security invoker/i);
   assert.match(sql, /grant execute on function public\.submit_creator_campaign_work[\s\S]*to authenticated/i);
   assert.match(sql, /grant execute on function adbridge_private\.submit_creator_campaign_work[\s\S]*to authenticated/i);
