@@ -324,9 +324,9 @@ begin
 
   if v_payment_method in ('cpc', 'clicks', 'link_traffic', 'cpi', 'cpa', 'actions') then
     v_tracking_slug := 'c_' ||
-      pg_catalog.substring(
-        pg_catalog.replace(pg_catalog.gen_random_uuid()::text, '-', '')
-        from 1 for 20
+      pg_catalog.left(
+        pg_catalog.replace(pg_catalog.gen_random_uuid()::text, '-', ''),
+        20
       );
 
     insert into public.tracking_links (
