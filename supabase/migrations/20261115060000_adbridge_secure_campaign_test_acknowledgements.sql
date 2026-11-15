@@ -37,6 +37,41 @@ grant all on table public.creator_campaign_test_acknowledgements
 do $migration$
 begin
   if pg_catalog.to_regclass('public.creator_campaign_tests') is not null then
+    -- Preserve prior acknowledgements before closing the legacy browser write path.
+    if (
+      select pg_catalog.count(*)
+        from information_schema.columns
+       where table_schema = 'public'
+         and table_name = 'creator_campaign_tests'
+         and column_name in (
+           'campaign_test_id',
+           'creator_id',
+           'understood',
+           'action_started',
+           'completed',
+           'completed_at'
+         )
+    ) = 6 then
+      execute $backfill$
+        insert into public.creator_campaign_test_acknowledgements (
+          campaign_test_id,
+          creator_id,
+          external_resource_opened_self_reported,
+          acknowledged_at
+        )
+        select
+          legacy.campaign_test_id,
+          legacy.creator_id,
+          coalesce(legacy.action_started, false),
+          coalesce(legacy.completed_at, pg_catalog.now())
+        from public.creator_campaign_tests legacy
+        join public.campaign_tests ct on ct.id = legacy.campaign_test_id
+        where legacy.understood is true
+          and legacy.completed is true
+        on conflict (campaign_test_id, creator_id) do nothing
+      $backfill$;
+    end if;
+
     execute 'revoke all on table public.creator_campaign_tests from public, anon, authenticated';
   end if;
 end
