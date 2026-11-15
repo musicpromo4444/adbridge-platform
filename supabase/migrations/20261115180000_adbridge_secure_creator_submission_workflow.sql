@@ -13,8 +13,8 @@ alter table public.tracking_links enable row level security;
 
 -- Browser clients must use the authenticated submission RPC. Server-side service
 -- functions retain their existing privileges.
-revoke insert on table public.submissions from public, anon, authenticated;
-revoke insert on table public.tracking_links from public, anon, authenticated;
+revoke insert, update, delete on table public.submissions from public, anon, authenticated;
+revoke insert, update, delete on table public.tracking_links from public, anon, authenticated;
 
 create or replace function adbridge_private.submit_creator_campaign_work(
   p_job_id uuid,
