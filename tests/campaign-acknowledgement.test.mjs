@@ -21,7 +21,7 @@ test("campaign acknowledgements are written only by an authenticated creator RPC
   assert.match(sql, /enable row level security/i);
   assert.match(sql, /for select to authenticated[\s\S]*auth\.uid\(\)/i);
   assert.match(sql, /revoke all on table public\.creator_campaign_test_acknowledgements[\s\S]*from public, anon, authenticated/i);
-  assert.match(sql, /grant select on table public\.creator_campaign_test_acknowledgements to authenticated/i);
+  assert.match(sql, /grant select on table public\.creator_campaign_test_acknowledgements\s+to authenticated/i);
   assert.match(sql, /revoke all on function public\.complete_campaign_test_acknowledgement[\s\S]*from public, anon, authenticated/i);
   assert.match(sql, /grant execute on function public\.complete_campaign_test_acknowledgement[\s\S]*to authenticated/i);
   assert.match(sql, /security definer[\s\S]*set search_path = ''/i);
