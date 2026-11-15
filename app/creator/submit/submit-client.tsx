@@ -49,6 +49,7 @@ export default function Submit() {
   const [error, setError] = useState("");
   const [method, setMethod] = useState("");
   const [trackingUrl, setTrackingUrl] = useState("");
+  const [trackingWarning, setTrackingWarning] = useState("");
 
   async function submit() {
     if (!supabase || !job) {
@@ -92,6 +93,7 @@ export default function Submit() {
     setSaving(true);
     setError("");
     setTrackingUrl("");
+    setTrackingWarning("");
 
     const { data, error: submissionError } = await supabase.rpc(
       "submit_creator_campaign_work",
@@ -121,7 +123,8 @@ export default function Submit() {
 
     if (trackedModels.includes(paymentMethod)) {
       if (!result.tracking_slug) {
-        setError("Your submission was saved, but its tracking link was not returned. Do not promote it until AdBridge confirms the link.");
+        setTrackingWarning("Your submission was saved, but its tracking link was not returned. Do not promote it until AdBridge confirms the link.");
+        setSent(true);
         setSaving(false);
         return;
       }
@@ -157,27 +160,14 @@ export default function Submit() {
           maxLength={2048}
         />
 
-        {platform === "Snapchat" && (
+        {(platform === "Snapchat" || special) && (
           <>
-            <label>Evidence / Insights link</label>
+            <label>{platform === "Snapchat" ? "Evidence / Insights link" : "Proof / evidence"}</label>
             <input
               className="textInput"
               value={evidence}
               onChange={(event) => setEvidence(event.target.value)}
-              placeholder="Paste eligible Insights evidence link"
-              maxLength={1500}
-            />
-          </>
-        )}
-
-        {special && (
-          <>
-            <label>Proof / evidence</label>
-            <input
-              className="textInput"
-              value={evidence}
-              onChange={(event) => setEvidence(event.target.value)}
-              placeholder="Optional screenshot, transcript or proof link"
+              placeholder={platform === "Snapchat" ? "Paste eligible Insights evidence link" : "Optional screenshot, transcript or proof link"}
               maxLength={1500}
             />
           </>
@@ -201,6 +191,7 @@ export default function Submit() {
           <>
             <div className="successBox">
               <b>Submission received.</b>
+              {trackingWarning && <p role="alert">{trackingWarning}</p>}
               {trackingUrl && (
                 <>
                   <br />
@@ -210,13 +201,15 @@ export default function Submit() {
                   Use this AdBridge link wherever you promote the campaign.
                 </>
               )}
-              <p>
-                {tracked
-                  ? "AdBridge records eligible clicks. CPI/CPA actions are counted only when a valid postback is attributed to this link; a click alone is not proof of an install or purchase."
-                  : special
-                    ? "AdBridge will review your post and the evidence you supplied before approval."
-                    : "AdBridge will process the submission using the campaign's configured review and measurement rules."}
-              </p>
+              {!trackingWarning && (
+                <p>
+                  {tracked
+                    ? "AdBridge records eligible clicks. CPI/CPA actions are counted only when a valid postback is attributed to this link; a click alone is not proof of an install or purchase."
+                    : special
+                      ? "AdBridge will review your post and the evidence you supplied before approval."
+                      : "AdBridge will process the submission using the campaign's configured review and measurement rules."}
+                </p>
+              )}
             </div>
             <Link className="secondary" href="/creator/work">Back to my work →</Link>
           </>
