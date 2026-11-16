@@ -34,8 +34,6 @@ export default function CampaignDetails(){
  if(alreadyAccepted||!testData||testCompleted)setPhase("unlocked");
  setLoading(false)}load()},[params.id]);
 
- async function getCreatorId(){if(!supabase)return null;const {data:{user}}=await supabase.auth.getUser();if(!user)return null;const {data}=await supabase.from("profiles").select("id").eq("id",user.id).maybeSingle();return data?.id||null}
-
  async function completeTest(){setSaving(true);setError("");if(!supabase||!campaignTest){setError("The campaign acknowledgement is not available.");setSaving(false);return}const {data:{user}}=await supabase.auth.getUser();if(!user){setError("Sign in before acknowledging this campaign.");setSaving(false);return}const {error:e}=await supabase.rpc("complete_campaign_test_acknowledgement",{p_campaign_test_id:campaignTest.id,p_external_resource_opened_self_reported:actionOpened});if(e){setError(e.message||"We couldn\'t save your campaign acknowledgement yet.");setSaving(false);return}setPhase("unlocked");setSaving(false)}
 
  if(loading)return <main className="formPage"><div className="formCard"><span className="eyebrow">CAMPAIGN</span><h1>Loading...</h1></div></main>;
@@ -50,18 +48,20 @@ export default function CampaignDetails(){
  {phase==="understand"&&<div className="unlockBox"><span className="eyebrow">STEP 1 · UNDERSTANDING CHECK</span><h2>Good. Now prove you understand it.</h2><p>{campaignTest?.instructions||"The advertiser requires a short understanding check before participation."}</p><div className="choiceRow"><button className="primary" onClick={()=>setPhase("test")}>Continue to test →</button><button className="secondary" onClick={()=>setPhase("locked")}>Show me again</button></div></div>}
  {phase==="test"&&<div className="unlockBox"><span className="eyebrow">STEP 2 · CAMPAIGN TEST</span><h2>{campaignTest?.title||"Complete this short campaign test"}</h2><p>{campaignTest?.instructions||"Review the campaign instructions, then confirm that you understand what a viewer must do."}</p>{campaignTest?.action_url&&<a className="secondary" href={campaignTest.action_url} target="_blank" rel="noreferrer" onClick={()=>setActionOpened(true)}>{campaignTest.action_label||"Open campaign resource"} ↗</a>}{actionAsset?.asset_url&&<a className="secondary" href={actionAsset.asset_url} target="_blank" rel="noreferrer" onClick={()=>setActionOpened(true)}>Open advertiser link ↗</a>}<button className="primary" disabled={saving||(hasActionLink&&!actionOpened)} onClick={completeTest}>{saving?"Saving…":"Confirm acknowledgement →"}</button><small>{hasActionLink?(actionOpened?"You confirmed that you opened the campaign resource. This is self-reported and does not verify activity on the external website.":"Open the campaign resource first. The link-open acknowledgement is self-reported and does not verify external activity."):"No external action link is configured. This step records your acknowledgement only."}</small></div>}
  {error&&<div className="successBox">{error}</div>}
- {phase==="unlocked"&&<><CampaignRequirements campaign={campaign}/><AcceptCampaign campaignId={campaign.id} getCreatorId={getCreatorId} verificationRequired={verificationRequired}/></>}
+ {phase==="unlocked"&&<><CampaignRequirements campaign={campaign}/><AcceptCampaign campaignId={campaign.id} verificationRequired={verificationRequired}/></>}
  </div></main>
 }
 
-function AcceptCampaign({campaignId,getCreatorId,verificationRequired}:{campaignId:string;getCreatorId:()=>Promise<string|null>;verificationRequired:boolean}){
+function AcceptCampaign({campaignId,verificationRequired}:{campaignId:string;verificationRequired:boolean}){
  const [busy,setBusy]=useState(false);const [error,setError]=useState("");
- async function accept(){if(!supabase)return;setBusy(true);setError("");const creatorId=await getCreatorId();if(!creatorId){setError("We could not create your creator profile yet.");setBusy(false);return}
-  if(verificationRequired){const {data:profile}=await supabase.from("profiles").select("verified,role").eq("id",creatorId).single();if(!profile?.verified){setError("This campaign requires a verified creator. Please wait for AdBridge verification before accepting it.");setBusy(false);return}}
-  const {data:existing}=await supabase.from("creator_campaigns").select("id").eq("campaign_id",campaignId).eq("creator_id",creatorId).limit(1).maybeSingle();
-  if(existing?.id){window.location.href="/creator/work";return}
-  const {data,error:e}=await supabase.from("creator_campaigns").insert({campaign_id:campaignId,creator_id:creatorId,status:"accepted"}).select("id").single();if(e||!data){setError(e?.message||"Could not accept campaign.");setBusy(false);return}window.location.href="/creator/work";
+ async function accept(){
+  if(!supabase)return;
+  setBusy(true);setError("");
+  const {data,error:acceptError}=await supabase.rpc("accept_creator_campaign",{p_campaign_id:campaignId});
+  if(acceptError){setError(acceptError.message||"Could not accept this campaign.");setBusy(false);return}
+  if(!data?.success||!data?.job_id){setError("AdBridge did not confirm campaign access. Please refresh and try again.");setBusy(false);return}
+  window.location.assign("/creator/work");
  }
- return <div className="unlockBox"><div className="successBox">✓ Campaign access is ready.</div><h2>Campaign unlocked</h2><p>{verificationRequired?"Your creator verification is required before you can accept this campaign.":"Review the advertiser instructions before you start creating."}</p>{error&&<div className="successBox">{error}</div>}<button className="primary" disabled={busy} onClick={accept}>{busy?"Checking…":"Accept & start campaign →"}</button></div>
+ return <div className="unlockBox"><div className="successBox">✓ Campaign access is ready.</div><h2>Campaign unlocked</h2><p>{verificationRequired?"Your creator account must be verified before you can accept this campaign.":"Review the advertiser instructions before you start creating."}</p>{error&&<div className="successBox" role="alert">{error}</div>}<button className="primary" disabled={busy} onClick={accept}>{busy?"Accepting…":"Accept & start campaign →"}</button><small>AdBridge checks your creator account, campaign status and required acknowledgement before creating your campaign job.</small></div>
 }
 function CampaignRequirements({campaign}:{campaign:Campaign}){const m=(campaign.payment_method||"").toLowerCase();const p=campaign.platform||"";const auto=["views","cpm"].includes(m)&&!!p;return <div className="unlockBox"><span className="eyebrow">BEFORE YOU START</span><h2>Creator steps</h2><ol><li>Create and publish the required content exactly as instructed.</li>{auto&&<li>Connect your {p} account to AdBridge so results can be verified.</li>}<li>Keep the post public while the campaign is active.</li>{auto&&<li>AdBridge will check and record the campaign metric automatically.</li>}{!auto&&<li>Submit your published post link and any proof requested by the advertiser.</li>}<li>Payment is released according to the campaign payment rules after verification or approval.</li></ol>{auto&&<Link className="secondary" href="/creator/connections">Connect {p} account →</Link>}{auto&&(m==="views"||m==="cpm")&&<p><small>AdBridge verifies total views, not unique viewers.</small></p>}</div>}
