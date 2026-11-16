@@ -61,7 +61,7 @@ begin
    where p.id = v_actor_id
    for share;
 
-  if not found or v_actor_role not in ('advertiser', 'admin') then
+  if not found or coalesce(v_actor_role, '') not in ('advertiser', 'admin') then
     raise exception using errcode = '42501', message = 'Advertiser or administrator access is required.';
   end if;
 
@@ -76,7 +76,7 @@ begin
     raise exception using errcode = 'P0002', message = 'Campaign not found.';
   end if;
 
-  if v_actor_role <> 'admin' and v_advertiser_id <> v_actor_id then
+  if v_actor_role <> 'admin' and v_advertiser_id is distinct from v_actor_id then
     raise exception using errcode = '42501', message = 'You cannot change another advertiser campaign.';
   end if;
 
@@ -93,17 +93,17 @@ begin
     raise exception using errcode = 'P0001', message = 'Closed campaigns cannot be reopened.';
   end if;
 
-  if v_target_status = 'paused' and v_current_status <> 'active' then
+  if v_target_status = 'paused' and v_current_status is distinct from 'active' then
     raise exception using errcode = 'P0001', message = 'Only an active campaign can be paused.';
   end if;
 
   if v_target_status = 'closed'
-     and v_current_status not in ('draft', 'funded', 'active', 'paused') then
+     and coalesce(v_current_status, '') not in ('draft', 'funded', 'active', 'paused') then
     raise exception using errcode = 'P0001', message = 'This campaign cannot be closed from its current state.';
   end if;
 
   if v_target_status = 'active' then
-    if v_current_status not in ('funded', 'paused') then
+    if coalesce(v_current_status, '') not in ('funded', 'paused') then
       raise exception using errcode = 'P0001', message = 'Only a funded or paused campaign can be activated.';
     end if;
 
