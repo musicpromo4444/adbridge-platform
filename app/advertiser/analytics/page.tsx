@@ -1,5 +1,83 @@
 "use client";
-import Link from "next/link";import {useEffect,useState} from "react";import {supabase} from "@/lib/supabase";
-export default function AdvertiserAnalytics(){const [s,setS]=useState({campaigns:0,views:0,clicks:0,conversions:0}),[loading,setLoading]=useState(true);
-useEffect(()=>{async function load(){if(!supabase){setLoading(false);return}const {data:{user}}=await supabase.auth.getUser();if(!user){window.location.href="/login";return}const {data:cs}=await supabase.from("campaigns").select("id").eq("advertiser_id",user.id);const ids=(cs||[]).map(x=>x.id);if(!ids.length){setLoading(false);return}const [{data:subs},{data:links},{count}]=await Promise.all([supabase.from("submissions").select("current_metric").in("campaign_id",ids),supabase.from("tracking_links").select("click_count").in("campaign_id",ids),supabase.from("cpa_conversion_events").select("id",{count:"exact",head:true}).in("campaign_id",ids).eq("status","approved")]);setS({campaigns:ids.length,views:(subs||[]).reduce((n,x)=>n+Number(x.current_metric||0),0),clicks:(links||[]).reduce((n,x)=>n+Number(x.click_count||0),0),conversions:count||0});setLoading(false)}load()},[]);
-return <main className="dashboard"><div className="topbar"><Link href="/advertiser">← Dashboard</Link><span className="pill">Advertiser</span></div><section className="hero"><p className="eyebrow">PERFORMANCE</p><h1>Campaign Analytics</h1><p>Verified activity from your own campaigns.</p></section><div className="grid"><div className="card"><strong>Campaigns</strong><h2>{loading?"—":s.campaigns}</h2><p>Your campaigns in AdBridge.</p></div><div className="card"><strong>Verified views</strong><h2>{loading?"—":s.views.toLocaleString()}</h2><p>Views recorded from submitted work.</p></div><div className="card"><strong>Clicks</strong><h2>{loading?"—":s.clicks.toLocaleString()}</h2><p>Creator tracking-link clicks.</p></div><div className="card"><strong>Conversions</strong><h2>{loading?"—":s.conversions.toLocaleString()}</h2><p>Approved conversion events.</p></div></div></main>}
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { loadMyCampaignAnalytics, type CampaignAnalytics } from "@/lib/campaign-analytics";
+
+export default function AdvertiserAnalytics() {
+  const [analytics, setAnalytics] = useState<CampaignAnalytics | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      if (!supabase) {
+        setMessage("AdBridge database connection is not configured.");
+        setLoading(false);
+        return;
+      }
+
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        window.location.href = "/login";
+        return;
+      }
+
+      const result = await loadMyCampaignAnalytics();
+      if (!active) return;
+      if (result.error || !result.data) {
+        setMessage(result.error?.message || "Campaign analytics could not be loaded.");
+      } else {
+        setAnalytics(result.data);
+      }
+      setLoading(false);
+    }
+
+    void load();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const value = (number: number | undefined) => loading ? "—" : (number ?? 0).toLocaleString();
+
+  return (
+    <main className="dashboard">
+      <div className="topbar">
+        <Link href="/advertiser">← Dashboard</Link>
+        <span className="pill">Advertiser</span>
+      </div>
+      <section className="hero">
+        <p className="eyebrow">PERFORMANCE</p>
+        <h1>Campaign Analytics</h1>
+        <p>Activity attributed to campaigns owned by your advertiser account.</p>
+      </section>
+      {message && <p className="fieldHint" role="alert">{message}</p>}
+      <div className="grid">
+        <div className="card">
+          <strong>Campaigns</strong>
+          <h2>{value(analytics?.campaignCount)}</h2>
+          <p>Your campaigns in AdBridge.</p>
+        </div>
+        <div className="card">
+          <strong>Platform-reported views</strong>
+          <h2>{value(analytics?.platformReportedViews)}</h2>
+          <p>Latest counts returned by supported social platform APIs; not independently audited.</p>
+        </div>
+        <div className="card">
+          <strong>Tracked clicks</strong>
+          <h2>{value(analytics?.trackedClicks)}</h2>
+          <p>Clicks recorded through AdBridge tracking links.</p>
+        </div>
+        <div className="card">
+          <strong>Approved conversions</strong>
+          <h2>{value(analytics?.approvedConversions)}</h2>
+          <p>CPA/CPI conversion events accepted by AdBridge.</p>
+        </div>
+      </div>
+    </main>
+  );
+}
