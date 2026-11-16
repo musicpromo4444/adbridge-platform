@@ -1,10 +1,23 @@
 "use client";
 import Link from "next/link";import {useEffect,useMemo,useState} from "react";import {supabase} from "@/lib/supabase";
+import { transitionCampaignStatus, type CampaignStatus } from "@/lib/campaign-lifecycle";
 export default function AdminCampaigns(){const [cs,setCs]=useState<any[]>([]),[filter,setFilter]=useState("all"),[query,setQuery]=useState(""),[loading,setLoading]=useState(true),[selected,setSelected]=useState<any|null>(null),[busy,setBusy]=useState(false),[message,setMessage]=useState(""),[error,setError]=useState("");
 async function load(){if(!supabase){setLoading(false);return}setLoading(true);setError("");const {data,error:e}=await supabase.from("campaigns").select("id,advertiser_id,name,goal,instructions,platform,payment_method,payment_rate,max_budget,desired_results,status,funded_amount,created_at,updated_at").order("created_at",{ascending:false});if(e)setError("Could not load campaigns.");setCs(data||[]);setLoading(false)}
 useEffect(()=>{load()},[]);
 const filtered=useMemo(()=>cs.filter(c=>(filter==="all"||c.status===filter)&&((c.name||"").toLowerCase().includes(query.toLowerCase())||(c.goal||"").toLowerCase().includes(query.toLowerCase())||(c.platform||"").toLowerCase().includes(query.toLowerCase())||(c.payment_method||"").toLowerCase().includes(query.toLowerCase())||c.id.includes(query))),[cs,filter,query]);
-async function setStatus(status:string){if(!supabase||!selected)return;if(status==="active"&&Number(selected.funded_amount||0)<Number(selected.max_budget||0)){setError("A campaign must have confirmed funding before it can be activated.");return}setBusy(true);setError("");setMessage("");const {error:e}=await supabase.from("campaigns").update({status,updated_at:new Date().toISOString()}).eq("id",selected.id);if(e)setError("Could not update this campaign.");else{setMessage("Campaign status updated.");setSelected({...selected,status});setCs(prev=>prev.map(c=>c.id===selected.id?{...c,status}:c))}setBusy(false)}
+async function setStatus(status:CampaignStatus){
+  if(!selected)return;
+  setBusy(true);setError("");setMessage("");
+  const {data,error:e}=await transitionCampaignStatus(selected.id,status);
+  if(e||!data?.success){
+    setError(e?.message||"The campaign status change was not confirmed.");
+  }else{
+    setMessage("Campaign status updated.");
+    setSelected({...selected,status:data.status});
+    setCs(prev=>prev.map(c=>c.id===selected.id?{...c,status:data.status}:c));
+  }
+  setBusy(false);
+}
 const totalBudget=cs.reduce((a,c)=>a+Number(c.max_budget||0),0),funded=cs.reduce((a,c)=>a+Number(c.funded_amount||0),0),active=cs.filter(c=>c.status==="active").length,paused=cs.filter(c=>c.status==="paused").length;
 return <main className="formPage"><Link href="/admin" className="back">← Admin</Link><div className="formCard wide"><span className="eyebrow">ADMIN · CAMPAIGNS</span><h1>Campaign <em>control.</em></h1><p>Monitor every campaign, funding state, progress and marketplace activity.</p>
 <div className="statsGrid"><div><b>Active</b><strong>{active}</strong></div><div><b>Paused</b><strong>{paused}</strong></div><div><b>Total</b><strong>{cs.length}</strong></div><div><b>Funded</b><strong>₦{funded.toLocaleString()}</strong></div></div>
