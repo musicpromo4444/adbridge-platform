@@ -72,7 +72,7 @@ test("budget RPC is advertiser-scoped and follows the payout ledger states", asy
     sql,
     /cp\.type = 'creator_payment'[\s\S]*cp\.status in \('released', 'approved', 'pending'\)/i,
   );
-  assert.match(sql, /least\([\s\S]*c\.max_budget[\s\S]*funding\.amount/i);
+  assert.match(sql, /least\(\s*coalesce\(c\.max_budget, 0\),\s*funding\.amount/i);
   assert.match(sql, /greatest\([\s\S]*spend\.amount/i);
 });
 
