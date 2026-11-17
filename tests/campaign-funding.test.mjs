@@ -16,7 +16,7 @@ test("funding intent is advertiser-scoped, campaign-locked and reuses one pendin
   assert.match(sql, /create or replace function adbridge_private\.prepare_campaign_funding/i);
   assert.match(sql, /coalesce\(auth\.role\(\), ''\) <> 'service_role'/i);
   assert.match(sql, /coalesce\(v_actor_role, ''\) <> 'advertiser'/i);
-  assert.match(sql, /where c\.advertiser_id is distinct from p_advertiser_id/i);
+  assert.match(sql, /v_campaign\.advertiser_id is distinct from p_advertiser_id/i);
   assert.match(sql, /from public\.campaigns c[\s\S]*for update/i);
   assert.match(sql, /cp\.status = 'pending'/i);
   assert.match(sql, /v_pending_count > 1/i);
@@ -27,7 +27,7 @@ test("funding confirmation is atomic, exact-amount and idempotent", async () => 
   const sql = await readFile(migrationPath, "utf8");
   assert.match(sql, /create or replace function adbridge_private\.confirm_campaign_funding/i);
   assert.match(sql, /security definer\s+set search_path = ''/i);
-  assert.match(sql, /cp\.provider_reference is distinct from p_provider_reference/i);
+  assert.match(sql, /v_payment\.provider_reference is distinct from p_provider_reference/i);
   assert.match(sql, /round\(coalesce\(v_payment\.amount, 0\) \* 100\) <> round\(p_paid_amount \* 100\)/i);
   assert.match(sql, /if v_payment\.status = 'held' then[\s\S]*'already_confirmed', true/i);
   assert.match(sql, /update public\.campaign_payments\s+set status = 'held'/i);
