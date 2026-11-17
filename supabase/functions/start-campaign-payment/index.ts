@@ -1,4 +1,3 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
@@ -88,6 +87,7 @@ Deno.serve(async (req: Request) => {
     reference?: unknown;
     amount?: unknown;
     checkout_url?: unknown;
+    reused?: unknown;
   } | null;
 
   if (prepared?.already_funded === true) {
@@ -138,10 +138,14 @@ Deno.serve(async (req: Request) => {
   } | null;
 
   if (!paystackResponse.ok || providerResult?.status !== true) {
-    await db.from("campaign_payments").update({ status: "cancelled" })
-      .eq("id", paymentId).eq("campaign_id", campaignId)
-      .eq("provider_reference", reference).eq("status", "pending");
-    return json({ error: "Paystack could not initialize this campaign payment. You can start a new attempt." }, 502);
+    // A reused reference may represent a request that reached Paystack before a timeout.
+    // Keep it pending for reconciliation rather than invalidating a possibly payable transaction.
+    if (prepared?.reused !== true) {
+      await db.from("campaign_payments").update({ status: "cancelled" })
+        .eq("id", paymentId).eq("campaign_id", campaignId)
+        .eq("provider_reference", reference).eq("status", "pending");
+    }
+    return json({ error: "Paystack could not initialize this campaign payment. Retry or contact AdBridge support." }, 502);
   }
 
   const authorizationUrl = providerResult.data?.authorization_url;

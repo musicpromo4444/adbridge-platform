@@ -54,6 +54,8 @@ test("start function persists a server-owned pending intent before calling Payst
   assert.ok(start.indexOf('rpc("prepare_campaign_funding"') < start.indexOf('fetch("https://api.paystack.co/transaction/initialize"'));
   assert.match(start, /checkout_url: authorizationUrl/);
   assert.match(start, /checkout\.paystack\.com/);
+  assert.match(start, /prepared\?\.reused !== true/);
+  assert.doesNotMatch(start, /edge-runtime\.d\.ts/);
   assert.doesNotMatch(start, /\.from\("campaign_payments"\)\.insert/);
 });
 
@@ -65,6 +67,7 @@ test("verification requires the exact saved Paystack reference, NGN currency and
   assert.match(verify, /providerResult\?\.data\?\.currency !== "NGN"/);
   assert.match(verify, /paidKobo !== Math\.round\(paymentAmount \* 100\)/);
   assert.match(verify, /rpc\("confirm_campaign_funding"/);
+  assert.doesNotMatch(verify, /edge-runtime\.d\.ts/);
   assert.doesNotMatch(verify, /\.from\("campaign_payments"\)\.(insert|update)/);
   assert.doesNotMatch(verify, /\.from\("campaigns"\)\.update/);
 });
