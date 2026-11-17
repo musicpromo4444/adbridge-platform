@@ -22,5 +22,5 @@ jobs:
           deno-version: v2.x
       - run: npm install
       - run: npm test
-      - run: deno check supabase/functions/track-campaign-click/index.ts supabase/functions/track-conversion/index.ts supabase/functions/track-video-metrics/index.ts supabase/functions/review-submission/index.ts
+      - run: deno check supabase/functions/track-campaign-click/index.ts supabase/functions/track-conversion/index.ts supabase/functions/track-video-metrics/index.ts supabase/functions/review-submission/index.ts supabase/functions/start-campaign-payment/index.ts supabase/functions/verify-campaign-payment/index.ts
       - run: npm run build
