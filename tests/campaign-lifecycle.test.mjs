@@ -42,8 +42,8 @@ test("advertiser and admin dashboards use the shared lifecycle RPC, not direct s
   assert.match(helper, /rpc\("transition_campaign_status"/);
   assert.match(helper, /p_campaign_id: campaignId/);
   assert.match(helper, /p_target_status: targetStatus/);
-  assert.match(advertiser, /transitionCampaignStatus\\(id,\\s*status\\)/);
-  assert.match(admin, /transitionCampaignStatus\\(selected\\.id,\\s*status\\)/);
+  assert.match(advertiser, /transitionCampaignStatus\(id,\s*status\)/);
+  assert.match(admin, /transitionCampaignStatus\(selected\.id,\s*status\)/);
   assert.doesNotMatch(advertiser, /from\("campaigns"\)\.update\(\{status/);
   assert.doesNotMatch(admin, /from\("campaigns"\)\.update\(\{status/);
 });
