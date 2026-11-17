@@ -50,7 +50,7 @@ begin
     greatest(
       0::numeric,
       least(
-        coalesce(c.max_budget, funding.amount),
+        coalesce(c.max_budget, 0),
         funding.amount
       ) - spend.amount
     )::numeric
