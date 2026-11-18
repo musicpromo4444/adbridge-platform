@@ -76,7 +76,7 @@ test("admin withdrawal review is role-gated, row-locked and limited to pending d
   );
   assert.match(
     sql,
-    /create or replace function adbridge_private\.review_creator_withdrawal\(\s*p_withdrawal_id uuid,\s*p_decision text,\s*p_admin_note text default null\)/i,
+    /create or replace function adbridge_private\.review_creator_withdrawal\(\s*p_withdrawal_id uuid,\s*p_decision text,\s*p_admin_note text default null\\s*\\)/i,
   );
   assert.match(sql, /security definer\s+set search_path = ''/i);
   assert.match(sql, /v_admin_id uuid := \(select auth\.uid\(\)\)/i);
