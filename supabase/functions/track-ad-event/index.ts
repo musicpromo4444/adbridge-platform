@@ -18,6 +18,16 @@ function safeNumber(value: unknown, max: number) {
   const n = Number(value);
   return Number.isFinite(n) ? Math.max(0, Math.min(max, n)) : 0;
 }
+async function hmacSha256(secret: string, message: string) {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signed = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(message));
+  return Array.from(new Uint8Array(signed)).map((x) => x.toString(16).padStart(2, "0")).join("");
+}
+function constantTimeEqual(a: string, b: string) {
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) diff |= (a.charCodeAt(i) || 0) ^ (b.charCodeAt(i) || 0);
+  return diff === 0;
+}
 function sameHost(origin: string, registered: string) {
   try {
     const a = new URL(origin);
@@ -65,6 +75,7 @@ Deno.serve(async (req: Request) => {
     if (!campaign || !["funded", "active"].includes(campaign.status)) return json({ recorded: false, reason: "campaign_not_active" });
   }
 
+  let signedPublisherEvent = false;
   if (placement.publisher_property_id) {
     const { data: property } = await db.from("publisher_properties")
       .select("publisher_id,property_type,url,verified")
@@ -72,9 +83,28 @@ Deno.serve(async (req: Request) => {
     if (!property || !property.verified || property.publisher_id !== placement.publisher_id) {
       return json({ error: "Publisher property is not verified for this placement" }, 403);
     }
+
+    const timestamp = req.headers.get("x-adbridge-timestamp") || "";
+    const suppliedSignature = (req.headers.get("x-adbridge-signature") || "").replace(/^sha256=/i, "").toLowerCase();
+    if (timestamp || suppliedSignature) {
+      const seconds = Number(timestamp);
+      if (!Number.isFinite(seconds) || Math.abs(Date.now() - seconds * 1000) > 300_000) {
+        return json({ error: "Signed publisher event timestamp is missing or expired" }, 401);
+      }
+      const { data: signingKey } = await db.from("publisher_tracking_secrets")
+        .select("secret_value").eq("property_id", placement.publisher_property_id)
+        .eq("publisher_id", placement.publisher_id).is("revoked_at", null).maybeSingle();
+      if (!signingKey?.secret_value) return json({ error: "Publisher server signing key is not active" }, 401);
+      const expected = await hmacSha256(String(signingKey.secret_value), timestamp + "." + raw);
+      if (!constantTimeEqual(suppliedSignature, expected)) return json({ error: "Invalid publisher event signature" }, 401);
+      signedPublisherEvent = true;
+    }
+
     if (["website", "web_app"].includes(property.property_type)) {
       const origin = req.headers.get("origin") || req.headers.get("referer") || "";
-      if (!origin || !property.url || !sameHost(origin, property.url)) return json({ error: "Publisher origin does not match the verified website" }, 403);
+      if ((!origin && !signedPublisherEvent) || (origin && (!property.url || !sameHost(origin, property.url)))) {
+        return json({ error: "Publisher origin does not match the verified website" }, 403);
+      }
     } else {
       const appId = (req.headers.get("x-adbridge-app-id") || "").trim().toLowerCase();
       const registeredId = String(property.url || "").trim().toLowerCase();
@@ -105,7 +135,7 @@ Deno.serve(async (req: Request) => {
   // All browser/app telemetry is explicitly untrusted. Only server-side provider
   // integrations may set server_verified=true after independently verifying evidence.
   const metadata = {
-    server_verified: false,
+    server_verified: signedPublisherEvent,
     automation_detected: /(bot|crawler|spider|headless|phantom|selenium|playwright|puppeteer)/i.test(userAgent),
     rendered: body.rendered === true,
     viewable_ratio: safeNumber(body.viewable_ratio, 1),
