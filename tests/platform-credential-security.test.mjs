@@ -17,10 +17,10 @@ test("browser roles cannot read or write OAuth credential columns", () => {
 });
 
 test("credentials are copied into a non-API private table with service-role-only table access", () => {
-  assert.match(migration, /CREATE TABLE IF NOT EXISTS adbridge_private\.creator_platform_credentials/i);
-  assert.match(migration, /ALTER TABLE adbridge_private\.creator_platform_credentials ENABLE ROW LEVEL SECURITY/i);
-  assert.match(migration, /GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE adbridge_private\.creator_platform_credentials\s+TO service_role/i);
-  assert.match(migration, /INSERT INTO adbridge_private\.creator_platform_credentials[\s\S]*FROM public\.creator_platform_connections/i);
+  assert.match(migration, /CREATE TABLE IF NOT EXISTS private\.creator_platform_credentials/i);
+  assert.match(migration, /ALTER TABLE private\.creator_platform_credentials ENABLE ROW LEVEL SECURITY/i);
+  assert.match(migration, /GRANT SELECT, INSERT, UPDATE, DELETE ON TABLE private\.creator_platform_credentials\s+TO service_role/i);
+  assert.match(migration, /INSERT INTO private\.creator_platform_credentials[\s\S]*FROM public\.creator_platform_connections/i);
 });
 
 test("only service_role can call the credential reader and writer", () => {
@@ -31,10 +31,10 @@ test("only service_role can call the credential reader and writer", () => {
 });
 
 test("disconnect derives the creator from auth.uid and clears stored credentials", () => {
-  assert.match(migration, /CREATE OR REPLACE FUNCTION adbridge_private\.disconnect_creator_platform/i);
+  assert.match(migration, /CREATE OR REPLACE FUNCTION private\.disconnect_creator_platform/i);
   assert.match(migration, /v_creator_id uuid := \(select auth\.uid\(\)\)/i);
   assert.match(migration, /p\.role = 'creator'/i);
-  assert.match(migration, /DELETE FROM adbridge_private\.creator_platform_credentials/i);
+  assert.match(migration, /DELETE FROM private\.creator_platform_credentials/i);
   assert.match(migration, /access_token = null[\s\S]*refresh_token = null/i);
   assert.match(migration, /CREATE OR REPLACE FUNCTION public\.disconnect_creator_platform/i);
   assert.match(migration, /SECURITY INVOKER/i);
