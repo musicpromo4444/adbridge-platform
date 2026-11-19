@@ -10,6 +10,8 @@ type Property={id:string;property_type:string;name:string;url:string|null;platfo
 
 const platforms: Array<[string,string]>=[["instagram","Instagram"],["tiktok","TikTok"],["youtube","YouTube"],["facebook","Facebook"],["x","X"],["snapchat","Snapchat"],["linkedin","LinkedIn"],["website","Website"],["web_app","Web App"],["android_app","Android App"],["ios_app","iOS App"],["mobile_app","Mobile App"]];
 const formats: Array<[string,string]>=[["web","Web"],["web_app","Web App"],["android_app","Android App"],["ios_app","iOS App"],["social_post","Social Post"],["social_story","Social Story"],["social_reel","Social Reel"],["social_video","Social Video"],["web_banner","Web Banner"],["web_native","Web Native"],["web_interstitial","Web Interstitial"],["web_video","Web Video"],["app_banner","App Banner"],["app_native","App Native"],["app_interstitial","App Interstitial"],["app_video","App Video"],["app_rewarded_video","Rewarded Video"]];
+const publisherPlatformIds=["website","web_app","android_app","ios_app"];
+const publisherFormatIds=new Set(["web","web_app","android_app","ios_app","web_banner","web_native","web_interstitial","web_video","app_banner","app_native","app_interstitial","app_video","app_rewarded_video"]);
 const label=(items:string[],map:Array<[string,string]>)=>items.map(x=>map.find(m=>m[0]===x)?.[1]||x).join(" · ");
 
 export default function PublisherCenter(){
@@ -33,8 +35,8 @@ export default function PublisherCenter(){
  const campaign=campaigns.find(c=>c.id===campaignId);
  const campaignTargets=useMemo(()=>targets.filter(t=>t.campaign_id===campaignId),[targets,campaignId]);
  const campaignFormats=useMemo(()=>allFormats.filter(f=>f.campaign_id===campaignId),[allFormats,campaignId]);
- const compatiblePlatforms=useMemo(()=>campaignTargets.some(t=>t.platform==="all")?platforms:platforms.filter(p=>campaignTargets.some(t=>t.platform===p[0])),[campaignTargets]);
- const compatibleFormats=campaignFormats.filter(f=>f.status!=="unavailable");
+ const compatiblePlatforms=useMemo(()=>platforms.filter(p=>publisherPlatformIds.includes(p[0])&&(campaignTargets.some(t=>t.platform==="all")||campaignTargets.some(t=>t.platform===p[0]))),[campaignTargets]);
+ const compatibleFormats=campaignFormats.filter(f=>f.status==="ready"&&publisherFormatIds.has(f.format));
  const allPlatformSelected=compatiblePlatforms.length>0&&selectedPlatforms.length===compatiblePlatforms.length;
  const allFormatSelected=compatibleFormats.length>0&&selectedFormats.length===compatibleFormats.length;
 
