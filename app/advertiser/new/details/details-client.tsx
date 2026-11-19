@@ -41,9 +41,9 @@ export default function Details() {
   function chooseFiles(fileList: FileList | null) {
     if (!fileList) return;
     const picked = Array.from(fileList);
-    if (picked.length > 5) { setError("You can upload up to 5 campaign files."); return; }
+    if (picked.length > 5) { setFiles([]); setError("You can upload up to 5 campaign files."); return; }
     const invalid = picked.find(file => !allowedTypes.includes(file.type) || file.size > maxFileBytes);
-    if (invalid) { setError("Files must be JPG, PNG, WebP, MP4 or PDF, and each file must be 100 MB or smaller."); return; }
+    if (invalid) { setFiles([]); setError("Files must be JPG, PNG, WebP, MP4 or PDF, and each file must be 100 MB or smaller."); return; }
     setFiles(picked);
     setError("");
   }
