@@ -228,5 +228,5 @@ Deno.serve(async (req: Request) => {
     payout = payoutResult;
   }
 
-  return json({ success: true, platform, video_id: videoId, views: currentMetric, target, reached });
+  return json({ success: true, platform, video_id: videoId, views: currentMetric, target, reached, payout });
 });
