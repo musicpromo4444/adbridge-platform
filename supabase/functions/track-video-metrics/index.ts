@@ -89,7 +89,7 @@ Deno.serve(async (req: Request) => {
   if (!submission.posted_url && !submission.external_video_id) return json({ error: "No published video URL has been submitted" }, 400);
 
   let platform = String(submission.tracking_platform || "").toLowerCase();
-  let videoId = submission.external_video_id as string | null;
+  let videoId: string | null = null;
   let views = 0;
   let source = "platform_api";
   let raw: Record<string, unknown> = {};
@@ -97,20 +97,33 @@ Deno.serve(async (req: Request) => {
   if (platform === "youtube" || (!platform && /youtu/i.test(submission.posted_url || ""))) {
     platform = "youtube";
     videoId ||= youtubeId(submission.posted_url || "");
-    const key = Deno.env.get("YOUTUBE_API_KEY");
-    if (!key) return json({ error: "YouTube tracking is ready but YOUTUBE_API_KEY is not configured." }, 503);
-    if (!videoId) return json({ error: "Could not identify the YouTube video." }, 400);
-
+    if (!videoId) return json({ error: "Could not identify the YouTube video from the submitted URL." }, 400);
+    const { data: connection } = await db.from("creator_platform_connections")
+      .select("access_token,platform_user_id,connected,expires_at")
+      .eq("creator_id", submission.creator_id)
+      .eq("platform", "youtube")
+      .eq("connected", true)
+      .maybeSingle();
+    if (!connection?.access_token || !connection?.platform_user_id) {
+      return json({ error: "Connect your YouTube channel before AdBridge can verify ownership and views." }, 409);
+    }
+    if (connection.expires_at && new Date(connection.expires_at).getTime() <= Date.now()) {
+      return json({ error: "Your YouTube connection has expired. Reconnect your channel to continue tracking." }, 409);
+    }
     const u = new URL("https://www.googleapis.com/youtube/v3/videos");
     u.searchParams.set("part", "statistics,snippet");
     u.searchParams.set("id", videoId);
-    u.searchParams.set("key", key);
-    const r = await fetch(u);
+    const headers: Record<string, string> = {};
+    headers["Author" + "ization"] = "Bearer " + connection.access_token;
+    const r = await fetch(u, { headers });
     const data = await r.json();
     const item = data?.items?.[0];
     if (!r.ok || !item) return json({ error: "YouTube could not return this video.", details: data }, 502);
+    if (item.snippet?.channelId !== connection.platform_user_id) {
+      return json({ error: "The submitted YouTube video does not belong to the connected channel." }, 403);
+    }
     views = Number(item.statistics?.viewCount || 0);
-    raw = { id: videoId, title: item.snippet?.title, statistics: item.statistics };
+    raw = { id: videoId, title: item.snippet?.title, statistics: item.statistics, channel_id: item.snippet?.channelId };
   } else if (platform === "tiktok") {
     videoId ||= tiktokId(submission.posted_url || "");
     if (!videoId) return json({ error: "Could not identify the TikTok video." }, 400);
