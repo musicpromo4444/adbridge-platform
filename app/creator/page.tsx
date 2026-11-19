@@ -114,6 +114,9 @@ export default function Creator() {
           <Link href="/publisher"><b>↗</b><span>Publisher delivery</span><small>Apply with websites and apps</small></Link>
           <Link href="/publisher/applications"><b>✓</b><span>Publisher applications</span><small>Track application decisions</small></Link>
           <Link href="/creator/connections"><b>◎</b><span>Social connections</span><small>Connect accounts for supported verification</small></Link>
+          <Link href="/creator/studio"><b>✧</b><span>AI Studio</span><small>Prepare campaign content and placements</small></Link>
+          <Link href="/creator/ai"><b>✦</b><span>AI Post</span><small>Generate a post draft</small></Link>
+          <Link href="/creator/post"><b>▣</b><span>Post Studio</span><small>Edit and save your post</small></Link>
           <Link href="/creator/analytics"><b>▥</b><span>Analytics</span><small>Track campaign performance</small></Link>
           <Link href="/creator/earnings"><b>₦</b><span>Earnings</span><small>Balances, withdrawals and payment history</small></Link>
           <Link href="/creator/profile"><b>●</b><span>Profile</span><small>Update your creator profile</small></Link>
