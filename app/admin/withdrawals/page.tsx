@@ -6,6 +6,7 @@ import {supabase} from "@/lib/supabase";
 type PayoutDetails={payout_method:string;country_code:string;currency_code:string;account_holder?:string|null;bank_name?:string|null;account_number?:string|null;routing_code?:string|null;swift_bic?:string|null;iban?:string|null;mobile_money_provider?:string|null;mobile_number?:string|null;wise_email?:string|null;paypal_email?:string|null};
 type Withdrawal={id:string;creator_id:string;display_name?:string|null;account_role?:string|null;payout_details?:PayoutDetails|null;amount:number;amount_usd?:number|null;fx_rate_to_usd?:number|null;minimum_usd?:number|null;status:string;created_at:string;payment_reference?:string|null;payment_note?:string|null;paid_at?:string|null};
 type AuditEvent={id:string;actor_id:string|null;previous_status:string|null;new_status:string;amount:number;created_at:string;payment_reference?:string|null;event_note?:string|null};
+type Evidence={id:string;storage_path:string;file_name:string;content_type:string;size_bytes:number;created_at:string};
 type Filter="pending"|"approved"|"paid"|"rejected"|"all";
 
 export default function Withdrawals(){
@@ -19,6 +20,9 @@ export default function Withdrawals(){
  const [error,setError]=useState("");
  const [paymentReference,setPaymentReference]=useState<Record<string,string>>({});
  const [paymentNote,setPaymentNote]=useState<Record<string,string>>({});
+ const [evidence,setEvidence]=useState<Record<string,Evidence[]>>({});
+ const [evidenceBusy,setEvidenceBusy]=useState("");
+ const [signedLinks,setSignedLinks]=useState<Record<string,string>>({});
 
  const load=useCallback(async()=>{
   if(!supabase){setError("Database connection is not ready.");setLoading(false);return}
@@ -36,6 +40,33 @@ export default function Withdrawals(){
   const {data,error:e}=await supabase.rpc("admin_list_withdrawal_events",{p_withdrawal_id:id,p_limit:50});
   if(e){setError(e.message||"Could not load audit history.");return}
   setEvents((data?.events||[]) as AuditEvent[]);
+ }
+ async function loadEvidence(id:string){
+  if(!supabase)return;
+  setEvidenceBusy(id);
+  const {data,error:e}=await supabase.rpc("admin_list_withdrawal_payment_evidence",{p_withdrawal_id:id});
+  if(e){setError(e.message||"Could not load payment evidence.");setEvidenceBusy("");return}
+  setEvidence(v=>({...v,[id]:(data?.evidence||[]) as Evidence[]}));setEvidenceBusy("");
+ }
+ async function uploadEvidence(id:string,file?:File){
+  if(!supabase||!file)return;
+  const allowed=["application/pdf","image/jpeg","image/png","image/webp"];
+  if(!allowed.includes(file.type)){setError("Choose a PDF, JPG, PNG or WEBP receipt.");return}
+  if(file.size<=0||file.size>5*1024*1024){setError("Evidence files must be 5 MB or smaller.");return}
+  setEvidenceBusy(id);setError("");setMessage("");
+  const safeName=file.name.replace(/[^a-zA-Z0-9._-]/g,"_").slice(-100)||"payment-proof";
+  const path=id+"/"+crypto.randomUUID()+"-"+safeName;
+  const {error:uploadError}=await supabase.storage.from("withdrawal-payment-evidence").upload(path,file,{contentType:file.type,upsert:false});
+  if(uploadError){setError(uploadError.message||"Could not upload evidence.");setEvidenceBusy("");return}
+  const {error:saveError}=await supabase.rpc("admin_add_withdrawal_payment_evidence",{p_withdrawal_id:id,p_storage_path:path,p_file_name:file.name,p_content_type:file.type,p_size_bytes:file.size});
+  if(saveError){await supabase.storage.from("withdrawal-payment-evidence").remove([path]);setError(saveError.message||"Could not attach evidence to the withdrawal.");setEvidenceBusy("");return}
+  setMessage("Payment evidence uploaded.");await loadEvidence(id);setEvidenceBusy("");
+ }
+ async function prepareEvidenceLink(item:Evidence){
+  if(!supabase)return;
+  const {data,error:e}=await supabase.storage.from("withdrawal-payment-evidence").createSignedUrl(item.storage_path,60);
+  if(e||!data?.signedUrl){setError(e?.message||"Could not open evidence.");return}
+  setSignedLinks(v=>({...v,[item.id]:data.signedUrl}));
  }
  async function update(id:string,status:"approved"|"rejected"|"paid"){
   if(!supabase)return;
@@ -65,6 +96,7 @@ export default function Withdrawals(){
     <p>{r.account_role==="publisher"?"Publisher":"Creator"}: {r.display_name||r.creator_id}</p><small>{new Date(r.created_at).toLocaleString()} · Request {r.id}</small>{r.payout_details?<div className="infoBox"><b>PAYOUT DESTINATION · {r.payout_details.country_code} · {r.payout_details.currency_code}</b>{r.payout_details.payout_method==="bank_transfer"?<><p>Account holder: {r.payout_details.account_holder}</p><p>Bank: {r.payout_details.bank_name}</p><p>Account number: {r.payout_details.account_number}</p>{r.payout_details.routing_code&&<p>Routing / sort code: {r.payout_details.routing_code}</p>}{r.payout_details.swift_bic&&<p>SWIFT / BIC: {r.payout_details.swift_bic}</p>}{r.payout_details.iban&&<p>IBAN: {r.payout_details.iban}</p>}</>:r.payout_details.payout_method==="wise"?<p>Wise account email: {r.payout_details.wise_email}</p>:r.payout_details.payout_method==="paypal"?<p>PayPal account email: {r.payout_details.paypal_email}</p>:<><p>Provider: {r.payout_details.mobile_money_provider}</p><p>Mobile number: {r.payout_details.mobile_number}</p></>}<small>Private payout data · admin only</small></div>:<div className="successBox">No payout destination saved. Ask the user to add payout details before processing.</div>}
     {r.status==="approved"&&<div className="infoBox"><b>RECORD EXTERNAL PAYMENT</b><p>Send the money using your bank, Wise or PayPal outside AdBridge. Enter the transfer reference below only after the transfer succeeds.</p><label>Transfer reference / transaction ID *</label><input className="textInput" value={paymentReference[r.id]||""} onChange={e=>setPaymentReference(v=>({...v,[r.id]:e.target.value}))} placeholder="Bank reference, Wise ID or PayPal transaction ID"/><label>Admin note (optional)</label><input className="textInput" value={paymentNote[r.id]||""} onChange={e=>setPaymentNote(v=>({...v,[r.id]:e.target.value}))} placeholder="Optional payment note"/></div>}
     {r.status==="paid"&&<div className="infoBox"><b>PAYMENT RECORDED</b><p>Reference: {r.payment_reference||"Not available"}</p>{r.paid_at&&<p>Paid at: {new Date(r.paid_at).toLocaleString()}</p>}{r.payment_note&&<p>Note: {r.payment_note}</p>}</div>}
+    <div className="infoBox"><b>PAYMENT EVIDENCE</b><p>Upload a bank receipt, Wise confirmation or PayPal proof. PDF, JPG, PNG and WEBP files up to 5 MB are accepted. Files are private and admin-only.</p><input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" disabled={evidenceBusy===r.id} onChange={e=>{const file=e.target.files?.[0];void uploadEvidence(r.id,file);e.currentTarget.value="";}}/><div className="choiceRow"><button className="secondary" disabled={evidenceBusy===r.id} onClick={()=>void loadEvidence(r.id)}>{evidenceBusy===r.id?"Loading…":"View attached evidence"}</button></div>{(evidence[r.id]||[]).map(item=><p key={item.id}>{item.file_name} · {(item.size_bytes/1024).toFixed(0)} KB · {new Date(item.created_at).toLocaleString()} {signedLinks[item.id]?<a href={signedLinks[item.id]} target="_blank" rel="noreferrer">Open secure file</a>:<button className="secondary" onClick={()=>void prepareEvidenceLink(item)}>Prepare secure link</button>}</p>)}</div>
     <div className="choiceRow">
      <button className="secondary" onClick={()=>void loadAudit(r.id)}>Audit history</button>
      {r.status==="pending"&&<><button className="primary" disabled={!!busy} onClick={()=>void update(r.id,"approved")}>{busy===r.id?"Saving…":"Approve"}</button><button className="secondary" disabled={!!busy} onClick={()=>void update(r.id,"rejected")}>Reject</button></>}
