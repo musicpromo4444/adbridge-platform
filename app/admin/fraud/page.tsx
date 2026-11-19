@@ -17,7 +17,7 @@ export default function FraudReview(){
  {error&&<div className="successBox">{error}</div>}{message&&<div className="successBox">✓ {message}</div>}
  {loading?<div className="successBox">Loading fraud flags…</div>:flags.length?<div className="opps">{flags.map(f=><article key={f.id}>
  <div className="formatBadgeRow"><span className="formatBadge">{f.severity.toUpperCase()} · SCORE {f.score}</span><span className="formatBadge">{f.status.toUpperCase()}</span></div>
- <h3>{f.flag_type.replaceAll("_"," ")}</h3><p>{f.reason}</p><small>Creator: {f.creator_id}</small><br/><small>Campaign: {f.campaign_id}</small><br/><small>{new Date(f.created_at).toLocaleString()}</small>
+ <h3>{f.flag_type.replaceAll("_"," ")}</h3><p>{f.reason}</p><small>Publisher account: {f.creator_id}</small><br/><small>Campaign: {f.campaign_id}</small><br/><small>{new Date(f.created_at).toLocaleString()}</small>
  {f.status!=="resolved"&&f.status!=="dismissed"&&<div className="choiceRow"><button className="secondary" disabled={!!busy} onClick={()=>void resolve(f.id,"reviewing")}>Mark reviewing</button><button className="primary" disabled={!!busy} onClick={()=>void resolve(f.id,"resolved")}>{busy===f.id?"Saving…":"Resolve"}</button><button className="secondary" disabled={!!busy} onClick={()=>void resolve(f.id,"dismissed")}>Dismiss</button></div>}
  </article>)}</div>:<div className="successBox">No {filter==="all"?"":filter+" "}fraud flags found.</div>}
  </div></main>
