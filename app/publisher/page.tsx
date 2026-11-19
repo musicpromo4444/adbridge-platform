@@ -46,9 +46,10 @@ export default function PublisherCenter(){
  async function saveProperty(){
   if(!supabase)return; const{data:{user}}=await supabase.auth.getUser();if(!user)return;
   if(!propertyName.trim()||!propertyUrl.trim()){setError("Add a property name and valid URL.");return}
+  if(!selectedFormats.length){setError("Choose at least one compatible ad format before saving this property.");return}
   try{const u=new URL(propertyUrl.trim());if(!["http:","https:"].includes(u.protocol))throw 0}catch{setError("Use a valid http or https URL.");return}
   setSaving(true);setError("");
-  const{error:e}=await supabase.from("publisher_properties").insert({publisher_id:user.id,property_type:propertyType,name:propertyName.trim(),url:propertyUrl.trim(),platforms:selectedPlatforms.length?selectedPlatforms:[propertyType],ad_formats:selectedFormats});
+  const{error:e}=await supabase.from("publisher_properties").insert({publisher_id:user.id,property_type:propertyType,name:propertyName.trim(),url:propertyUrl.trim(),platforms:[propertyType],ad_formats:selectedFormats});
   if(e)setError("We couldn't save this publisher property.");else{setMessage("Publisher property saved.");setPropertyName("");setPropertyUrl("");await load()}
   setSaving(false);
  }
@@ -58,13 +59,24 @@ export default function PublisherCenter(){
   if(!selectedPlatforms.length||!selectedFormats.length){setError("Select at least one platform and one format.");return}
   setSaving(true);setError("");setMessage("");
   const{data:{user}}=await supabase.auth.getUser();if(!user){location.href="/login";return}
-  const{data:existing}=await supabase.from("publisher_campaigns").select("selected_platform,selected_format").eq("publisher_id",user.id).eq("campaign_id",campaignId);
+  const [{data:existing},{data:verifiedProperties,error:propertyError}] = await Promise.all([
+   supabase.from("publisher_campaigns").select("selected_platform,selected_format").eq("publisher_id",user.id).eq("campaign_id",campaignId),
+   supabase.from("publisher_properties").select("platforms,ad_formats").eq("publisher_id",user.id).eq("verified",true)
+  ]);
+  if(propertyError){setError("We couldn't check your verified publisher properties.");setSaving(false);return}
   const seen=new Set((existing??[]).map(x=>x.selected_platform+"|"+x.selected_format));
   const rows:string[]=[];
-  for(const platform of selectedPlatforms)for(const format of selectedFormats)if(!seen.has(platform+"|"+format))rows.push(platform+"|"+format);
-  if(!rows.length){setMessage("You already applied for all selected combinations.");setSaving(false);return}
+  for(const platform of selectedPlatforms)for(const format of selectedFormats){
+   const supported=(verifiedProperties??[]).some(property=>(property.platforms??[]).includes(platform)&&(property.ad_formats??[]).includes(format));
+   if(supported&&!seen.has(platform+"|"+format))rows.push(platform+"|"+format);
+  }
+  if(!rows.length){
+   setError("No new applications can be submitted. You need an AdBridge-verified website or app property that supports each selected platform and ad format. Add your property below and wait for verification.");
+   setSaving(false);return;
+  }
   const{error:e}=await supabase.from("publisher_campaigns").insert(rows.map(pair=>{const[platform,format]=pair.split("|");return{campaign_id:campaignId,publisher_id:user.id,selected_platform:platform,selected_format:format,status:"applied"}}));
-  if(e)setError("We couldn't submit the publisher application.");else setMessage("Application submitted. AdBridge will show the matching delivery package when approved.");
+  if(e)setError(e.message||"We couldn't submit the publisher application.");
+  else setMessage(rows.length<(selectedPlatforms.length*selectedFormats.length)?"Application submitted for the combinations supported by your verified property. Other combinations need a matching verified property.":"Application submitted. AdBridge will show the matching delivery package when approved.");
   setSaving(false);
  }
 
