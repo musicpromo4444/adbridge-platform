@@ -55,6 +55,13 @@ test("payout parser rejects mismatched ids, references, statuses, amounts and ti
   assert.equal(parseWithdrawalPayoutResult({ ...valid, amount: "Infinity" }, "withdrawal-1", "TRF-123456").data, null);
   assert.equal(parseWithdrawalPayoutResult({ ...valid, paid_at: "not-a-date" }, "withdrawal-1", "TRF-123456").data, null);
   assert.equal(parseWithdrawalPayoutResult({ ...valid, unchanged: 1 }, "withdrawal-1", "TRF-123456").data, null);
+  const caseInsensitiveRetry = parseWithdrawalPayoutResult(
+    { ...valid, payout_reference: "trf-123456" },
+    "withdrawal-1",
+    "TRF-123456",
+  );
+  assert.equal(caseInsensitiveRetry.error, null);
+  assert.equal(caseInsensitiveRetry.data.unchanged, true);
 });
 
 test("payout recording is administrator-only, row-locked, approved-only and idempotent", async () => {
@@ -87,7 +94,7 @@ test("admin and creator screens use the payout RPC and disclose the manual verif
 
   assert.match(helper, /rpc\("record_creator_withdrawal_payout"/);
   assert.match(admin, /recordCreatorWithdrawalPayout\(/);
-  assert.match(admin, /Transfer reference \(required/);
+  assert.match(admin, /Bank or transfer reference \(required/);
   assert.match(admin, /Record payout sent/);
   assert.match(admin, /not independent bank verification/i);
   assert.match(creator, /paid_at,payout_reference/);
