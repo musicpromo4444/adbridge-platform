@@ -147,7 +147,8 @@ export default function PublisherApplications() {
               {property.url && <a href={property.url} target="_blank" rel="noreferrer">Open property ↗</a>}
             </article>
           )) : <div className="successBox">No properties saved yet. Add your website or app in the Publisher Delivery Center.</div>}
-          <Link href="/publisher">Manage publisher properties →</Link>\n          <p><Link href="/publisher/integration">Set up server-side ad tracking →</Link></p>
+          <Link href="/publisher">Manage publisher properties →</Link>
+          <p><Link href="/publisher/integration">Set up server-side ad tracking →</Link></p>
         </div>
 
         <div className="infoBox">
