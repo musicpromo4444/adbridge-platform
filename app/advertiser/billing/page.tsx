@@ -29,9 +29,23 @@ export default function AdvertiserBilling() {
       if (!supabase) { setError("AdBridge database is not connected."); setLoading(false); return; }
       const { data: { user }, error: authError } = await supabase.auth.getUser();
       if (authError || !user) { window.location.href = "/login"; return; }
+      const { data: ownedCampaigns, error: campaignError } = await supabase
+        .from("campaigns")
+        .select("id")
+        .eq("advertiser_id", user.id);
+      if (campaignError) {
+        if (live) { setError("We couldn't load your billing history."); setLoading(false); }
+        return;
+      }
+      const campaignIds = (ownedCampaigns || []).map(c => c.id);
+      if (!campaignIds.length) {
+        if (live) { setRows([]); setLoading(false); }
+        return;
+      }
       const { data, error: queryError } = await supabase
         .from("campaign_payments")
         .select("id,campaign_id,amount,type,status,provider,created_at,campaigns(name)")
+        .in("campaign_id", campaignIds)
         .in("type", ["funding", "refund", "creator_payment"])
         .order("created_at", { ascending: false });
       if (!live) return;
