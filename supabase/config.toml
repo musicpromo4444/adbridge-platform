@@ -1,0 +1,13 @@
+project_id = "wilfmtzxxnkdcyiozamq"
+
+[functions.track-campaign-click]
+verify_jwt = false
+
+[functions.track-conversion]
+verify_jwt = false
+
+[functions.start-campaign-payment]
+verify_jwt = true
+
+[functions.verify-campaign-payment]
+verify_jwt = true

@@ -1,38 +1,67 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-Deno.serve(async req => {
-  if (req.method !== "POST") return Response.json({error:"POST required"},{status:405});
-  const secret=Deno.env.get("CPA_POSTBACK_SECRET");
-  if (!secret || req.headers.get("x-adbridge-secret")!==secret) return Response.json({error:"Unauthorized"},{status:401});
-  const body=await req.json();
-  const {campaign_id,creator_id,click_id,external_conversion_id,action_type="conversion",value=0}=body;
-  if(!campaign_id||!external_conversion_id) return Response.json({error:"campaign_id and external_conversion_id required"},{status:400});
-  const db=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const {data:campaign,error:campaignError}=await db.from("campaigns").select("payment_method,payment_rate,max_budget,desired_results").eq("id",campaign_id).single();
-  if(campaignError||!campaign||campaign.payment_method!=="actions") return Response.json({error:"Not an actions campaign"},{status:400});
-  let resolvedCreator=creator_id||null;
-  if(click_id){
-    const {data:link}=await db.from("tracking_links").select("campaign_id,creator_id,submission_id").eq("slug",click_id).maybeSingle();
-    if(link){
-      if(link.campaign_id!==campaign_id) return Response.json({error:"Click does not belong to campaign"},{status:400});
-      if(resolvedCreator && link.creator_id && resolvedCreator!==link.creator_id) return Response.json({error:"Creator does not match tracking link"},{status:400});
-      resolvedCreator=resolvedCreator||link.creator_id||null;
-    }
+import { normalizeConversionPayload } from "../_shared/campaign-tracking.mjs";
+
+const json = (body: unknown, status = 200) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json", "Cache-Control": "no-store" },
+  });
+
+function constantTimeEqual(left: string, right: string) {
+  if (left.length !== right.length) return false;
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left.charCodeAt(index) ^ right.charCodeAt(index);
   }
-  const {data:existing}=await db.from("cpa_conversion_events").select("id").eq("campaign_id",campaign_id).eq("external_conversion_id",external_conversion_id).maybeSingle();
-  if(existing) return Response.json({ok:true,duplicate:true});
-  const {count}=await db.from("cpa_conversion_events").select("id",{count:"exact",head:true}).eq("campaign_id",campaign_id).eq("status","approved");
-  const target=Number(campaign.desired_results||0);
-  if(target>0 && Number(count||0)>=target) return Response.json({error:"Campaign conversion target already reached"},{status:409});
-  const {data:event,error}=await db.from("cpa_conversion_events").insert({campaign_id,creator_id:resolvedCreator,click_id,external_conversion_id,action_type,value,status:"approved"}).select("id").single();
-  if(error) return Response.json({error:error.message},{status:500});
-  const amount=Number(campaign.payment_rate||0);
-  if(resolvedCreator && amount>0){
-    const {data:paid}=await db.from("campaign_payments").select("amount").eq("campaign_id",campaign_id).eq("type","creator_payment").eq("status","released");
-    const spent=(paid||[]).reduce((s:any,p:any)=>s+Number(p.amount||0),0);
-    if(spent+amount<=Number(campaign.max_budget||0)){
-      await db.from("campaign_payments").insert({campaign_id,creator_id:resolvedCreator,amount,type:"creator_payment",status:"released"});
-    }
+  return difference === 0;
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method !== "POST") return json({ error: "POST required" }, 405);
+
+  const secret = Deno.env.get("CPA_POSTBACK_SECRET") || "";
+  const providedSecret = req.headers.get("x-adbridge-secret") || "";
+  if (!secret || !constantTimeEqual(providedSecret, secret)) {
+    return json({ error: "Unauthorized" }, 401);
   }
-  return Response.json({ok:true,event_id:event.id,conversions:Number(count||0)+1});
+
+  const body = await req.json().catch(() => null);
+  const payload = normalizeConversionPayload(body);
+  if (!payload) {
+    return json({
+      error: "A valid campaign_id, AdBridge click_id and external_conversion_id are required. Do not send creator_id.",
+    }, 400);
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceRoleKey) {
+    return json({ error: "Conversion tracking is not configured." }, 503);
+  }
+
+  const db = createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const { data, error } = await db.rpc("record_cpa_conversion", {
+    p_campaign_id: payload.campaignId,
+    p_click_id: payload.clickId,
+    p_external_conversion_id: payload.externalConversionId,
+    p_action_type: payload.actionType,
+    p_value: payload.value,
+  });
+
+  if (error) {
+    const status = error.code === "22023" ? 400 : error.code === "P0002" ? 404 : error.code === "P0001" ? 409 : 503;
+    return json({
+      error: status === 400
+        ? "Invalid conversion postback."
+        : status === 404
+          ? "Campaign or AdBridge click attribution was not found."
+          : status === 409
+            ? "Campaign target, funding or budget does not allow this conversion."
+            : "Conversion tracking is temporarily unavailable.",
+    }, status);
+  }
+
+  return json(data);
 });
