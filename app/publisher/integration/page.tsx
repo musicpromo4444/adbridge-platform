@@ -1,0 +1,139 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+type Property = { id: string; name: string; property_type: string; url: string | null; verified: boolean };
+
+export default function PublisherIntegration() {
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [propertyId, setPropertyId] = useState("");
+  const [secret, setSecret] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
+  useEffect(() => {
+    let live = true;
+    async function load() {
+      if (!supabase) {
+        setError("AdBridge database is not connected.");
+        setLoading(false);
+        return;
+      }
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) {
+        window.location.href = "/login";
+        return;
+      }
+      const { data, error: queryError } = await supabase
+        .from("publisher_properties")
+        .select("id,name,property_type,url,verified")
+        .eq("publisher_id", user.id)
+        .order("created_at", { ascending: false });
+      if (!live) return;
+      if (queryError) setError("Your publisher properties could not be loaded.");
+      else {
+        const list = (data || []) as Property[];
+        setProperties(list);
+        setPropertyId(list.find(item => item.verified)?.id || "");
+      }
+      setLoading(false);
+    }
+    void load();
+    return () => { live = false; };
+  }, []);
+
+  async function issueKey() {
+    if (!supabase || !propertyId) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    setSecret("");
+    const { data, error: invokeError } = await supabase.functions.invoke("publisher-tracking-key", {
+      body: { property_id: propertyId },
+    });
+    if (invokeError || !data?.tracking_secret) {
+      setError(data?.error || invokeError?.message || "A tracking key could not be issued.");
+      setBusy(false);
+      return;
+    }
+    setSecret(String(data.tracking_secret));
+    setMessage("A new property signing key was issued. This is the only time this key will be shown.");
+    setBusy(false);
+  }
+
+  const selected = properties.find(property => property.id === propertyId) || null;
+
+  return (
+    <main className="formPage">
+      <Link href="/publisher" className="back">← Publisher Delivery Center</Link>
+      <div className="formCard wide">
+        <span className="eyebrow">PUBLISHER SERVER INTEGRATION</span>
+        <h1>Connect your inventory to <em>AdBridge tracking.</em></h1>
+        <p>Website and app publishers send ad events from their own server. AdBridge checks property ownership, event signatures, duplicate IDs and fraud signals before events can qualify for payment.</p>
+
+        {loading && <div className="successBox">Loading your publisher properties…</div>}
+        {error && <div className="successBox" role="alert">{error}</div>}
+        {!loading && (
+          <>
+            <label htmlFor="publisher-property">Verified website or app</label>
+            <select id="publisher-property" className="textInput" value={propertyId} onChange={event => { setPropertyId(event.target.value); setSecret(""); setMessage(""); }} >
+              <option value="">Choose a verified property</option>
+              {properties.filter(property => property.verified).map(property => (
+                <option value={property.id} key={property.id}>{property.name} · {property.property_type}</option>
+              ))}
+            </select>
+            {selected && (
+              <div className="infoBox">
+                <b>{selected.name}</b>
+                <p>{selected.property_type} · {selected.url || "No public URL saved"}</p>
+                <p>Only the verified owner can issue a signing key for this property.</p>
+              </div>
+            )}
+            {!properties.some(property => property.verified) && (
+              <div className="successBox">No verified properties yet. Add your website or app in the Publisher Delivery Center and wait for AdBridge review before requesting a key.</div>
+            )}
+            <button className="primary" disabled={busy || !propertyId} onClick={() => void issueKey()}>
+              {busy ? "Issuing secure key…" : "Issue / rotate server signing key →"}
+            </button>
+          </>
+        )}
+
+        {message && <div className="successBox">{message}</div>}
+        {secret && (
+          <div className="unlockBox">
+            <span className="eyebrow">SHOWN ONCE · STORE SERVER-SIDE ONLY</span>
+            <h2>Your property signing secret</h2>
+            <textarea className="textInput" readOnly rows={3} value={secret} />
+            <button className="secondary" onClick={() => {
+              void navigator.clipboard.writeText(secret).then(() => setMessage("Signing key copied. Store it in your private server environment."));
+            }}>Copy signing key</button>
+            <p><b>Important:</b> Do not place this key in browser JavaScript, a public repository, or a public Android/iOS app bundle. Issuing another key rotates the old one.</p>
+          </div>
+        )}
+
+        <div className="quick">
+          <h2>Integration steps</h2>
+          <ol>
+            <li>Install the AdBridge ad placement on your verified website or app using the placement key supplied for the approved placement.</li>
+            <li>Keep the signing secret in a private server environment variable.</li>
+            <li>Build the exact event JSON on your server and sign <code>unix_timestamp_seconds + "." + exact_request_body</code> using HMAC-SHA256.</li>
+            <li>Send the event to the AdBridge <code>track-ad-event</code> endpoint with <code>x-adbridge-timestamp</code> and <code>x-adbridge-signature</code> headers.</li>
+            <li>For native apps, also send <code>x-adbridge-app-id</code> matching the verified app identifier.</li>
+            <li>Use a unique event ID for every event. Duplicate events are rejected; browser-only telemetry is not automatically payable.</li>
+          </ol>
+          <p>Supported event types include impression, click, video_view, install and conversion. Only events that pass AdBridge's verification and fraud assessment can qualify for publisher earnings.</p>
+          <Link href="/publisher/applications">View campaign application decisions →</Link>
+        </div>
+        <div className="infoBox">
+          <b>Technical reference</b>
+          <p>The complete signing contract and example payloads are maintained in the AdBridge repository.</p>
+          <a href="https://github.com/musicpromo4444/adbridge-platform/blob/main/docs/publisher-event-signing.md" target="_blank" rel="noreferrer">Open publisher event signing guide ↗</a>
+        </div>
+      </div>
+    </main>
+  );
+}
