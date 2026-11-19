@@ -4,7 +4,7 @@ begin
   r:=public.adbridge_score_event('video_view','client','{"playback_started":true,"watch_seconds":30,"heartbeat_count":10,"page_visible":true}'::jsonb,0,0);
   if (r->>'verified')::boolean or (r->>'payable')::boolean then raise exception 'client-only video view was accepted'; end if;
 
-  r:=public.adbridge_score_event('video_view','platform_api_verified','{"server_verified":true,"verified_view_count":2500,"delta_views":100,"seconds_since_previous":60}'::jsonb,0,0);
+  r:=public.adbridge_score_event('video_view','platform_api_verified','{"server_verified":true}'::jsonb,0,0);\n  if (r->>'verified')::boolean then raise exception 'platform view without an explicit verified count was accepted'; end if;\n\n  r:=public.adbridge_score_event('video_view','platform_api_verified','{"server_verified":true,"verified_view_count":2500,"delta_views":100,"seconds_since_previous":60}'::jsonb,0,0);
   if not (r->>'verified')::boolean or (r->>'payable')::boolean then raise exception 'trusted platform view metric gate failed'; end if;
 
   r:=public.adbridge_score_event('video_view','platform_api_verified','{"server_verified":true,"verified_view_count":900000,"delta_views":600000,"seconds_since_previous":60}'::jsonb,0,0);
