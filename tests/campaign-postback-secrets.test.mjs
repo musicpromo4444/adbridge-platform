@@ -19,6 +19,8 @@ test("campaign postback hashes are isolated in a private RLS-protected store", a
   assert.match(sql, /create schema if not exists adbridge_private/i);
   assert.match(sql, /create table if not exists adbridge_private\.campaign_postback_secrets/i);
   assert.match(sql, /enable row level security/i);
+  assert.match(sql, /grant usage on schema adbridge_private to service_role/i);
+  assert.doesNotMatch(sql, /revoke all on schema adbridge_private from public, anon, authenticated/i);
   assert.match(sql, /revoke all on table adbridge_private\.campaign_postback_secrets from public, anon, authenticated/i);
   assert.match(sql, /grant select, insert, update, delete on table adbridge_private\.campaign_postback_secrets to service_role/i);
   assert.match(sql, /security definer\s+set search_path = ''/i);
