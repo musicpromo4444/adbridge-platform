@@ -83,6 +83,7 @@ export default function PublisherCenter(){
     {error&&<div className="successBox">{error}</div>}{message&&<div className="successBox">✓ {message}</div>}
     <div className="choiceRow"><button className="secondary" disabled={saving} onClick={saveProperty}>Save property</button><button className="primary" disabled={saving||!campaignId} onClick={apply}>{saving?"Saving…":"Apply for selected platforms →"}</button></div>
    </>}
+   <div className="infoBox"><b>Publisher earnings and payouts</b><p>Track released earnings and add the bank or mobile-money details AdBridge needs to process approved withdrawals.</p><Link href="/creator/earnings">Open earnings and payout settings →</Link></div>
    <div className="conversionInfo"><span className="eyebrow">HOW ADBRIDGE WORKS</span><div className="conversionGrid"><div><b>Advertiser</b><p>Chooses the platforms and ad formats.</p></div><div><b>Publisher</b><p>Chooses every compatible platform and format they support.</p></div><div><b>AdBridge</b><p>Matches the application to the correct delivery package and tracks the result.</p></div></div></div>
   </div>
  </main>
