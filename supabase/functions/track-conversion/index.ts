@@ -16,12 +16,19 @@ function constantTimeEqual(left: string, right: string) {
   return difference === 0;
 }
 
+async function sha256Hex(value: string) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(value));
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== "POST") return json({ error: "POST required" }, 405);
 
-  const secret = Deno.env.get("CPA_POSTBACK_SECRET") || "";
+  const legacySecret = Deno.env.get("CPA_POSTBACK_SECRET") || "";
   const providedSecret = req.headers.get("x-adbridge-secret") || "";
-  if (!secret || !constantTimeEqual(providedSecret, secret)) {
+  if (!providedSecret || providedSecret.length > 256) {
     return json({ error: "Unauthorized" }, 401);
   }
 
@@ -42,9 +49,33 @@ Deno.serve(async (req: Request) => {
   const db = createClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+  const { data: credential, error: credentialError } = await db.rpc("verify_campaign_postback_secret", {
+    p_campaign_id: payload.campaignId,
+    p_secret_hash: await sha256Hex(providedSecret),
+  });
+  let campaignSecretConfigured = false;
+  if (credentialError) {
+    const migrationNotApplied = credentialError.code === "PGRST202" || credentialError.code === "42883";
+    if (!migrationNotApplied) {
+      return json({ error: "Campaign postback credential verification is temporarily unavailable." }, 503);
+    }
+  } else {
+    const credentialResult = credential as { configured?: unknown; valid?: unknown } | null;
+    campaignSecretConfigured = credentialResult?.configured === true;
+    if (campaignSecretConfigured && credentialResult?.valid !== true) {
+      return json({ error: "Unauthorized" }, 401);
+    }
+  }
+
+  // Compatibility is limited to campaigns without a campaign-specific secret.
+  // Once one is configured, the shared legacy secret is no longer accepted.
+  if (!campaignSecretConfigured && (!legacySecret || !constantTimeEqual(providedSecret, legacySecret))) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
   const { data, error } = await db.rpc("record_cpa_conversion", {
     p_campaign_id: payload.campaignId,
-    p_click_id: payload.clickId,
+    p_click_slug: payload.clickId,
     p_external_conversion_id: payload.externalConversionId,
     p_action_type: payload.actionType,
     p_value: payload.value,
@@ -63,5 +94,15 @@ Deno.serve(async (req: Request) => {
     }, status);
   }
 
-  return json(data);
+  const result = data && typeof data === "object" && !Array.isArray(data)
+    ? data as Record<string, unknown>
+    : {};
+  return json({
+    ok: result.ok === true,
+    duplicate: result.duplicate === true,
+    event_id: typeof result.event_id === "string" ? result.event_id : null,
+    paid: result.paid === true,
+    amount: Number.isFinite(Number(result.amount)) ? Number(result.amount) : 0,
+    conversions: Number.isFinite(Number(result.conversions)) ? Number(result.conversions) : null,
+  });
 });
