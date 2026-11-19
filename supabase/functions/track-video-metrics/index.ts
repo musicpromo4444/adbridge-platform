@@ -75,7 +75,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: submission, error: se } = await db
     .from("submissions")
-    .select("id,campaign_id,creator_id,creator_campaign_id,posted_url,tracking_platform,external_video_id,target_metric,status")
+    .select("id,campaign_id,creator_id,creator_campaign_id,posted_url,tracking_platform,external_video_id,target_metric,current_metric,status")
     .eq("id", submission_id)
     .single();
 
@@ -166,7 +166,7 @@ Deno.serve(async (req: Request) => {
     if (!connection?.access_token || !connection?.platform_user_id) return json({ error: "Connect your X account before verifying post views." }, 409);
     const u = new URL(`https://api.x.com/2/tweets/${videoId}`);
     u.searchParams.set("tweet.fields", "public_metrics,author_id");
-    const r = await fetch(u, { headers: { Authorization: `Bearer ${token}` } });
+    const r = await fetch(u, { headers: { Authorization: `Bearer ${connection.access_token}` } });
     const data = await r.json();
     if (!r.ok || !data?.data) return json({ error: "X could not return this post.", details: data }, 502);
     if (data.data.author_id !== connection.platform_user_id) return json({ error: "The submitted X post does not belong to the connected account." }, 403);
@@ -242,7 +242,7 @@ Deno.serve(async (req: Request) => {
     tracking_error: null,
   };
   if (reached) {
-    update.metric_status = "target_reached";
+    update.metric_status = "verified";
     update.metric_verified_at = now;
   } else {
     update.metric_status = "tracking";
