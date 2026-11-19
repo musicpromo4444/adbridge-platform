@@ -4,8 +4,8 @@ import {useCallback,useEffect,useState} from "react";
 import {supabase} from "@/lib/supabase";
 
 type PayoutDetails={payout_method:string;country_code:string;currency_code:string;account_holder?:string|null;bank_name?:string|null;account_number?:string|null;routing_code?:string|null;swift_bic?:string|null;iban?:string|null;mobile_money_provider?:string|null;mobile_number?:string|null;wise_email?:string|null;paypal_email?:string|null};
-type Withdrawal={id:string;creator_id:string;display_name?:string|null;account_role?:string|null;payout_details?:PayoutDetails|null;amount:number;amount_usd?:number|null;fx_rate_to_usd?:number|null;minimum_usd?:number|null;status:string;created_at:string};
-type AuditEvent={id:string;actor_id:string|null;previous_status:string|null;new_status:string;amount:number;created_at:string};
+type Withdrawal={id:string;creator_id:string;display_name?:string|null;account_role?:string|null;payout_details?:PayoutDetails|null;amount:number;amount_usd?:number|null;fx_rate_to_usd?:number|null;minimum_usd?:number|null;status:string;created_at:string;payment_reference?:string|null;payment_note?:string|null;paid_at?:string|null};
+type AuditEvent={id:string;actor_id:string|null;previous_status:string|null;new_status:string;amount:number;created_at:string;payment_reference?:string|null;event_note?:string|null};
 type Filter="pending"|"approved"|"paid"|"rejected"|"all";
 
 export default function Withdrawals(){
@@ -17,6 +17,8 @@ export default function Withdrawals(){
  const [busy,setBusy]=useState("");
  const [message,setMessage]=useState("");
  const [error,setError]=useState("");
+ const [paymentReference,setPaymentReference]=useState<Record<string,string>>({});
+ const [paymentNote,setPaymentNote]=useState<Record<string,string>>({});
 
  const load=useCallback(async()=>{
   if(!supabase){setError("Database connection is not ready.");setLoading(false);return}
@@ -40,7 +42,7 @@ export default function Withdrawals(){
   const promptText=status==="paid"?"Confirm that the bank transfer has actually been completed before marking this withdrawal paid.":"";
   if(promptText&&!window.confirm(promptText))return;
   setBusy(id);setError("");setMessage("");
-  const {data,error:e}=await supabase.rpc("admin_update_creator_withdrawal",{p_withdrawal_id:id,p_new_status:status});
+  const {data,error:e}=await supabase.rpc("admin_update_creator_withdrawal",{p_withdrawal_id:id,p_new_status:status,p_payment_reference:status==="paid"?reference:null,p_payment_note:status==="paid"?(paymentNote[id]?.trim()||null):null});
   if(e){setError(e.message||"Could not update this withdrawal.");setBusy("") ;return}
   setMessage("Withdrawal status changed to "+status+".");
   await load();
@@ -64,7 +66,7 @@ export default function Withdrawals(){
      {r.status==="pending"&&<><button className="primary" disabled={!!busy} onClick={()=>void update(r.id,"approved")}>{busy===r.id?"Saving…":"Approve"}</button><button className="secondary" disabled={!!busy} onClick={()=>void update(r.id,"rejected")}>Reject</button></>}
      {r.status==="approved"&&<button className="primary" disabled={!!busy} onClick={()=>void update(r.id,"paid")}>{busy===r.id?"Saving…":"Mark paid"}</button>}
     </div>
-    {selected===r.id&&<div className="infoBox"><b>STATUS AUDIT TRAIL</b>{events.length?events.map(ev=><p key={ev.id}>{ev.previous_status||"created"} → {ev.new_status} · {money(ev.amount)} · {new Date(ev.created_at).toLocaleString()} · Actor: {ev.actor_id||"system"}</p>):<small>No status changes have been recorded yet.</small>}</div>}
+    {selected===r.id&&<div className="infoBox"><b>STATUS AUDIT TRAIL</b>{events.length?events.map(ev=><p key={ev.id}>{ev.previous_status||"created"} → {ev.new_status} · {money(ev.amount)} · {new Date(ev.created_at).toLocaleString()} · Actor: {ev.actor_id||"system"}{ev.payment_reference&&<><br/>Reference: {ev.payment_reference}</>}{ev.event_note&&<><br/>Note: {ev.event_note}</>}</p>):<small>No status changes have been recorded yet.</small>}</div>}
    </article>)}</div>:<div className="successBox">No {filter==="all"?"":filter+" "}withdrawal requests.</div>}
   </div>
  </main>
