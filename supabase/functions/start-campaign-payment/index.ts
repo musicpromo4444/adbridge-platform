@@ -9,7 +9,10 @@ Deno.serve(async(req)=>{
  const db=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
  const {data:{user},error:ue}=await db.auth.getUser(token);if(ue||!user)return json({error:"Authentication failed"},401);
  const {campaign_id}=await req.json().catch(()=>({}));if(!campaign_id)return json({error:"campaign_id is required"},400);
- const {data:c,error:ce}=await db.from("campaigns").select("id,name,max_budget,advertiser_id,status").eq("id",campaign_id).eq("advertiser_id",user.id).single();if(ce||!c)return json({error:"Campaign not found"},404);
+ const {data:c,error:ce}=await db.from("campaigns").select("id,name,max_budget,advertiser_id,status,funded_amount").eq("id",campaign_id).eq("advertiser_id",user.id).single();if(ce||!c)return json({error:"Campaign not found"},404);
+ if(c.status!=="draft"||Number(c.funded_amount||0)>0)return json({error:"Only an unfunded draft campaign can start a new funding checkout."},409);
+ const {data:pendingPayment}=await db.from("campaign_payments").select("provider_reference,checkout_url,status").eq("campaign_id",campaign_id).eq("type","funding").eq("status","pending").order("created_at",{ascending:false}).limit(1).maybeSingle();
+ if(pendingPayment?.checkout_url&&pendingPayment.provider_reference)return json({authorization_url:pendingPayment.checkout_url,reference:pendingPayment.provider_reference,reused:true});
  const amount=Number(c.max_budget||0);if(!Number.isFinite(amount)||amount<=0)return json({error:"Campaign maximum budget must be greater than zero before funding."},400);
  const secret=Deno.env.get("PAYSTACK_SECRET_KEY")||"";if(!secret)return json({error:"Paystack is not configured yet. Add PAYSTACK_SECRET_KEY to Supabase Edge Function Secrets."},503);
  const app=Deno.env.get("APP_URL")||"";
