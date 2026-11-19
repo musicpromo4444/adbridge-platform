@@ -43,8 +43,11 @@ export async function GET(
   const isPrefetch = /prefetch|preview|prerender/.test(purpose);
   const isBot = /bot|crawler|spider|slurp|facebookexternalhit|whatsapp|telegrambot|discordbot|linkedinbot|twitterbot|slackbot/i.test(ua);
 
+  // Both RPCs return a setof/table result, which PostgREST serializes as
+  // an array. Resolve previews through a narrow SECURITY DEFINER function so
+  // anonymous clients never receive unrestricted tracking-link table access.
   const { data: rawData, error } = isPrefetch || isBot
-    ? await db.from("tracking_links").select("target_url").eq("slug", slug).maybeSingle()
+    ? await db.rpc("resolve_tracking_destination", { p_slug: slug })
     : await db.rpc("record_tracking_click", {
         p_slug: slug,
         p_visitor_key: visitorHash,
@@ -52,7 +55,8 @@ export async function GET(
         p_referrer: request.headers.get("referer") || "",
       });
 
-  const data = rawData as TrackingLink | null;
+  const firstRow = Array.isArray(rawData) ? rawData[0] : rawData;
+  const data = firstRow as TrackingLink | null;
 
   if (error || !data?.target_url) {
     return NextResponse.json({ error: "Tracking link not found." }, { status: 404 });
