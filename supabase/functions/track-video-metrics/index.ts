@@ -223,7 +223,7 @@ Deno.serve(async (req: Request) => {
   const reached = target > 0 && currentMetric >= target;
   const now = new Date().toISOString();
 
-  await db.from("submission_metrics").insert({
+  const { error: metricInsertError } = await db.from("submission_metrics").insert({
     submission_id: submission.id,
     platform,
     external_video_id: videoId,
