@@ -202,7 +202,8 @@ create or replace function public.upsert_creator_platform_credentials(
   p_platform_user_id text,
   p_access_token text,
   p_refresh_token text,
-  p_expires_at timestamptz
+  p_expires_at timestamptz,
+  p_is_refresh boolean default false
 )
 returns jsonb
 language plpgsql
@@ -237,7 +238,10 @@ begin
   )
   values (
     p_creator_id, v_platform, p_platform_user_id, p_access_token, p_refresh_token,
-    p_expires_at, true, null, null, pg_catalog.now(), null, pg_catalog.now()
+    p_expires_at, true, null,
+    case when coalesce(p_is_refresh, false) then pg_catalog.now() else null end,
+    case when coalesce(p_is_refresh, false) then pg_catalog.now() else null end,
+    null, pg_catalog.now()
   )
   on conflict (creator_id, platform) do update
   set platform_user_id = excluded.platform_user_id,
@@ -246,8 +250,8 @@ begin
       expires_at = excluded.expires_at,
       connected = true,
       refresh_lease_until = null,
-      last_refresh_attempt_at = null,
-      last_refreshed_at = pg_catalog.now(),
+      last_refresh_attempt_at = case when coalesce(p_is_refresh, false) then pg_catalog.now() else null end,
+      last_refreshed_at = case when coalesce(p_is_refresh, false) then pg_catalog.now() else c.last_refreshed_at end,
       last_refresh_error_code = null,
       updated_at = pg_catalog.now();
 
@@ -273,7 +277,7 @@ begin
 end;
 $function$;
 
-revoke all on function public.upsert_creator_platform_credentials(uuid, text, text, text, text, timestamptz)
+revoke all on function public.upsert_creator_platform_credentials(uuid, text, text, text, text, timestamptz, boolean)
   from public, anon, authenticated, service_role;
 grant execute on function public.upsert_creator_platform_credentials(uuid, text, text, text, text, timestamptz)
   to service_role;
@@ -494,7 +498,7 @@ grant execute on function public.disconnect_creator_platform(text)
 
 comment on function public.get_creator_platform_credentials(uuid, text) is
   'Returns creator platform credentials only to service_role for server-side metric verification.';
-comment on function public.upsert_creator_platform_credentials(uuid, text, text, text, text, timestamptz) is
+comment on function public.upsert_creator_platform_credentials(uuid, text, text, text, text, timestamptz, boolean) is
   'Stores creator OAuth credentials; execution is restricted to service_role.';
 comment on function public.claim_creator_platform_refresh(uuid, text, boolean) is
   'Claims a short refresh lease for YouTube or TikTok credentials; execution is restricted to service_role.';
