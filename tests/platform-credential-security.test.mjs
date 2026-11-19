@@ -27,7 +27,9 @@ test("only service_role can call the credential reader and writer", () => {
   assert.match(migration, /CREATE OR REPLACE FUNCTION public\.get_creator_platform_credentials/i);
   assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.get_creator_platform_credentials\(uuid, text\)\s+TO service_role/i);
   assert.match(migration, /CREATE OR REPLACE FUNCTION public\.upsert_creator_platform_credentials/i);
+  assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.upsert_creator_platform_credentials\(uuid, text, text, text, text, timestamptz, boolean\)\s+TO service_role/i);
   assert.match(migration, /GRANT EXECUTE ON FUNCTION public\.upsert_creator_platform_credentials\(uuid, text, text, text, text, timestamptz\)\s+TO service_role/i);
+  assert.doesNotMatch(migration, /GRANT EXECUTE ON FUNCTION public\.upsert_creator_platform_credentials\([\s\S]*\)\s+TO authenticated/i);
 });
 
 test("disconnect derives the creator from auth.uid and clears stored credentials", () => {
@@ -47,7 +49,7 @@ test("connections UI reads metadata only and uses the authenticated disconnect R
   assert.doesNotMatch(connectionsPage, /access_token|refresh_token|platform_user_id/i);
 });
 
-test("OAuth callback disables edge JWT middleware only because POST validates the user and GET consumes state", () => {
+test("OAuth callback validates the user and consumes one-time state", () => {
   assert.match(supabaseConfig, /\[functions\.social-oauth-start\][\s\S]*verify_jwt\s*=\s*false/i);
   assert.match(oauthFunction, /auth\.getUser\(token\)/);
   assert.match(oauthFunction, /social_oauth_states/);
