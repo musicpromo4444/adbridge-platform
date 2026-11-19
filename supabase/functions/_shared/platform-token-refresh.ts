@@ -171,6 +171,7 @@ export async function refreshPlatformCredential(
       p_access_token: accessToken,
       p_refresh_token: nextRefreshToken,
       p_expires_at: expiresAt,
+      p_is_refresh: true,
     },
   );
 
