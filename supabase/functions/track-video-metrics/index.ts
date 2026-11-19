@@ -208,41 +208,24 @@ Deno.serve(async (req: Request) => {
   } else {
     update.metric_status = "tracking";
   }
-  await db.from("submissions").update(update).eq("id", submission.id);
+  const { error: submissionUpdateError } = await db.from("submissions")
+    .update(update).eq("id", submission.id);
+  if (submissionUpdateError) {
+    return json({ error: "Verified metrics could not be saved.", details: submissionUpdateError.message }, 500);
+  }
 
+  let payout: unknown = null;
   if (reached) {
-    const { data: existing } = await db.from("campaign_payments")
-      .select("id,status")
-      .eq("submission_id", submission.id)
-      .eq("type", "creator_payment")
-      .limit(1);
-
-    if (!existing?.length) {
-      const { data: campaign } = await db.from("campaigns")
-        .select("payment_method,payment_rate,desired_results,max_budget,status")
-        .eq("id", submission.campaign_id)
-        .single();
-      if (campaign && ["views", "cpm"].includes(String(campaign.payment_method).toLowerCase())) {
-        const rate = Number(campaign.payment_rate || 0);
-        const requestedAmount = Number((rate * (target / 1000)).toFixed(2));
-        const { data: paidRows } = await db.from("campaign_payments").select("amount").eq("campaign_id", submission.campaign_id).eq("type", "creator_payment").in("status", ["released","approved","pending"]);
-        const alreadyPaid = (paidRows || []).reduce((sum: number, row: any) => sum + Number(row.amount || 0), 0);
-        const remainingBudget = Math.max(0, Number(campaign.max_budget || 0) - alreadyPaid);
-        const amount = Number(Math.min(requestedAmount, remainingBudget).toFixed(2));
-        if (amount > 0) {
-          await db.from("campaign_payments").insert({
-            campaign_id: submission.campaign_id,
-            creator_id: submission.creator_id,
-            submission_id: submission.id,
-            amount,
-            type: "creator_payment",
-            status: "released",
-          });
-          await db.from("submissions").update({ status: "approved", reviewed_at: now }).eq("id", submission.id);
-          await db.from("creator_campaigns").update({ status: "completed" }).eq("id", submission.creator_campaign_id);
-        }
-      }
+    // The database function locks the campaign, enforces the funded budget,
+    // and uses the submission's unique payment constraint to prevent races.
+    const { data: payoutResult, error: payoutError } = await db.rpc(
+      "release_cpm_submission_payment",
+      { p_submission_id: submission.id },
+    );
+    if (payoutError) {
+      return json({ error: "Metrics were saved, but creator payout could not be processed.", details: payoutError.message }, 500);
     }
+    payout = payoutResult;
   }
 
   return json({ success: true, platform, video_id: videoId, views: currentMetric, target, reached });
