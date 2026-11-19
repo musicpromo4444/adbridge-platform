@@ -13,7 +13,7 @@ create table if not exists private.creator_platform_credentials (
   creator_id uuid not null references public.profiles(id) on delete cascade,
   platform text not null check (platform in ('tiktok', 'youtube', 'instagram', 'facebook', 'x', 'snapchat')),
   platform_user_id text,
-  access_token text not null,
+  access_token text,
   refresh_token text,
   expires_at timestamptz,
   connected boolean not null default true,
@@ -25,7 +25,9 @@ create table if not exists private.creator_platform_credentials (
   updated_at timestamptz not null default pg_catalog.now(),
   primary key (creator_id, platform),
   constraint creator_platform_credentials_access_token_length
-    check (pg_catalog.char_length(access_token) between 1 and 8192),
+    check (access_token is null or pg_catalog.char_length(access_token) between 1 and 8192),
+  constraint creator_platform_credentials_connected_token_check
+    check (connected is not true or access_token is not null),
   constraint creator_platform_credentials_refresh_token_length
     check (refresh_token is null or pg_catalog.char_length(refresh_token) <= 8192),
   constraint creator_platform_credentials_user_id_length
@@ -44,6 +46,9 @@ create table if not exists private.creator_platform_credentials (
 );
 
 alter table private.creator_platform_credentials
+  alter column access_token drop not null;
+
+alter table private.creator_platform_credentials
   add column if not exists refresh_lease_until timestamptz,
   add column if not exists last_refresh_attempt_at timestamptz,
   add column if not exists last_refreshed_at timestamptz,
@@ -51,6 +56,16 @@ alter table private.creator_platform_credentials
 
 do $$
 begin
+  if not exists (
+    select 1
+    from pg_catalog.pg_constraint
+    where conname = 'creator_platform_credentials_connected_token_check'
+      and conrelid = 'private.creator_platform_credentials'::regclass
+  ) then
+    alter table private.creator_platform_credentials
+      add constraint creator_platform_credentials_connected_token_check
+      check (connected is not true or access_token is not null);
+  end if;
   if not exists (
     select 1
     from pg_catalog.pg_constraint
