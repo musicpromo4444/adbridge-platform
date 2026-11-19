@@ -16,7 +16,7 @@ type PaymentRow = {
 };
 
 const naira = (n: number) => "₦" + n.toLocaleString("en-NG", { maximumFractionDigits: 2 });
-const statusLabel = (s: string) => s === "held" ? "Confirmed · campaign escrow" : s.replaceAll("_", " ");
+const statusLabel = (s: string, type: string) => s === "held" ? (type === "funding" ? "Confirmed · campaign escrow" : "Held · verification / fraud review") : s.replaceAll("_", " ");
 
 export default function AdvertiserBilling() {
   const [rows, setRows] = useState<PaymentRow[]>([]);
@@ -32,7 +32,7 @@ export default function AdvertiserBilling() {
       const { data, error: queryError } = await supabase
         .from("campaign_payments")
         .select("id,campaign_id,amount,type,status,provider,created_at,campaigns(name)")
-        .in("type", ["funding", "refund"])
+        .in("type", ["funding", "refund", "creator_payment"])
         .order("created_at", { ascending: false });
       if (!live) return;
       if (queryError) setError("We couldn't load your billing history.");
@@ -46,7 +46,9 @@ export default function AdvertiserBilling() {
   const totals = useMemo(() => ({
     confirmed: rows.filter(r => r.type === "funding" && ["held", "released"].includes(r.status)).reduce((n, r) => n + Number(r.amount || 0), 0),
     refunded: rows.filter(r => r.type === "refund" && ["held", "released"].includes(r.status)).reduce((n, r) => n + Number(r.amount || 0), 0),
-    pending: rows.filter(r => r.type === "funding" && r.status === "pending").reduce((n, r) => n + Number(r.amount || 0), 0)
+    pending: rows.filter(r => r.type === "funding" && r.status === "pending").reduce((n, r) => n + Number(r.amount || 0), 0),
+    paid: rows.filter(r => r.type === "creator_payment" && r.status === "released").reduce((n, r) => n + Number(r.amount || 0), 0),
+    held: rows.filter(r => r.type === "creator_payment" && ["pending", "held"].includes(r.status)).reduce((n, r) => n + Number(r.amount || 0), 0)
   }), [rows]);
 
   return (
@@ -59,6 +61,8 @@ export default function AdvertiserBilling() {
         <div className="statsGrid">
           <div><b>CONFIRMED FUNDING</b><strong>{loading ? "—" : naira(totals.confirmed)}</strong></div>
           <div><b>AWAITING CONFIRMATION</b><strong>{loading ? "—" : naira(totals.pending)}</strong></div>
+          <div><b>CREATOR / PUBLISHER PAYOUTS</b><strong>{loading ? "—" : naira(totals.paid)}</strong></div>
+          <div><b>PAYOUTS HELD FOR REVIEW</b><strong>{loading ? "—" : naira(totals.held)}</strong></div>
           <div><b>REFUNDS RECORDED</b><strong>{loading ? "—" : naira(totals.refunded)}</strong></div>
         </div>
         {error && <div className="successBox" role="alert">{error}</div>}
@@ -72,9 +76,9 @@ export default function AdvertiserBilling() {
               const campaign = Array.isArray(row.campaigns) ? row.campaigns[0] : row.campaigns;
               return (
                 <article key={row.id}>
-                  <div className="choiceRow"><b>{row.type === "funding" ? "Campaign funding" : "Refund"}</b><strong>{naira(Number(row.amount || 0))}</strong></div>
+                  <div className="choiceRow"><b>{row.type === "funding" ? "Campaign funding" : row.type === "refund" ? "Refund" : "Creator / publisher payout"}</b><strong>{naira(Number(row.amount || 0))}</strong></div>
                   <h3>{campaign?.name || "Campaign"}</h3>
-                  <p>{statusLabel(row.status)} · {(row.provider || "Payment provider").toUpperCase()}</p>
+                  <p>{statusLabel(row.status, row.type)} · {(row.provider || "AdBridge ledger").toUpperCase()}</p>
                   <small>{new Date(row.created_at).toLocaleString()}</small>
                   <div><Link href={"/advertiser/results?campaign=" + row.campaign_id}>Open campaign results →</Link></div>
                 </article>
