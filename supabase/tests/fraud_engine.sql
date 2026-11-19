@@ -1,6 +1,10 @@
 do $$
 declare r jsonb;
 begin
+
+  if has_function_privilege('anon','public.resolve_tracking_destination(text)','EXECUTE') then raise exception 'anonymous clients can call destination resolver directly'; end if;
+  if has_function_privilege('authenticated','public.resolve_tracking_destination(text)','EXECUTE') then raise exception 'signed-in clients can call destination resolver directly'; end if;
+  if not has_function_privilege('service_role','public.resolve_tracking_destination(text)','EXECUTE') then raise exception 'server role cannot call destination resolver'; end if;
   if has_function_privilege('anon','public.record_tracking_click(text,text,text,text,text)','EXECUTE') then raise exception 'anonymous clients can call click payout RPC'; end if;
   if has_function_privilege('authenticated','public.record_tracking_click(text,text,text,text,text)','EXECUTE') then raise exception 'signed-in clients can call click payout RPC'; end if;
   if not has_function_privilege('service_role','public.record_tracking_click(text,text,text,text,text)','EXECUTE') then raise exception 'server role cannot call click payout RPC'; end if;
