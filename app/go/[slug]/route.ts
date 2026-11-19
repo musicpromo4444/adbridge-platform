@@ -32,6 +32,13 @@ export async function GET(
   const visitorHash = Array.from(new Uint8Array(digest))
     .map((x) => x.toString(16).padStart(2, "0"))
     .join("");
+  const ipDigest = await crypto.subtle.digest(
+    "SHA-256",
+    new TextEncoder().encode(ip || "unknown")
+  );
+  const ipHash = Array.from(new Uint8Array(ipDigest))
+    .map((x) => x.toString(16).padStart(2, "0"))
+    .join("");
 
   // Link-preview crawlers and browser prefetches must not inflate billable
   // clicks. They are still redirected to the advertiser destination.
@@ -51,6 +58,7 @@ export async function GET(
     : await db.rpc("record_tracking_click", {
         p_slug: slug,
         p_visitor_key: visitorHash,
+        p_ip_hash: ipHash,
         p_user_agent: ua,
         p_referrer: request.headers.get("referer") || "",
       });
