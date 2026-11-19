@@ -14,8 +14,9 @@ function json(body: unknown, status = 200) {
 function youtubeId(url: string) {
   try {
     const u = new URL(url);
-    if (u.hostname.includes("youtu.be")) return u.pathname.slice(1).split("/")[0];
-    if (u.hostname.includes("youtube.com")) {
+    const host = u.hostname.toLowerCase();
+    if (host === "youtu.be" || host.endsWith(".youtu.be")) return u.pathname.slice(1).split("/")[0] || null;
+    if (host === "youtube.com" || host.endsWith(".youtube.com")) {
       if (u.pathname === "/watch") return u.searchParams.get("v");
       const parts = u.pathname.split("/").filter(Boolean);
       const i = parts.findIndex((x) => x === "shorts" || x === "embed");
@@ -26,8 +27,15 @@ function youtubeId(url: string) {
 }
 
 function tiktokId(url: string) {
-  const m = url.match(/\/video\/(\d+)/);
-  return m?.[1] ?? null;
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    if (host !== "tiktok.com" && !host.endsWith(".tiktok.com")) return null;
+    const m = u.pathname.match(/\/video\/(\d+)/);
+    return m?.[1] ?? null;
+  } catch {
+    return null;
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -147,17 +155,21 @@ Deno.serve(async (req: Request) => {
     raw = item;
   } else if (platform === "x" || platform === "twitter") {
     platform = "x";
-    videoId ||= (submission.posted_url || "").match(/status\/(\d+)/)?.[1] || null;
+    try {
+      const postUrl = new URL(submission.posted_url || "");
+      if (!["x.com", "www.x.com", "twitter.com", "www.twitter.com"].includes(postUrl.hostname.toLowerCase())) throw new Error("invalid host");
+      videoId ||= postUrl.pathname.match(/status\/(\d+)/)?.[1] || null;
+    } catch { return json({ error: "Submit a valid X post URL." }, 400); }
     if (!videoId) return json({ error: "Could not identify the X post." }, 400);
     const { data: connection } = await db.from("creator_platform_connections")
-      .select("access_token,connected").eq("creator_id", submission.creator_id).eq("platform", "x").eq("connected", true).maybeSingle();
-    const token = connection?.access_token || Deno.env.get("X_BEARER_TOKEN");
-    if (!token) return json({ error: "X tracking requires an authorized creator connection or X API token." }, 409);
+      .select("access_token,connected,platform_user_id").eq("creator_id", submission.creator_id).eq("platform", "x").eq("connected", true).maybeSingle();
+    if (!connection?.access_token || !connection?.platform_user_id) return json({ error: "Connect your X account before verifying post views." }, 409);
     const u = new URL(`https://api.x.com/2/tweets/${videoId}`);
-    u.searchParams.set("tweet.fields", "public_metrics");
+    u.searchParams.set("tweet.fields", "public_metrics,author_id");
     const r = await fetch(u, { headers: { Authorization: `Bearer ${token}` } });
     const data = await r.json();
     if (!r.ok || !data?.data) return json({ error: "X could not return this post.", details: data }, 502);
+    if (data.data.author_id !== connection.platform_user_id) return json({ error: "The submitted X post does not belong to the connected account." }, 403);
     views = Number(data.data.public_metrics?.view_count || 0);
     raw = data.data;
   } else if (platform === "instagram") {
