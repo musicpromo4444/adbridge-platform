@@ -1,7 +1,10 @@
 project_id = "wilfmtzxxnkdcyiozamq"
 
-# The OAuth provider redirects to the GET callback without a Supabase JWT.
-# The function validates authenticated POST requests itself and consumes a
-# short-lived, one-time state value for the provider callback.
+# OAuth providers redirect to GET without a Supabase JWT. The function validates
+# authenticated POST requests itself and consumes a short-lived, one-time state.
 [functions.social-oauth-start]
 verify_jwt = false
+
+# Creator-triggered refreshes require a Supabase user JWT and verify creator role.
+[functions.refresh-social-credentials]
+verify_jwt = true
