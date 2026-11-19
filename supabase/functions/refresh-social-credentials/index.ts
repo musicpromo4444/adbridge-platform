@@ -21,7 +21,7 @@ Deno.serve(async (req: Request) => {
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const authorization = req.headers.get("Authorization") || "";
-  const token = authorization.match(/^Bearer\\s+(.+)$/i)?.[1]?.trim();
+  const token = authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim();
 
   if (!supabaseUrl || !serviceRoleKey) {
     return json({ error: "Platform credential refresh is not configured." }, 503);
