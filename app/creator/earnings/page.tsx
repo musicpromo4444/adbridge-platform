@@ -4,7 +4,7 @@ import{useCallback,useEffect,useState}from"react";
 import{supabase}from"@/lib/supabase";
 type Payment={id:string;amount:number|null;type:string|null;status:string|null;created_at:string;campaigns?:{name:string}[]|null};
 type Withdrawal={id:string;amount:number;status:string;created_at:string};
-type Summary={currency:string;released_earnings:number;held_earnings:number;withdrawals_pending:number;withdrawals_approved:number;withdrawals_paid:number;withdrawals_rejected:number;available_balance:number};
+type Summary={currency:string;released_earnings:number;held_earnings:number;withdrawals_pending:number;withdrawals_approved:number;withdrawals_paid:number;withdrawals_rejected:number;available_balance:number;minimum_withdrawal_usd:number;minimum_withdrawal_ngn:number|null;usd_to_ngn_rate:number|null;withdrawal_fee_paid_by:string};
 export default function Earnings(){
  const[payments,setPayments]=useState<Payment[]>([]),[withdrawals,setWithdrawals]=useState<Withdrawal[]>([]);
  const[summary,setSummary]=useState<Summary|null>(null),[amount,setAmount]=useState(""),[message,setMessage]=useState(""),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false);
@@ -41,11 +41,11 @@ export default function Earnings(){
    <div><b>Held for review</b><strong>{money(summary?.held_earnings||0)}</strong></div>
    <div><b>Already paid out</b><strong>{money(summary?.withdrawals_paid||0)}</strong></div>
   </div>}
-  <label>How much do you want to withdraw?</label><input className="textInput" type="number" min="1" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="₦ 0" inputMode="decimal"/>
-  <button className="primary" onClick={requestWithdrawal} disabled={busy||loading}>{busy?"Submitting…":"Request withdrawal →"}</button>
+  <label>How much do you want to withdraw?</label><p className="muted">Minimum: ${summary?.minimum_withdrawal_usd||50} {summary?.minimum_withdrawal_ngn?`(about ${money(summary.minimum_withdrawal_ngn)})`:"· FX rate awaiting administrator setup"}. AdBridge pays withdrawal charges.</p><input className="textInput" type="number" min={summary?.minimum_withdrawal_ngn||1} step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="₦ 0" inputMode="decimal"/>
+  <button className="primary" onClick={requestWithdrawal} disabled={busy||loading||!summary?.usd_to_ngn_rate}>{busy?"Submitting…":"Request withdrawal →"}</button>
   {message&&<div className="successBox">{message}</div>}
   <h2>Payment history</h2>{loading?<div className="successBox">Loading payments…</div>:payments.length?<div className="opps">{payments.map(p=><article key={p.id}><b>{(p.status||"pending").toUpperCase()}</b><h3>{p.campaigns?.[0]?.name||"Creator payment"}</h3><p>{(p.type||"payment").replaceAll("_"," ")} · {new Date(p.created_at).toLocaleDateString()}</p><strong>{money(Number(p.amount||0))}</strong></article>)}</div>:<div className="successBox">No payments yet.</div>}
   <h2>Withdrawal history</h2>{withdrawals.length?<div className="opps">{withdrawals.map(w=><article key={w.id}><b>{w.status.toUpperCase()}</b><h3>{money(w.amount)}</h3><small>{new Date(w.created_at).toLocaleString()}</small></article>)}</div>:<div className="successBox">No withdrawal requests yet.</div>}
-  <p><small>Withdrawal requests are reviewed by AdBridge. A status of “paid” should only appear after the transfer has actually been completed.</small></p>
+  <p><small>First successful withdrawal minimum: $50. Later withdrawals: $20 minimum. The USD/NGN rate is captured with each request; AdBridge pays withdrawal charges. Requests are reviewed by AdBridge. A status of “paid” should only appear after the transfer has actually been completed.</small></p>
  </div></main>
 }
