@@ -11,6 +11,36 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: cors });
 }
 
+type PlatformCredential = {
+  platform_user_id: string | null;
+  access_token: string | null;
+  refresh_token: string | null;
+  expires_at: string | null;
+  connected: boolean;
+};
+
+async function loadPlatformCredential(
+  db: any,
+  creatorId: string,
+  platform: string,
+): Promise<{ connection: PlatformCredential | null; error: string | null }> {
+  const { data, error } = await db.rpc("get_creator_platform_credentials", {
+    p_creator_id: creatorId,
+    p_platform: platform,
+  });
+  if (error) return { connection: null, error: error.message || "Credential lookup failed." };
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row || typeof row !== "object") return { connection: null, error: null };
+  return { connection: row as PlatformCredential, error: null };
+}
+
+function credentialExpired(connection: PlatformCredential) {
+  return Boolean(
+    connection.expires_at &&
+    new Date(connection.expires_at).getTime() <= Date.now(),
+  );
+}
+
 function youtubeId(url: string) {
   try {
     const u = new URL(url);
@@ -106,16 +136,12 @@ Deno.serve(async (req: Request) => {
     platform = "youtube";
     videoId ||= youtubeId(submission.posted_url || "");
     if (!videoId) return json({ error: "Could not identify the YouTube video from the submitted URL." }, 400);
-    const { data: connection } = await db.from("creator_platform_connections")
-      .select("access_token,platform_user_id,connected,expires_at")
-      .eq("creator_id", submission.creator_id)
-      .eq("platform", "youtube")
-      .eq("connected", true)
-      .maybeSingle();
+    const { connection, error: credentialError } = await loadPlatformCredential(db, submission.creator_id, "youtube");
+    if (credentialError) return json({ error: "YouTube credentials could not be loaded." }, 503);
     if (!connection?.access_token || !connection?.platform_user_id) {
       return json({ error: "Connect your YouTube channel before AdBridge can verify ownership and views." }, 409);
     }
-    if (connection.expires_at && new Date(connection.expires_at).getTime() <= Date.now()) {
+    if (credentialExpired(connection)) {
       return json({ error: "Your YouTube connection has expired. Reconnect your channel to continue tracking." }, 409);
     }
     const u = new URL("https://www.googleapis.com/youtube/v3/videos");
@@ -135,14 +161,10 @@ Deno.serve(async (req: Request) => {
   } else if (platform === "tiktok") {
     videoId ||= tiktokId(submission.posted_url || "");
     if (!videoId) return json({ error: "Could not identify the TikTok video." }, 400);
-    const { data: connection } = await db
-      .from("creator_platform_connections")
-      .select("access_token,connected,expires_at")
-      .eq("creator_id", submission.creator_id)
-      .eq("platform", "tiktok")
-      .eq("connected", true)
-      .maybeSingle();
+    const { connection, error: credentialError } = await loadPlatformCredential(db, submission.creator_id, "tiktok");
+    if (credentialError) return json({ error: "TikTok credentials could not be loaded." }, 503);
     if (!connection?.access_token) return json({ error: "TikTok creator connection is required before automatic view tracking can start." }, 409);
+    if (credentialExpired(connection)) return json({ error: "Your TikTok connection has expired. Reconnect before tracking views." }, 409);
     const r = await fetch("https://open.tiktokapis.com/v2/video/query/?fields=id,title,view_count,like_count,comment_count,share_count", {
       method: "POST",
       headers: { Authorization: `Bearer ${connection.access_token}`, "Content-Type": "application/json" },
@@ -161,12 +183,13 @@ Deno.serve(async (req: Request) => {
       videoId ||= postUrl.pathname.match(/status\/(\d+)/)?.[1] || null;
     } catch { return json({ error: "Submit a valid X post URL." }, 400); }
     if (!videoId) return json({ error: "Could not identify the X post." }, 400);
-    const { data: connection } = await db.from("creator_platform_connections")
-      .select("access_token,connected,platform_user_id").eq("creator_id", submission.creator_id).eq("platform", "x").eq("connected", true).maybeSingle();
+    const { connection, error: credentialError } = await loadPlatformCredential(db, submission.creator_id, "x");
+    if (credentialError) return json({ error: "X credentials could not be loaded." }, 503);
     if (!connection?.access_token || !connection?.platform_user_id) return json({ error: "Connect your X account before verifying post views." }, 409);
+    if (credentialExpired(connection)) return json({ error: "Your X connection has expired. Reconnect before tracking views." }, 409);
     const u = new URL(`https://api.x.com/2/tweets/${videoId}`);
     u.searchParams.set("tweet.fields", "public_metrics,author_id");
-    const r = await fetch(u, { headers: { Authorization: `Bearer ${token}` } });
+    const r = await fetch(u, { headers: { Authorization: "Bearer " + connection.access_token } });
     const data = await r.json();
     if (!r.ok || !data?.data) return json({ error: "X could not return this post.", details: data }, 502);
     if (data.data.author_id !== connection.platform_user_id) return json({ error: "The submitted X post does not belong to the connected account." }, 403);
@@ -180,13 +203,13 @@ Deno.serve(async (req: Request) => {
       videoId ||= postUrl.pathname.match(/(?:reel|reels|p)\/([A-Za-z0-9_-]+)/)?.[1] || null;
     } catch { return json({ error: "Submit a valid Instagram post or reel URL." }, 400); }
     if (!videoId) return json({ error: "Could not identify the Instagram post/reel." }, 400);
-    const { data: connection } = await db.from("creator_platform_connections")
-      .select("access_token,connected").eq("creator_id", submission.creator_id).eq("platform", "instagram").eq("connected", true).maybeSingle();
+    const { connection, error: credentialError } = await loadPlatformCredential(db, submission.creator_id, "instagram");
+    if (credentialError) return json({ error: "Instagram credentials could not be loaded." }, 503);
     if (!connection?.access_token) return json({ error: "Instagram tracking requires a connected professional creator/business account." }, 409);
+    if (credentialExpired(connection)) return json({ error: "Your Instagram connection has expired. Reconnect before tracking views." }, 409);
     const u = new URL(`https://graph.facebook.com/v23.0/${videoId}/insights`);
     u.searchParams.set("metric", "views");
-    u.searchParams.set("access_token", connection.access_token);
-    const r = await fetch(u);
+    const r = await fetch(u, { headers: { Authorization: "Bearer " + connection.access_token } });
     const data = await r.json();
     if (!r.ok) return json({ error: "Instagram could not return this media's insights.", details: data }, 502);
     views = Number(data?.data?.find((x: any) => x.name === "views")?.values?.at(-1)?.value || 0);
@@ -199,9 +222,10 @@ Deno.serve(async (req: Request) => {
       videoId ||= postUrl.pathname.match(/(?:videos|reel|watch)\/(\d+)/)?.[1] || null;
     } catch { return json({ error: "Submit a valid Facebook video URL." }, 400); }
     if (!videoId) return json({ error: "Could not identify the Facebook video." }, 400);
-    const { data: connection } = await db.from("creator_platform_connections")
-      .select("access_token,connected").eq("creator_id", submission.creator_id).eq("platform", "facebook").eq("connected", true).maybeSingle();
+    const { connection, error: credentialError } = await loadPlatformCredential(db, submission.creator_id, "facebook");
+    if (credentialError) return json({ error: "Facebook credentials could not be loaded." }, 503);
     if (!connection?.access_token) return json({ error: "Facebook tracking requires a connected Page/creator account." }, 409);
+    if (credentialExpired(connection)) return json({ error: "Your Facebook connection has expired. Reconnect before tracking views." }, 409);
     const u = new URL(`https://graph.facebook.com/v23.0/${videoId}/insights`);
     u.searchParams.set("metric", "post_media_view");
     u.searchParams.set("access_token", connection.access_token);
