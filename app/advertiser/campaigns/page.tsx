@@ -267,6 +267,11 @@ export default function Campaigns() {
                     <Link className="secondary" href={"/advertiser/campaigns/" + campaign.id + "/edit"}>
                       Edit campaign
                     </Link>
+                    {["cpa", "cpi", "actions"].includes(String(campaign.payment_method || "").toLowerCase()) && (
+                      <Link className="secondary" href={"/advertiser/campaigns/" + campaign.id + "/postback"}>
+                        Conversion setup
+                      </Link>
+                    )}
                     <Link className="secondary" href={"/advertiser/results?campaign=" + campaign.id}>
                       Results
                     </Link>
