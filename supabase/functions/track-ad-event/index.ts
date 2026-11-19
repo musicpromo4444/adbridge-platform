@@ -88,6 +88,10 @@ Deno.serve(async (req: Request) => {
     || "unknown";
   const userAgent = req.headers.get("user-agent") || "";
   const [ipHash, userAgentHash] = await Promise.all([hash(forwarded, serviceKey), hash(userAgent, serviceKey)]);
+  const sinceRateLimit = new Date(now - 600_000).toISOString();
+  const { count: ipEventCount } = await db.from("ad_placement_events").select("id", { count: "exact", head: true })
+    .eq("placement_id", placement.id).eq("ip_hash", ipHash).gte("occurred_at", sinceRateLimit);
+  if (Number(ipEventCount || 0) >= 60) return json({ recorded: false, rate_limited: true }, 429);
 
   if (eventType === "impression" && Number(placement.frequency_cap || 0) > 0) {
     const since = new Date(now - 86_400_000).toISOString();
@@ -102,6 +106,7 @@ Deno.serve(async (req: Request) => {
   // integrations may set server_verified=true after independently verifying evidence.
   const metadata = {
     server_verified: false,
+    automation_detected: /(bot|crawler|spider|headless|phantom|selenium|playwright|puppeteer)/i.test(userAgent),
     rendered: body.rendered === true,
     viewable_ratio: safeNumber(body.viewable_ratio, 1),
     visible_ms: safeNumber(body.visible_ms, 86_400_000),
