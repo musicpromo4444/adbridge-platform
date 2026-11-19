@@ -33,7 +33,7 @@ test("campaign postback hashes are isolated in a private RLS-protected store", a
 
 test("secret management authenticates the advertiser and returns plaintext only on rotation", async () => {
   const source = await readFile(managerPath, "utf8");
-  assert.match(source, /authClient\.auth\.getUser\(\)/);
+  assert.match(source, /authClient\.auth\.getUser\(bearer\)/);
   assert.match(source, /from\("profiles"\)/);
   assert.match(source, /advertiser_id/);
   assert.match(source, /crypto\.getRandomValues/);
