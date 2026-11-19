@@ -1,7 +1,6 @@
 begin;
 
 create schema if not exists adbridge_private;
-revoke all on schema adbridge_private from public, anon, authenticated;
 grant usage on schema adbridge_private to service_role;
 
 create table if not exists adbridge_private.campaign_postback_secrets (
