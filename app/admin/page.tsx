@@ -70,7 +70,8 @@ export default function Admin(){
    <Link href="/admin/withdrawals"><b>↗</b><span>Withdrawals</span><small>{stats.pendingWithdrawals} pending requests</small></Link>
    <Link href="/admin/fraud"><b>⚑</b><span>Fraud review</span><small>Review suspicious clicks and payment holds</small></Link>
    <Link href="/admin/ads"><b>✦</b><span>Ads Manager</span><small>Formats, providers, targeting and caps</small></Link>
-   <Link href="/admin/settings"><b>⚙</b><span>Platform Settings</span><small>Commission and marketplace rules</small></Link>\n   <Link href="/rankings"><b>№</b><span>Global Rankings</span><small>Worldwide top 20 creators and advertisers</small></Link>
+   <Link href="/admin/settings"><b>⚙</b><span>Platform Settings</span><small>Commission and marketplace rules</small></Link>
+   <Link href="/rankings"><b>№</b><span>Global Rankings</span><small>Worldwide top 20 creators and advertisers</small></Link>
   </div>
   <div className="formCard wide">
    <span className="eyebrow">QUICK CONTROL</span><h2>Marketplace availability</h2>
