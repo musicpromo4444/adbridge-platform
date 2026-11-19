@@ -13,7 +13,7 @@ supabase.from("campaign_formats").select("format").eq("campaign_id",id)
 function toggle(setter:React.Dispatch<React.SetStateAction<string[]>>,x:string){setter(a=>a.includes(x)?a.filter(v=>v!==x):[...a,x])}
 async function save(){if(!supabase||!c)return;if(!name.trim()||!instructions.trim()){setError("Campaign name and instructions are required.");return}if(!selectedPlatforms.length||!selectedFormats.length){setError("Choose at least one platform and one format.");return}setSaving(true);setError("");setMessage("");
 const legacy=selectedPlatforms.length===platforms.length?"all":selectedPlatforms.length===1?selectedPlatforms[0]:"multiple";
-const{error:e}=await supabase.from("campaigns").update({name:name.trim(),instructions:instructions.trim(),platform:legacy,payment_method:method,payment_rate:Number(rate)||0,max_budget:Number(budget)||0,desired_results:Number(results.replaceAll(",",""))||0,updated_at:new Date().toISOString()}).eq("id",id);
+const{error:e}=await supabase.rpc("update_campaign_draft",{p_campaign_id:id,p_name:name.trim(),p_instructions:instructions.trim(),p_platform:legacy,p_payment_method:method,p_payment_rate:Number(rate)||0,p_max_budget:Number(budget)||0,p_desired_results:Number(results.replaceAll(",",""))||0});
 if(e){setError("We couldn't save the campaign.");setSaving(false);return}
 const{error:de}=await supabase.from("campaign_platforms").delete().eq("campaign_id",id);if(de){setError("Campaign saved, but platforms could not be refreshed.");setSaving(false);return}
 const{error:pe}=await supabase.from("campaign_platforms").insert(selectedPlatforms.map(platform=>({campaign_id:id,platform,enabled:true})));if(pe){setError("Campaign saved, but platforms could not be saved.");setSaving(false);return}
