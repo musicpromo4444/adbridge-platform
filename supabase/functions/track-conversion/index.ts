@@ -1,38 +1,68 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-Deno.serve(async req => {
-  if (req.method !== "POST") return Response.json({error:"POST required"},{status:405});
-  const secret=Deno.env.get("CPA_POSTBACK_SECRET");
-  if (!secret || req.headers.get("x-adbridge-secret")!==secret) return Response.json({error:"Unauthorized"},{status:401});
-  const body=await req.json();
-  const {campaign_id,creator_id,click_id,external_conversion_id,action_type="conversion",value=0}=body;
-  if(!campaign_id||!external_conversion_id) return Response.json({error:"campaign_id and external_conversion_id required"},{status:400});
-  const db=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
-  const {data:campaign,error:campaignError}=await db.from("campaigns").select("payment_method,payment_rate,max_budget,desired_results").eq("id",campaign_id).single();
-  if(campaignError||!campaign||campaign.payment_method!=="actions") return Response.json({error:"Not an actions campaign"},{status:400});
-  let resolvedCreator=creator_id||null;
-  if(click_id){
-    const {data:link}=await db.from("tracking_links").select("campaign_id,creator_id,submission_id").eq("slug",click_id).maybeSingle();
-    if(link){
-      if(link.campaign_id!==campaign_id) return Response.json({error:"Click does not belong to campaign"},{status:400});
-      if(resolvedCreator && link.creator_id && resolvedCreator!==link.creator_id) return Response.json({error:"Creator does not match tracking link"},{status:400});
-      resolvedCreator=resolvedCreator||link.creator_id||null;
-    }
+
+const cors = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "content-type, x-adbridge-secret",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Content-Type": "application/json",
+};
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: cors });
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+  if (req.method !== "POST") return json({ error: "POST required" }, 405);
+
+  const expectedSecret = Deno.env.get("CPA_POSTBACK_SECRET") || "";
+  const suppliedSecret = req.headers.get("x-adbridge-secret") || "";
+  let mismatch = suppliedSecret.length ^ expectedSecret.length;
+  const maxLength = Math.max(suppliedSecret.length, expectedSecret.length);
+  for (let i = 0; i < maxLength; i++) {
+    mismatch |= (suppliedSecret.charCodeAt(i) || 0) ^ (expectedSecret.charCodeAt(i) || 0);
   }
-  const {data:existing}=await db.from("cpa_conversion_events").select("id").eq("campaign_id",campaign_id).eq("external_conversion_id",external_conversion_id).maybeSingle();
-  if(existing) return Response.json({ok:true,duplicate:true});
-  const {count}=await db.from("cpa_conversion_events").select("id",{count:"exact",head:true}).eq("campaign_id",campaign_id).eq("status","approved");
-  const target=Number(campaign.desired_results||0);
-  if(target>0 && Number(count||0)>=target) return Response.json({error:"Campaign conversion target already reached"},{status:409});
-  const {data:event,error}=await db.from("cpa_conversion_events").insert({campaign_id,creator_id:resolvedCreator,click_id,external_conversion_id,action_type,value,status:"approved"}).select("id").single();
-  if(error) return Response.json({error:error.message},{status:500});
-  const amount=Number(campaign.payment_rate||0);
-  if(resolvedCreator && amount>0){
-    const {data:paid}=await db.from("campaign_payments").select("amount").eq("campaign_id",campaign_id).eq("type","creator_payment").eq("status","released");
-    const spent=(paid||[]).reduce((s:any,p:any)=>s+Number(p.amount||0),0);
-    if(spent+amount<=Number(campaign.max_budget||0)){
-      await db.from("campaign_payments").insert({campaign_id,creator_id:resolvedCreator,amount,type:"creator_payment",status:"released"});
-    }
+  if (!expectedSecret || mismatch !== 0) return json({ error: "Unauthorized" }, 401);
+
+  const body = await req.json().catch(() => null);
+  if (!body || typeof body !== "object") return json({ error: "Valid JSON body required" }, 400);
+
+  const campaign_id = String(body.campaign_id || "");
+  const click_id = String(body.click_id || "");
+  const external_conversion_id = String(body.external_conversion_id || "");
+  const action_type = String(body.action_type || "conversion").slice(0, 80);
+  const value = body.value === undefined ? 0 : Number(body.value);
+
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(campaign_id)) {
+    return json({ error: "campaign_id must be a valid UUID" }, 400);
   }
-  return Response.json({ok:true,event_id:event.id,conversions:Number(count||0)+1});
+  if (!/^c_[a-f0-9]{20}$/i.test(click_id)) return json({ error: "A valid AdBridge click_id is required" }, 400);
+  if (!external_conversion_id.trim() || external_conversion_id.length > 200) {
+    return json({ error: "external_conversion_id is required and must be at most 200 characters" }, 400);
+  }
+  if (!Number.isFinite(value) || value < 0) return json({ error: "value must be a non-negative number" }, 400);
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  if (!supabaseUrl || !serviceKey) return json({ error: "Server database credentials are not configured" }, 503);
+
+  const db = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data, error } = await db.rpc("record_cpa_conversion", {
+    p_campaign_id: campaign_id,
+    p_click_slug: click_id,
+    p_external_conversion_id: external_conversion_id.trim(),
+    p_action_type: action_type,
+    p_value: value,
+  });
+
+  if (error) {
+    const status = /not found|does not belong|no creator attribution|not configured/i.test(error.message)
+      ? 400
+      : /target already reached|not accepting conversions/i.test(error.message) ? 409 : 500;
+    return json({ error: error.message }, status);
+  }
+  return json(data);
 });
