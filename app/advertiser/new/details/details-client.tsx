@@ -13,7 +13,7 @@ const formats = [
 ];
 const platforms = [
   ["instagram","Instagram"],["tiktok","TikTok"],["youtube","YouTube"],["facebook","Facebook"],["x","X"],["snapchat","Snapchat"],["linkedin","LinkedIn"],
-  ["website","Website"],["web_app","Web App"],["android_app","Android App"],["ios_app","iOS App"],["mobile_app","Mobile App"]
+  ["website","Website"],["web_app","Web App"],["android_app","Android App"],["ios_app","iOS App"]
 ];
 const allowedTypes = ["image/jpeg","image/png","image/webp","video/mp4","application/pdf"];
 const maxFileBytes = 100 * 1024 * 1024;
