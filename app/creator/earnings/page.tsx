@@ -41,6 +41,7 @@ export default function Earnings(){
    <div><b>Held for review</b><strong>{money(summary?.held_earnings||0)}</strong></div>
    <div><b>Already paid out</b><strong>{money(summary?.withdrawals_paid||0)}</strong></div>
   </div>}
+  <div className="infoBox"><b>Payout destination</b><p>Save or update the bank or mobile-money account where AdBridge should send approved withdrawals.</p><Link href="/creator/payout-details">Manage payout details →</Link></div>
   <label>How much do you want to withdraw?</label><p className="muted">Minimum: ${summary?.minimum_withdrawal_usd||50} {summary?.minimum_withdrawal_ngn?`(about ${money(summary.minimum_withdrawal_ngn)})`:"· FX rate awaiting administrator setup"}. AdBridge pays withdrawal charges.</p><input className="textInput" type="number" min={summary?.minimum_withdrawal_ngn||1} step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="₦ 0" inputMode="decimal"/>
   <button className="primary" onClick={requestWithdrawal} disabled={busy||loading||!summary?.usd_to_ngn_rate}>{busy?"Submitting…":"Request withdrawal →"}</button>
   {message&&<div className="successBox">{message}</div>}
