@@ -1,6 +1,9 @@
 do $$
 declare r jsonb;
 begin
+  if has_function_privilege('anon','public.record_tracking_click(text,text,text,text,text)','EXECUTE') then raise exception 'anonymous clients can call click payout RPC'; end if;
+  if has_function_privilege('authenticated','public.record_tracking_click(text,text,text,text,text)','EXECUTE') then raise exception 'signed-in clients can call click payout RPC'; end if;
+  if not has_function_privilege('service_role','public.record_tracking_click(text,text,text,text,text)','EXECUTE') then raise exception 'server role cannot call click payout RPC'; end if;
   r:=public.adbridge_score_event('video_view','client','{"playback_started":true,"watch_seconds":30,"heartbeat_count":10,"page_visible":true}'::jsonb,0,0);
   if (r->>'verified')::boolean or (r->>'payable')::boolean then raise exception 'client-only video view was accepted'; end if;
 
