@@ -228,8 +228,7 @@ Deno.serve(async (req: Request) => {
     if (credentialExpired(connection)) return json({ error: "Your Facebook connection has expired. Reconnect before tracking views." }, 409);
     const u = new URL(`https://graph.facebook.com/v23.0/${videoId}/insights`);
     u.searchParams.set("metric", "post_media_view");
-    u.searchParams.set("access_token", connection.access_token);
-    const r = await fetch(u);
+    const r = await fetch(u, { headers: { Authorization: "Bearer " + connection.access_token } });
     const data = await r.json();
     if (!r.ok) return json({ error: "Facebook could not return this video's insights.", details: data }, 502);
     views = Number(data?.data?.find((x: any) => x.name === "post_media_view")?.values?.at(-1)?.value || 0);
