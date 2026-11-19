@@ -15,8 +15,9 @@ Deno.serve(async(req)=>{
  const app=Deno.env.get("APP_URL")||"";
  if(!app)return json({error:"APP_URL is not configured."},503);
  const reference="adbridge_"+crypto.randomUUID().replaceAll("-","");
- const r=await fetch("https://api.paystack.co/transaction/initialize",{method:"POST",headers:{"Authorization":"Bearer "+secret,"Content-Type":"application/json"},body:JSON.stringify({email:user.email,amount:Math.round(amount*100),reference,callback_url:app+"/advertiser/fund/verify?campaign="+encodeURIComponent(campaign_id)})});
- const data=await r.json();if(!r.ok||!data.status)return json({error:"Paystack could not initialize the payment.",details:data},502);
- await db.from("campaign_payments").insert({campaign_id,amount,type:"funding",status:"pending",provider:"paystack",provider_reference:reference,checkout_url:data.data?.authorization_url||null});
- return json({authorization_url:data.data?.authorization_url,reference});
+ const r=await fetch("https://api.paystack.co/transaction/initialize",{method:"POST",headers:{"Authorization":"Bearer "+secret,"Content-Type":"application/json"},body:JSON.stringify({email:user.email,amount:Math.round(amount*100),currency:"NGN",reference,callback_url:app+"/advertiser/fund/verify?campaign="+encodeURIComponent(campaign_id)})});
+ const data=await r.json();if(!r.ok||!data.status||!data.data?.authorization_url)return json({error:"Paystack could not initialize the payment.",details:data},502);
+ const {error:paymentError}=await db.from("campaign_payments").insert({campaign_id,amount,type:"funding",status:"pending",provider:"paystack",provider_reference:reference,checkout_url:data.data.authorization_url});
+ if(paymentError)return json({error:"Checkout was initialized, but AdBridge could not save the pending payment. Do not complete checkout; contact support.",details:paymentError.message},500);
+ return json({authorization_url:data.data.authorization_url,reference});
 });
