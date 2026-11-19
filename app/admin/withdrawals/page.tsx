@@ -3,7 +3,8 @@ import Link from "next/link";
 import {useCallback,useEffect,useState} from "react";
 import {supabase} from "@/lib/supabase";
 
-type Withdrawal={id:string;creator_id:string;amount:number;status:string;created_at:string};
+type PayoutDetails={payout_method:string;country_code:string;currency_code:string;account_holder?:string|null;bank_name?:string|null;account_number?:string|null;routing_code?:string|null;swift_bic?:string|null;iban?:string|null;mobile_money_provider?:string|null;mobile_number?:string|null};
+type Withdrawal={id:string;creator_id:string;display_name?:string|null;account_role?:string|null;payout_details?:PayoutDetails|null;amount:number;status:string;created_at:string};
 type AuditEvent={id:string;actor_id:string|null;previous_status:string|null;new_status:string;amount:number;created_at:string};
 type Filter="pending"|"approved"|"paid"|"rejected"|"all";
 
@@ -57,7 +58,7 @@ export default function Withdrawals(){
    {error&&<div className="successBox">{error}</div>}{message&&<div className="successBox">✓ {message}</div>}
    {loading?<div className="successBox">Loading withdrawal requests…</div>:rows.length?<div className="opps">{rows.map(r=><article key={r.id}>
     <b>{r.status.toUpperCase()}</b><h3>{money(r.amount)}</h3>
-    <p>Creator account: {r.creator_id}</p><small>{new Date(r.created_at).toLocaleString()} · Request {r.id}</small>
+    <p>{r.account_role==="publisher"?"Publisher":"Creator"}: {r.display_name||r.creator_id}</p><small>{new Date(r.created_at).toLocaleString()} · Request {r.id}</small>{r.payout_details?<div className="infoBox"><b>PAYOUT DESTINATION · {r.payout_details.country_code} · {r.payout_details.currency_code}</b>{r.payout_details.payout_method==="bank_transfer"?<><p>Account holder: {r.payout_details.account_holder}</p><p>Bank: {r.payout_details.bank_name}</p><p>Account number: {r.payout_details.account_number}</p>{r.payout_details.routing_code&&<p>Routing / sort code: {r.payout_details.routing_code}</p>}{r.payout_details.swift_bic&&<p>SWIFT / BIC: {r.payout_details.swift_bic}</p>}{r.payout_details.iban&&<p>IBAN: {r.payout_details.iban}</p>}</>:<><p>Provider: {r.payout_details.mobile_money_provider}</p><p>Mobile number: {r.payout_details.mobile_number}</p></>}<small>Private payout data · admin only</small></div>:<div className="successBox">No payout destination saved. Ask the user to add payout details before processing.</div>}
     <div className="choiceRow">
      <button className="secondary" onClick={()=>void loadAudit(r.id)}>Audit history</button>
      {r.status==="pending"&&<><button className="primary" disabled={!!busy} onClick={()=>void update(r.id,"approved")}>{busy===r.id?"Saving…":"Approve"}</button><button className="secondary" disabled={!!busy} onClick={()=>void update(r.id,"rejected")}>Reject</button></>}
