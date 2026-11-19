@@ -44,7 +44,7 @@ export async function GET(
   const isBot = /bot|crawler|spider|slurp|facebookexternalhit|whatsapp|telegrambot|discordbot|linkedinbot|twitterbot|slackbot/i.test(ua);
 
   const { data: rawData, error } = isPrefetch || isBot
-    ? await db.from("tracking_links").select("target_url").eq("slug", slug).eq("status", "active").maybeSingle()
+    ? await db.from("tracking_links").select("target_url").eq("slug", slug).maybeSingle()
     : await db.rpc("record_tracking_click", {
         p_slug: slug,
         p_visitor_key: visitorHash,
