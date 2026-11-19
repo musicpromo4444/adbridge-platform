@@ -105,7 +105,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: submission, error: se } = await db
     .from("submissions")
-    .select("id,campaign_id,creator_id,creator_campaign_id,posted_url,tracking_platform,external_video_id,target_metric,status")
+    .select("id,campaign_id,creator_id,creator_campaign_id,posted_url,tracking_platform,external_video_id,target_metric,current_metric,status")
     .eq("id", submission_id)
     .single();
 
