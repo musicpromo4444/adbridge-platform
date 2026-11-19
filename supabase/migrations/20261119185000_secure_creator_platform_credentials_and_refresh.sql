@@ -203,7 +203,7 @@ create or replace function public.upsert_creator_platform_credentials(
   p_access_token text,
   p_refresh_token text,
   p_expires_at timestamptz,
-  p_is_refresh boolean default false
+  p_is_refresh boolean
 )
 returns jsonb
 language plpgsql
@@ -278,6 +278,32 @@ end;
 $function$;
 
 revoke all on function public.upsert_creator_platform_credentials(uuid, text, text, text, text, timestamptz, boolean)
+  from public, anon, authenticated, service_role;
+grant execute on function public.upsert_creator_platform_credentials(uuid, text, text, text, text, timestamptz, boolean)
+  to service_role;
+
+-- Preserve the six-argument OAuth callback contract while routing it through
+-- the same implementation with p_is_refresh=false.
+create or replace function public.upsert_creator_platform_credentials(
+  p_creator_id uuid,
+  p_platform text,
+  p_platform_user_id text,
+  p_access_token text,
+  p_refresh_token text,
+  p_expires_at timestamptz
+)
+returns jsonb
+language sql
+security invoker
+set search_path = ''
+as $function$
+  select public.upsert_creator_platform_credentials(
+    p_creator_id, p_platform, p_platform_user_id, p_access_token,
+    p_refresh_token, p_expires_at, false
+  );
+$function$;
+
+revoke all on function public.upsert_creator_platform_credentials(uuid, text, text, text, text, timestamptz)
   from public, anon, authenticated, service_role;
 grant execute on function public.upsert_creator_platform_credentials(uuid, text, text, text, text, timestamptz)
   to service_role;
@@ -500,6 +526,8 @@ comment on function public.get_creator_platform_credentials(uuid, text) is
   'Returns creator platform credentials only to service_role for server-side metric verification.';
 comment on function public.upsert_creator_platform_credentials(uuid, text, text, text, text, timestamptz, boolean) is
   'Stores creator OAuth credentials; execution is restricted to service_role.';
+comment on function public.upsert_creator_platform_credentials(uuid, text, text, text, text, timestamptz) is
+  'Compatibility wrapper for initial OAuth connections; execution is restricted to service_role.';
 comment on function public.claim_creator_platform_refresh(uuid, text, boolean) is
   'Claims a short refresh lease for YouTube or TikTok credentials; execution is restricted to service_role.';
 comment on function public.fail_creator_platform_refresh(uuid, text, text, boolean) is
