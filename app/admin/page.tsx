@@ -68,6 +68,7 @@ export default function Admin(){
    <Link href="/admin/verification"><b>✓</b><span>Creator verification</span><small>Review AdBridge promotional posts</small></Link>
    <Link href="/admin/payments"><b>₦</b><span>Payments</span><small>Funding and released money</small></Link>
    <Link href="/admin/withdrawals"><b>↗</b><span>Withdrawals</span><small>{stats.pendingWithdrawals} pending requests</small></Link>
+   <Link href="/admin/fraud"><b>⚑</b><span>Fraud review</span><small>Review suspicious clicks and payment holds</small></Link>
    <Link href="/admin/ads"><b>✦</b><span>Ads Manager</span><small>Formats, providers, targeting and caps</small></Link>
    <Link href="/admin/settings"><b>⚙</b><span>Platform Settings</span><small>Commission and marketplace rules</small></Link>
   </div>
