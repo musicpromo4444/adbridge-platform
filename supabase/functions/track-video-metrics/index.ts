@@ -41,7 +41,7 @@ Deno.serve(async (req: Request) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const authorization = req.headers.get("Authorization") || "";
-  const bearer = authorization.match(/^Bearer\\s+(.+)$/i)?.[1];
+  const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
   if (!supabaseUrl || !serviceKey || !anonKey) {
     return json({ error: "Server tracking credentials are not configured." }, 503);
   }
