@@ -37,9 +37,28 @@ Deno.serve(async (req: Request) => {
   const { submission_id } = await req.json().catch(() => ({}));
   if (!submission_id) return json({ error: "submission_id is required" }, 400);
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const db = createClient(supabaseUrl, serviceKey);
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+  const authorization = req.headers.get("Authorization") || "";
+  const bearer = authorization.match(/^Bearer\\s+(.+)$/i)?.[1];
+  if (!supabaseUrl || !serviceKey || !anonKey) {
+    return json({ error: "Server tracking credentials are not configured." }, 503);
+  }
+  if (!bearer) return json({ error: "Sign in before requesting metric verification." }, 401);
+
+  // Validate the caller with the public key, then use service role only for
+  // the narrowly-scoped server-side reads/writes below.
+  const authClient = createClient(supabaseUrl, anonKey, {
+    global: { headers: { Authorization: `Bearer ${bearer}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: authData, error: authError } = await authClient.auth.getUser();
+  if (authError || !authData.user) return json({ error: "Your session is invalid or expired." }, 401);
+
+  const db = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
 
   const { data: submission, error: se } = await db
     .from("submissions")
@@ -48,6 +67,21 @@ Deno.serve(async (req: Request) => {
     .single();
 
   if (se || !submission) return json({ error: "Submission not found" }, 404);
+
+  // Only the creator who submitted the work, the advertiser who owns its
+  // campaign, or an admin may request a refresh. Never trust a client-sent ID
+  // as authorization.
+  const callerId = authData.user.id;
+  const [{ data: campaignOwner }, { data: callerProfile }] = await Promise.all([
+    db.from("campaigns").select("advertiser_id").eq("id", submission.campaign_id).maybeSingle(),
+    db.from("profiles").select("role").eq("id", callerId).maybeSingle(),
+  ]);
+  const isCreator = submission.creator_id === callerId;
+  const isAdvertiser = campaignOwner?.advertiser_id === callerId;
+  const isAdmin = callerProfile?.role === "admin";
+  if (!isCreator && !isAdvertiser && !isAdmin) {
+    return json({ error: "You are not allowed to refresh this submission." }, 403);
+  }
   if (!submission.posted_url && !submission.external_video_id) return json({ error: "No published video URL has been submitted" }, 400);
 
   let platform = String(submission.tracking_platform || "").toLowerCase();
@@ -143,8 +177,11 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Automatic tracking for this platform is not connected yet.", platform }, 409);
   }
 
+  // Platform counters are cumulative. A stale API response must never
+  // reduce an already-recorded verified count.
+  const currentMetric = Math.max(Number(submission.current_metric || 0), views);
   const target = Number(submission.target_metric || 0);
-  const reached = target > 0 && views >= target;
+  const reached = target > 0 && currentMetric >= target;
   const now = new Date().toISOString();
 
   await db.from("submission_metrics").insert({
@@ -152,7 +189,7 @@ Deno.serve(async (req: Request) => {
     platform,
     external_video_id: videoId,
     metric_name: "views",
-    metric_value: views,
+    metric_value: currentMetric,
     checked_at: now,
     source,
     raw_data: raw,
@@ -161,7 +198,7 @@ Deno.serve(async (req: Request) => {
   const update: Record<string, unknown> = {
     tracking_platform: platform,
     external_video_id: videoId,
-    current_metric: views,
+    current_metric: currentMetric,
     last_metric_check_at: now,
     tracking_error: null,
   };
@@ -208,5 +245,5 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  return json({ success: true, platform, video_id: videoId, views, target, reached });
+  return json({ success: true, platform, video_id: videoId, views: currentMetric, target, reached });
 });
