@@ -26,10 +26,11 @@ test("only YouTube and TikTok use provider-backed refresh endpoints", () => {
   assert.match(refreshFunction, /platform !== "youtube" && platform !== "tiktok"/);
 });
 
-test("TikTok refresh rotation is required and saved before success is returned", () => {
+test("TikTok refresh token rotation is required and saved before success is returned", () => {
   assert.match(helper, /TikTok rotates refresh tokens/i);
   assert.match(helper, /payload\?\.refresh_token/);
-  assert.match(helper, /upsert_creator_platform_credentials/);\n  assert.match(helper, /p_is_refresh: true/);
+  assert.match(helper, /upsert_creator_platform_credentials/);
+  assert.match(helper, /p_is_refresh: true/);
   assert.match(helper, /tokenRotated/);
   assert.match(helper, /reconnect_required/);
 });
