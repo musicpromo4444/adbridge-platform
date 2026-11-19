@@ -92,6 +92,6 @@ test("admin and creator screens use the payout RPC and disclose the manual verif
   assert.match(admin, /not independent bank verification/i);
   assert.match(creator, /paid_at,payout_reference/);
   assert.match(creator, /summary\.paidWithdrawals/);
-  assert.match(creator, /not independently verify bank settlement/i);
+  assert.match(creator, /does not independently verify bank settlement/i);
   assert.doesNotMatch(admin, /\.from\("creator_withdrawals"\)\s*\.update\(/);
 });

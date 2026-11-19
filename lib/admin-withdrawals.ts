@@ -1,6 +1,8 @@
 import { supabase } from "@/lib/supabase";
 import {
+  parseWithdrawalPayoutResult,
   parseWithdrawalReviewResult,
+  type WithdrawalPayoutResult,
   type WithdrawalReviewResult,
   type WithdrawalReviewStatus,
 } from "./admin-withdrawals.mjs";
@@ -52,7 +54,7 @@ export async function recordCreatorWithdrawalPayout(input: {
   withdrawalId: string;
   payoutReference: string;
 }): Promise<{
-  data: import("./admin-withdrawals.mjs").WithdrawalPayoutResult | null;
+  data: WithdrawalPayoutResult | null;
   error: Error | null;
 }> {
   if (!supabase) {
@@ -82,7 +84,7 @@ export async function recordCreatorWithdrawalPayout(input: {
     };
   }
 
-  const parsed = (await import("./admin-withdrawals.mjs")).parseWithdrawalPayoutResult(
+  const parsed = parseWithdrawalPayoutResult(
     data,
     input.withdrawalId,
     payoutReference,
