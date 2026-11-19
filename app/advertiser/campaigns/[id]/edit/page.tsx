@@ -8,10 +8,13 @@ export default function EditCampaign(){const{id}=useParams<{id:string}>();const[
 useEffect(()=>{(async()=>{if(!supabase){setError("Database connection is not ready.");setLoading(false);return}const{data:{user}}=await supabase.auth.getUser();if(!user){location.href="/login";return}const[{data,error:e},{data:ps},{data:fs},{data:dest}]=await Promise.all([
 supabase.from("campaigns").select("id,name,goal,instructions,platform,payment_method,payment_rate,max_budget,desired_results,status").eq("id",id).eq("advertiser_id",user.id).single(),
 supabase.from("campaign_platforms").select("platform").eq("campaign_id",id),
-supabase.from("campaign_formats").select("format").eq("campaign_id",id)
+supabase.from("campaign_formats").select("format").eq("campaign_id",id),
+supabase.from("campaign_destination_urls").select("target_url").eq("campaign_id",id).maybeSingle()
 ]);if(e||!data){setError("Campaign not found.");setLoading(false);return}setC(data);setName(data.name);setInstructions(data.instructions||"");setSelectedPlatforms((ps??[]).map(x=>x.platform));setSelectedFormats((fs??[]).map(x=>x.format));setMethod(data.payment_method||"job");setRate(String(data.payment_rate??0));setBudget(String(data.max_budget??0));setResults(String(data.desired_results??0));setDestination(dest?.target_url||"");setLoading(false)})()},[id]);
 function toggle(setter:React.Dispatch<React.SetStateAction<string[]>>,x:string){setter(a=>a.includes(x)?a.filter(v=>v!==x):[...a,x])}
 async function save(){if(!supabase||!c)return;if(!name.trim()||!instructions.trim()){setError("Campaign name and instructions are required.");return}if(!selectedPlatforms.length||!selectedFormats.length){setError("Choose at least one platform and one format.");return}setSaving(true);setError("");setMessage("");
+if(["cpc","link_traffic","cpi","cpa"].includes(method)){try{const u=new URL(destination.trim());if(!["http:","https:"].includes(u.protocol))throw new Error();}catch{setError("Enter a valid website or app destination URL before choosing this payment model.");setSaving(false);return}}
+if(destination.trim()){const{error:destinationError}=await supabase.rpc("save_campaign_destination",{p_campaign_id:id,p_target_url:destination.trim()});if(destinationError){setError(destinationError.message||"Destination URL could not be saved.");setSaving(false);return}}
 const legacy=selectedPlatforms.length===platforms.length?"all":selectedPlatforms.length===1?selectedPlatforms[0]:"multiple";
 const{error:e}=await supabase.rpc("update_campaign_draft",{p_campaign_id:id,p_name:name.trim(),p_instructions:instructions.trim(),p_platform:legacy,p_payment_method:method,p_payment_rate:Number(rate)||0,p_max_budget:Number(budget)||0,p_desired_results:Number(results.replaceAll(",",""))||0});
 if(e){setError("We couldn't save the campaign.");setSaving(false);return}
