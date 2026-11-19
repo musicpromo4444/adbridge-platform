@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-adbridge-app-id",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-adbridge-app-id, x-adbridge-timestamp, x-adbridge-signature",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Content-Type": "application/json",
 };
