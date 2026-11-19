@@ -3,6 +3,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
+type Property = { id: string; publisher_id: string; property_type: string; name: string; url: string | null; platforms: string[]; ad_formats: string[]; verified: boolean };
+
 type Application = {
   id: string;
   campaign_id: string;
@@ -21,6 +23,7 @@ function first<T>(value: T | T[] | null): T | null {
 
 export default function PublisherApplications() {
   const [rows, setRows] = useState<Application[]>([]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const [filter, setFilter] = useState("applied");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
@@ -33,11 +36,18 @@ export default function PublisherApplications() {
     if (!user) { location.href = "/login"; return; }
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).maybeSingle();
     if (profile?.role !== "admin") { setError("Administrator access required."); setLoading(false); return; }
-    const { data, error: queryError } = await supabase.from("publisher_campaigns")
-      .select("id,campaign_id,publisher_id,selected_platform,selected_format,status,applied_at,campaigns(name),profiles(display_name,email)")
-      .order("applied_at", { ascending: false });
+    const [{ data, error: queryError }, { data: propertyRows, error: propertyError }] = await Promise.all([
+      supabase.from("publisher_campaigns")
+        .select("id,campaign_id,publisher_id,selected_platform,selected_format,status,applied_at,campaigns(name),profiles(display_name,email)")
+        .order("applied_at", { ascending: false }),
+      supabase.from("publisher_properties")
+        .select("id,publisher_id,property_type,name,url,platforms,ad_formats,verified")
+        .order("created_at", { ascending: false }),
+    ]);
     if (queryError) setError("Could not load publisher applications: " + queryError.message);
     else setRows((data || []) as unknown as Application[]);
+    if (propertyError) setError("Could not load publisher properties: " + propertyError.message);
+    else setProperties((propertyRows || []) as Property[]);
     setLoading(false);
   }
 
@@ -56,6 +66,21 @@ export default function PublisherApplications() {
     else {
       setMessage(status === "approved" ? "Publisher application approved." : "Publisher application rejected.");
       await load();
+    }
+    setBusy("");
+  }
+
+  async function verifyProperty(property: Property) {
+    if (!supabase) return;
+    setBusy(property.id); setError(""); setMessage("");
+    const { error: rpcError } = await supabase.rpc("admin_set_publisher_property_verified", {
+      p_property_id: property.id,
+      p_verified: !property.verified,
+    });
+    if (rpcError) setError("Could not update property verification: " + rpcError.message);
+    else {
+      setProperties(current => current.map(item => item.id === property.id ? { ...item, verified: !item.verified } : item));
+      setMessage(property.verified ? "Publisher property verification removed." : "Publisher property verified.");
     }
     setBusy("");
   }
@@ -99,6 +124,22 @@ export default function PublisherApplications() {
           {!filtered.length && <div className="successBox">No publisher applications in this view.</div>}
         </div>
       }
+      <div className="conversionInfo">
+        <span className="eyebrow">PUBLISHER PROPERTY VERIFICATION</span>
+        <h2>Websites and apps</h2>
+        <p>Verify ownership and quality before publishers receive access to eligible campaigns.</p>
+        <div className="opps">
+          {properties.map(property => <article key={property.id}>
+            <b>{property.verified ? "VERIFIED" : "NOT VERIFIED"} · {property.property_type}</b>
+            <h3>{property.name}</h3>
+            <p>Publisher ID: {property.publisher_id}</p>
+            <p>{(property.platforms || []).join(" · ")} · {(property.ad_formats || []).join(" · ")}</p>
+            {property.url && <a className="secondary" href={property.url} target="_blank" rel="noreferrer">Open property ↗</a>}
+            <button className="secondary" disabled={!!busy} onClick={() => void verifyProperty(property)}>{busy === property.id ? "Saving…" : property.verified ? "Remove verification" : "Verify property"}</button>
+          </article>)}
+          {!properties.length && <div className="successBox">No publisher properties submitted yet.</div>}
+        </div>
+      </div>
     </div>
   </main>;
 }
