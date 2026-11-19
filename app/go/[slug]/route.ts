@@ -27,14 +27,14 @@ export async function GET(
 
   const digest = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(visitor + "|" + ip + "|" + ua)
+    new TextEncoder().encode(visitor + "|" + ip + "|" + ua + "|" + key)
   );
   const visitorHash = Array.from(new Uint8Array(digest))
     .map((x) => x.toString(16).padStart(2, "0"))
     .join("");
   const ipDigest = await crypto.subtle.digest(
     "SHA-256",
-    new TextEncoder().encode(ip || "unknown")
+    new TextEncoder().encode((ip || "unknown") + "|" + key)
   );
   const ipHash = Array.from(new Uint8Array(ipDigest))
     .map((x) => x.toString(16).padStart(2, "0"))
