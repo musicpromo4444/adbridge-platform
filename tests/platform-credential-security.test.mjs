@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
 const read = (path) => readFileSync(new URL(path, import.meta.url), "utf8");
-const migration = read("../supabase/migrations/20261119180500_secure_creator_platform_credentials.sql");
+const migration = read("../supabase/migrations/20261119182000_secure_creator_platform_credentials.sql");
 const connectionsPage = read("../app/creator/connections/page.tsx");
 const oauthFunction = read("../supabase/functions/social-oauth-start/index.ts");
 const metricsFunction = read("../supabase/functions/track-video-metrics/index.ts");
@@ -60,4 +60,6 @@ test("video metrics read credentials through the service-role RPC, not the publi
   assert.doesNotMatch(metricsFunction, /\.from\("creator_platform_connections"\)/);
   assert.match(metricsFunction, /item\.snippet\?\.channelId !== connection\.platform_user_id/);
   assert.match(metricsFunction, /data\.data\.author_id !== connection\.platform_user_id/);
+  assert.doesNotMatch(metricsFunction, /searchParams\.set\("access_token"/);
+  assert.match(metricsFunction, /Authorization: "Bearer " \+ connection\.access_token/);
 });
