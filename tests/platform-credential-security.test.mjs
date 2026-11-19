@@ -60,4 +60,6 @@ test("video metrics read credentials through the service-role RPC, not the publi
   assert.doesNotMatch(metricsFunction, /\.from\("creator_platform_connections"\)/);
   assert.match(metricsFunction, /item\.snippet\?\.channelId !== connection\.platform_user_id/);
   assert.match(metricsFunction, /data\.data\.author_id !== connection\.platform_user_id/);
+  assert.doesNotMatch(metricsFunction, /searchParams\.set\("access_token"/);
+  assert.match(metricsFunction, /Authorization: "Bearer " \+ connection\.access_token/);
 });
