@@ -173,7 +173,12 @@ Deno.serve(async (req: Request) => {
     views = Number(data.data.public_metrics?.view_count || 0);
     raw = data.data;
   } else if (platform === "instagram") {
-    videoId ||= (submission.posted_url || "").match(/(?:reel|reels|p)\/([A-Za-z0-9_-]+)/)?.[1] || null;
+    try {
+      const postUrl = new URL(submission.posted_url || "");
+      const host = postUrl.hostname.toLowerCase();
+      if (host !== "instagram.com" && !host.endsWith(".instagram.com")) throw new Error("invalid host");
+      videoId ||= postUrl.pathname.match(/(?:reel|reels|p)\/([A-Za-z0-9_-]+)/)?.[1] || null;
+    } catch { return json({ error: "Submit a valid Instagram post or reel URL." }, 400); }
     if (!videoId) return json({ error: "Could not identify the Instagram post/reel." }, 400);
     const { data: connection } = await db.from("creator_platform_connections")
       .select("access_token,connected").eq("creator_id", submission.creator_id).eq("platform", "instagram").eq("connected", true).maybeSingle();
@@ -187,7 +192,12 @@ Deno.serve(async (req: Request) => {
     views = Number(data?.data?.find((x: any) => x.name === "views")?.values?.at(-1)?.value || 0);
     raw = data;
   } else if (platform === "facebook") {
-    videoId ||= (submission.posted_url || "").match(/(?:videos|reel|watch)\/(\d+)/)?.[1] || null;
+    try {
+      const postUrl = new URL(submission.posted_url || "");
+      const host = postUrl.hostname.toLowerCase();
+      if ((host !== "facebook.com" && !host.endsWith(".facebook.com") && host !== "fb.watch")) throw new Error("invalid host");
+      videoId ||= postUrl.pathname.match(/(?:videos|reel|watch)\/(\d+)/)?.[1] || null;
+    } catch { return json({ error: "Submit a valid Facebook video URL." }, 400); }
     if (!videoId) return json({ error: "Could not identify the Facebook video." }, 400);
     const { data: connection } = await db.from("creator_platform_connections")
       .select("access_token,connected").eq("creator_id", submission.creator_id).eq("platform", "facebook").eq("connected", true).maybeSingle();
