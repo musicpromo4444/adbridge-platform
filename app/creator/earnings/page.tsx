@@ -19,6 +19,8 @@ type Withdrawal = {
   amount: number;
   status: string;
   created_at: string;
+  paid_at: string | null;
+  payout_reference: string | null;
 };
 
 const money = (value: number) =>
@@ -65,7 +67,7 @@ export default function Earnings() {
         .order("created_at", { ascending: false }),
       supabase
         .from("creator_withdrawals")
-        .select("id,amount,status,created_at")
+        .select("id,amount,status,created_at,paid_at,payout_reference")
         .eq("creator_id", user.id)
         .order("created_at", { ascending: false }),
       loadMyCreatorEarningsSummary(),
@@ -197,14 +199,19 @@ export default function Earnings() {
                 <strong>{money(summary.reservedWithdrawals)}</strong>
               </div>
               <div>
+                <b>Paid withdrawals</b>
+                <strong>{money(summary.paidWithdrawals)}</strong>
+              </div>
+              <div>
                 <b>Available to withdraw</b>
                 <strong>{money(summary.availableBalance)}</strong>
               </div>
             </div>
             <p>
-              Only released creator payments are available to withdraw. Pending, held or
-              approved earnings are not spendable until they are released. Pending and approved
-              withdrawal requests reserve part of your available balance.
+              Only released creator payments are available to withdraw. Pending and approved
+              requests remain reserved, and payouts already recorded as sent are deducted from
+              your available balance. A displayed transfer reference is supplied by an
+              administrator; AdBridge does not independently verify bank settlement.
             </p>
           </section>
         )}
@@ -274,6 +281,17 @@ export default function Earnings() {
                 <b>{withdrawal.status.toUpperCase()}</b>
                 <h3>{money(Number(withdrawal.amount))}</h3>
                 <small>{new Date(withdrawal.created_at).toLocaleString()}</small>
+                {withdrawal.status === "paid" && (
+                  <>
+                    {withdrawal.paid_at && (
+                      <small>Payout recorded {new Date(withdrawal.paid_at).toLocaleString()}</small>
+                    )}
+                    {withdrawal.payout_reference && (
+                      <p><strong>Transfer reference:</strong> {withdrawal.payout_reference}</p>
+                    )}
+                    <small>Recorded by an administrator; not independently verified by a bank API.</small>
+                  </>
+                )}
               </article>
             ))}
           </div>

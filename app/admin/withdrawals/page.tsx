@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import {
+  recordCreatorWithdrawalPayout,
   reviewCreatorWithdrawal,
   type WithdrawalReviewStatus,
 } from "@/lib/admin-withdrawals";
@@ -16,9 +17,11 @@ type Withdrawal = {
   created_at: string;
   reviewed_at: string | null;
   admin_note: string | null;
+  paid_at: string | null;
+  payout_reference: string | null;
 };
 
-type Filter = "pending" | "approved" | "rejected" | "all";
+type Filter = "pending" | "approved" | "paid" | "rejected" | "all";
 
 const money = (value: number | string) =>
   "₦" +
@@ -31,6 +34,7 @@ export default function Withdrawals() {
   const [rows, setRows] = useState<Withdrawal[]>([]);
   const [filter, setFilter] = useState<Filter>("pending");
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const [payoutReferences, setPayoutReferences] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
@@ -72,13 +76,13 @@ export default function Withdrawals() {
 
     const { data, error: loadError } = await supabase
       .from("creator_withdrawals")
-      .select("id,creator_id,amount,status,created_at,reviewed_at,admin_note")
+      .select("id,creator_id,amount,status,created_at,reviewed_at,admin_note,paid_at,payout_reference")
       .order("created_at", { ascending: false });
 
     if (loadError) {
       setRows([]);
       setError(
-        "Could not load withdrawal requests. Check the deployed withdrawal-review migration and administrator read policy.",
+        "Could not load withdrawal requests. Check the deployed withdrawal-review and payout-recording migrations and administrator read policy.",
       );
     } else {
       setRows((data ?? []) as Withdrawal[]);
@@ -125,8 +129,43 @@ export default function Withdrawals() {
     await load();
   }
 
+  async function recordPayout(row: Withdrawal) {
+    const payoutReference = (payoutReferences[row.id] || "").trim();
+    if (!payoutReference) {
+      setError("Enter the bank or transfer reference before recording this payout.");
+      setMessage("");
+      return;
+    }
+
+    setBusy(row.id);
+    setError("");
+    setMessage("");
+
+    const result = await recordCreatorWithdrawalPayout({
+      withdrawalId: row.id,
+      payoutReference,
+    });
+
+    if (result.error || !result.data) {
+      setError(result.error?.message || "The server did not confirm the payout record.");
+      setBusy("");
+      return;
+    }
+
+    setMessage(
+      result.data.unchanged
+        ? "This payout reference was already recorded. No duplicate notification was sent."
+        : "Payout recorded as sent with reference " +
+            result.data.payoutReference +
+            ". This is administrator confirmation, not independent bank verification.",
+    );
+    setBusy("");
+    await load();
+  }
+
   const pendingCount = rows.filter((row) => row.status === "pending").length;
   const approvedCount = rows.filter((row) => row.status === "approved").length;
+  const paidCount = rows.filter((row) => row.status === "paid").length;
   const rejectedCount = rows.filter((row) => row.status === "rejected").length;
   const visibleRows = rows.filter(
     (row) => filter === "all" || row.status === filter,
@@ -144,9 +183,9 @@ export default function Withdrawals() {
           Creator <em>withdrawals.</em>
         </h1>
         <p>
-          Review creator requests and keep payout approvals auditable. Approval
-          authorizes payout processing; it does not confirm that money has been
-          transferred.
+          Review creator requests and record completed transfers. Only record a payout
+          after sending it through your bank or payment provider. AdBridge stores the
+          reference you provide; it does not independently verify bank settlement.
         </p>
 
         <div className="statsGrid">
@@ -159,13 +198,17 @@ export default function Withdrawals() {
             <strong>{approvedCount}</strong>
           </div>
           <div>
+            <b>Payout recorded</b>
+            <strong>{paidCount}</strong>
+          </div>
+          <div>
             <b>Rejected</b>
             <strong>{rejectedCount}</strong>
           </div>
         </div>
 
         <div className="choices compact" aria-label="Filter withdrawals">
-          {(["pending", "approved", "rejected", "all"] as Filter[]).map((value) => (
+          {(["pending", "approved", "paid", "rejected", "all"] as Filter[]).map((value) => (
             <button
               key={value}
               type="button"
@@ -250,10 +293,52 @@ export default function Withdrawals() {
                 )}
 
                 {row.status === "approved" && (
-                  <small>
-                    Approved for payout processing. Transfer completion is not
-                    recorded on this screen.
-                  </small>
+                  <>
+                    <p>
+                      Approved for payout processing. This amount remains reserved until
+                      the transfer is recorded.
+                    </p>
+                    <label htmlFor={"payout-reference-" + row.id}>
+                      Bank or transfer reference (required, 120 characters maximum)
+                    </label>
+                    <input
+                      id={"payout-reference-" + row.id}
+                      className="textInput"
+                      value={payoutReferences[row.id] || ""}
+                      maxLength={120}
+                      onChange={(event) =>
+                        setPayoutReferences((current) => ({
+                          ...current,
+                          [row.id]: event.target.value,
+                        }))
+                      }
+                      placeholder="Enter the transfer reference"
+                    />
+                    <button
+                      className="primary"
+                      type="button"
+                      disabled={Boolean(busy) || !(payoutReferences[row.id] || "").trim()}
+                      onClick={() => void recordPayout(row)}
+                    >
+                      {busy === row.id ? "Recording…" : "Record payout sent"}
+                    </button>
+                    <small>
+                      Only use this after initiating the transfer. This action records an
+                      admin-supplied reference; it does not contact your bank.
+                    </small>
+                  </>
+                )}
+
+                {row.status === "paid" && (
+                  <>
+                    <small>
+                      Payout recorded {row.paid_at ? new Date(row.paid_at).toLocaleString() : ""}
+                    </small>
+                    <p>
+                      <strong>Transfer reference:</strong> {row.payout_reference || "Not available"}
+                    </p>
+                    <small>Recorded by an administrator; not independently verified by a bank API.</small>
+                  </>
                 )}
               </article>
             ))}

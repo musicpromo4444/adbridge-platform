@@ -20,7 +20,7 @@ export async function loadMyCreatorEarningsSummary(): Promise<CreatorEarningsOut
     };
   }
 
-  const { data, error } = await supabase.rpc("get_my_creator_earnings_summary");
+  const { data, error } = await supabase.rpc("get_my_creator_earnings_summary_v2");
   if (error) {
     return {
       data: null,

@@ -2,6 +2,7 @@ export type CreatorEarningsSummary = {
   releasedEarnings: number;
   pendingEarnings: number;
   reservedWithdrawals: number;
+  paidWithdrawals: number;
   availableBalance: number;
   withdrawalCount: number;
 };
