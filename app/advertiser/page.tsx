@@ -129,7 +129,8 @@ export default function Advertiser() {
           <Link href="/advertiser/campaigns"><b>▤</b><span>All campaigns</span><small>Edit drafts, pause or close campaigns</small></Link>
           <Link href="/advertiser/review"><b>✓</b><span>Campaign review</span><small>See AdBridge's review progress</small></Link>
           <Link href="/advertiser/results"><b>↗</b><span>Campaign results</span><small>Track verified views, clicks and conversions</small></Link>
-          <Link href="/advertiser/analytics"><b>▥</b><span>Analytics</span><small>Performance across your campaigns</small></Link>\n          <Link href="/advertiser/billing"><b>₦</b><span>Billing & payments</span><small>Confirmed funding and refunds</small></Link>
+          <Link href="/advertiser/analytics"><b>▥</b><span>Analytics</span><small>Performance across your campaigns</small></Link>
+          <Link href="/advertiser/billing"><b>₦</b><span>Billing & payments</span><small>Confirmed funding and refunds</small></Link>
         </div>
       </section>
     </main>
