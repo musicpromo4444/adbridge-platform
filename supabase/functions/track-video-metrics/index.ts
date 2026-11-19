@@ -47,14 +47,19 @@ Deno.serve(async (req: Request) => {
   }
   if (!bearer) return json({ error: "Sign in before requesting metric verification." }, 401);
 
-  // Validate the caller with the public key, then use service role only for
-  // the narrowly-scoped server-side reads/writes below.
-  const authClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: `Bearer ${bearer}` } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { data: authData, error: authError } = await authClient.auth.getUser();
-  if (authError || !authData.user) return json({ error: "Your session is invalid or expired." }, 401);
+  // The scheduled aggregator may call this function with the server-only
+  // service key. Browser callers must present a real Supabase user session.
+  const internalServiceCall = bearer === serviceKey;
+  let callerId: string | null = null;
+  if (!internalServiceCall) {
+    const authClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: `Bearer ${bearer}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data: authData, error: authError } = await authClient.auth.getUser();
+    if (authError || !authData.user) return json({ error: "Your session is invalid or expired." }, 401);
+    callerId = authData.user.id;
+  }
 
   const db = createClient(supabaseUrl, serviceKey, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -71,14 +76,13 @@ Deno.serve(async (req: Request) => {
   // Only the creator who submitted the work, the advertiser who owns its
   // campaign, or an admin may request a refresh. Never trust a client-sent ID
   // as authorization.
-  const callerId = authData.user.id;
   const [{ data: campaignOwner }, { data: callerProfile }] = await Promise.all([
     db.from("campaigns").select("advertiser_id").eq("id", submission.campaign_id).maybeSingle(),
-    db.from("profiles").select("role").eq("id", callerId).maybeSingle(),
+    callerId ? db.from("profiles").select("role").eq("id", callerId).maybeSingle() : Promise.resolve({ data: null }),
   ]);
-  const isCreator = submission.creator_id === callerId;
-  const isAdvertiser = campaignOwner?.advertiser_id === callerId;
-  const isAdmin = callerProfile?.role === "admin";
+  const isCreator = !!callerId && submission.creator_id === callerId;
+  const isAdvertiser = !!callerId && campaignOwner?.advertiser_id === callerId;
+  const isAdmin = internalServiceCall || callerProfile?.role === "admin";
   if (!isCreator && !isAdvertiser && !isAdmin) {
     return json({ error: "You are not allowed to refresh this submission." }, 403);
   }
