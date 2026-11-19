@@ -54,7 +54,7 @@ Deno.serve(async (req: Request) => {
     global: { headers: { Authorization: `Bearer ${bearer}` } },
     auth: { autoRefreshToken: false, persistSession: false },
   });
-  const { data: authData, error: authError } = await authClient.auth.getUser();
+  const { data: authData, error: authError } = await authClient.auth.getUser(bearer);
   const user = authData?.user;
   if (authError || !user) return json({ error: "Your session is invalid or expired." }, 401);
 
