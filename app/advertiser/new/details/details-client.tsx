@@ -106,7 +106,7 @@ export default function Details() {
         </div>
 
         <label>Upload campaign media and brand files</label>
-        <p className="fieldHint">Upload up to 5 files: JPG, PNG, WebP, MP4 or PDF. Maximum 100 MB each. These are campaign materials, not creator submissions.</p>
+        <p className="fieldHint">Upload up to 5 files: JPG, PNG, WebP, MP4 or PDF. Maximum 100 MB each. These files are shared with campaign partners by public asset links. Do not upload confidential or personal documents.</p>
         <input className="textInput" type="file" accept="image/jpeg,image/png,image/webp,video/mp4,application/pdf" multiple onChange={e => chooseFiles(e.target.files)} />
         {files.length > 0 && <div className="infoBox"><b>{files.length} file(s) selected</b>{files.map(file => <small key={file.name}>{file.name} · {(file.size / (1024 * 1024)).toFixed(1)} MB</small>)}</div>}
 
