@@ -39,7 +39,9 @@ export default function Withdrawals(){
  }
  async function update(id:string,status:"approved"|"rejected"|"paid"){
   if(!supabase)return;
-  const promptText=status==="paid"?"Confirm that the bank transfer has actually been completed before marking this withdrawal paid.":"";
+  const reference=paymentReference[id]?.trim()||"";
+  if(status==="paid"&&reference.length<3){setError("Enter the external transfer reference (at least 3 characters) before marking paid.");return}
+  const promptText=status==="paid"?"Confirm that the external transfer has actually been completed. The reference will be saved in the audit trail.":"";
   if(promptText&&!window.confirm(promptText))return;
   setBusy(id);setError("");setMessage("");
   const {data,error:e}=await supabase.rpc("admin_update_creator_withdrawal",{p_withdrawal_id:id,p_new_status:status,p_payment_reference:status==="paid"?reference:null,p_payment_note:status==="paid"?(paymentNote[id]?.trim()||null):null});
@@ -61,6 +63,8 @@ export default function Withdrawals(){
    {loading?<div className="successBox">Loading withdrawal requests…</div>:rows.length?<div className="opps">{rows.map(r=><article key={r.id}>
     <b>{r.status.toUpperCase()}</b><h3>{money(r.amount)}</h3>{r.amount_usd!=null&&<p>USD value: ${Number(r.amount_usd).toFixed(2)} · FX snapshot: {r.fx_rate_to_usd}</p>}
     <p>{r.account_role==="publisher"?"Publisher":"Creator"}: {r.display_name||r.creator_id}</p><small>{new Date(r.created_at).toLocaleString()} · Request {r.id}</small>{r.payout_details?<div className="infoBox"><b>PAYOUT DESTINATION · {r.payout_details.country_code} · {r.payout_details.currency_code}</b>{r.payout_details.payout_method==="bank_transfer"?<><p>Account holder: {r.payout_details.account_holder}</p><p>Bank: {r.payout_details.bank_name}</p><p>Account number: {r.payout_details.account_number}</p>{r.payout_details.routing_code&&<p>Routing / sort code: {r.payout_details.routing_code}</p>}{r.payout_details.swift_bic&&<p>SWIFT / BIC: {r.payout_details.swift_bic}</p>}{r.payout_details.iban&&<p>IBAN: {r.payout_details.iban}</p>}</>:r.payout_details.payout_method==="wise"?<p>Wise account email: {r.payout_details.wise_email}</p>:r.payout_details.payout_method==="paypal"?<p>PayPal account email: {r.payout_details.paypal_email}</p>:<><p>Provider: {r.payout_details.mobile_money_provider}</p><p>Mobile number: {r.payout_details.mobile_number}</p></>}<small>Private payout data · admin only</small></div>:<div className="successBox">No payout destination saved. Ask the user to add payout details before processing.</div>}
+    {r.status==="approved"&&<div className="infoBox"><b>RECORD EXTERNAL PAYMENT</b><p>Send the money using your bank, Wise or PayPal outside AdBridge. Enter the transfer reference below only after the transfer succeeds.</p><label>Transfer reference / transaction ID *</label><input className="textInput" value={paymentReference[r.id]||""} onChange={e=>setPaymentReference(v=>({...v,[r.id]:e.target.value}))} placeholder="Bank reference, Wise ID or PayPal transaction ID"/><label>Admin note (optional)</label><input className="textInput" value={paymentNote[r.id]||""} onChange={e=>setPaymentNote(v=>({...v,[r.id]:e.target.value}))} placeholder="Optional payment note"/></div>}
+    {r.status==="paid"&&<div className="infoBox"><b>PAYMENT RECORDED</b><p>Reference: {r.payment_reference||"Not available"}</p>{r.paid_at&&<p>Paid at: {new Date(r.paid_at).toLocaleString()}</p>}{r.payment_note&&<p>Note: {r.payment_note}</p>}</div>}
     <div className="choiceRow">
      <button className="secondary" onClick={()=>void loadAudit(r.id)}>Audit history</button>
      {r.status==="pending"&&<><button className="primary" disabled={!!busy} onClick={()=>void update(r.id,"approved")}>{busy===r.id?"Saving…":"Approve"}</button><button className="secondary" disabled={!!busy} onClick={()=>void update(r.id,"rejected")}>Reject</button></>}
