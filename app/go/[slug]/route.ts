@@ -14,10 +14,10 @@ export async function GET(
     return NextResponse.json({ error: "Tracking link not found." }, { status: 404 });
   }
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
-    return NextResponse.json({ error: "Tracking is not configured." }, { status: 503 });
+    return NextResponse.json({ error: "Server-side tracking is not configured. Add SUPABASE_SERVICE_ROLE_KEY to the deployment environment." }, { status: 503 });
   }
 
   const db = createClient(url, key);
