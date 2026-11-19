@@ -60,7 +60,7 @@ begin
   if v_actor_role <> 'admin' and v_advertiser_id is distinct from p_actor_id then
     raise exception using errcode = '42501', message = 'You cannot manage this campaign.';
   end if;
-  if pg_catalog.lower(pg_catalog.coalesce(v_payment_method, '')) not in ('cpa', 'cpi', 'actions') then
+  if pg_catalog.lower(coalesce(v_payment_method, '')) not in ('cpa', 'cpi', 'actions') then
     raise exception using errcode = '22023', message = 'Campaign does not use conversion postbacks.';
   end if;
 
@@ -126,7 +126,7 @@ begin
   if v_actor_role <> 'admin' and v_advertiser_id is distinct from p_actor_id then
     raise exception using errcode = '42501', message = 'You cannot manage this campaign.';
   end if;
-  if pg_catalog.lower(pg_catalog.coalesce(v_payment_method, '')) not in ('cpa', 'cpi', 'actions') then
+  if pg_catalog.lower(coalesce(v_payment_method, '')) not in ('cpa', 'cpi', 'actions') then
     raise exception using errcode = '22023', message = 'Campaign does not use conversion postbacks.';
   end if;
   if v_campaign_status = 'closed' then
