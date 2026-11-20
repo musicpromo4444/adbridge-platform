@@ -147,6 +147,7 @@ export default function Studio() {
   const [jobId, setJobId] = useState("");
   const [model, setModel] = useState("");
   const [currentTime, setCurrentTime] = useState(0);
+  const [videoDimensions, setVideoDimensions] = useState<{ width: number; height: number } | null>(null);
   const [loadingCampaigns, setLoadingCampaigns] = useState(true);
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
@@ -251,6 +252,7 @@ export default function Studio() {
     setVideoFile(file);
     setVideoUrl(URL.createObjectURL(file));
     setCurrentTime(0);
+    setVideoDimensions(null);
     setResult(null);
     setJobId("");
     setError("");
@@ -280,7 +282,9 @@ export default function Studio() {
       });
 
       if (invokeError || data?.error) {
-        const code = data?.error || invokeError?.message || "placement_analysis_failed";
+        const context = (invokeError as any)?.context;
+        const providerPayload = context && typeof context.json === "function" ? await context.json().catch(() => null) : null;
+        const code = data?.error || providerPayload?.error || invokeError?.message || "placement_analysis_failed";
         if (String(code).includes("ai_provider_not_configured")) {
           throw new Error("AI placement is not configured yet. Add AI_API_KEY to Supabase Edge Function Secrets before using this tool.");
         }
@@ -425,13 +429,23 @@ export default function Studio() {
 
             <div className="aiPreview">
               {videoUrl ? (
-                <div className="studioVideoStage">
+                <div
+                  className="studioVideoStage"
+                  style={{
+                    aspectRatio: videoDimensions ? `${videoDimensions.width} / ${videoDimensions.height}` : "16 / 9",
+                    width: videoDimensions && videoDimensions.width < videoDimensions.height ? "auto" : "100%",
+                    height: videoDimensions && videoDimensions.width < videoDimensions.height ? "100%" : "auto",
+                    maxWidth: "100%",
+                    maxHeight: "100%",
+                  }}
+                >
                   <video
                     ref={videoRef}
                     src={videoUrl}
                     controls
                     muted
                     playsInline
+                    onLoadedMetadata={event => setVideoDimensions({ width: event.currentTarget.videoWidth, height: event.currentTarget.videoHeight })}
                     onTimeUpdate={event => setCurrentTime(event.currentTarget.currentTime)}
                   />
                   {result?.safe_areas.map((area, index) => (
