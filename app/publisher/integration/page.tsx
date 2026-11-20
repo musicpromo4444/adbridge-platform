@@ -91,7 +91,7 @@ export default function PublisherIntegration() {
   }
 
   async function revokeKey() {
-    if (!supabase || !propertyId || !keyStatus?.has_key || keyStatus.revoked_at) return;
+    if (!supabase || !propertyId || !keyStatus || !keyStatus.has_key || keyStatus.revoked_at) return;
     if (!window.confirm("Revoke this property's signing key now? Signed server events using it will be rejected.")) return;
     setBusy(true);
     setError("");
