@@ -147,7 +147,27 @@ Deno.serve(async (req: Request) => {
       return json({ error: "campaign_brand_asset_invalid" }, 400);
     }
 
-    const content: Array<Record<string, unknown>> = [
+    const { data: existingJob, error: existingJobError } = await adminClient
+    .from("creator_placement_jobs")
+    .select("status,result,provider_model")
+    .eq("id", jobId)
+    .single();
+  if (existingJobError || !existingJob) return json({ error: "placement_job_state_unavailable" }, 500);
+  if (existingJob.status === "succeeded") {
+    return json({ job_id: jobId, status: "succeeded", result: existingJob.result, model: existingJob.provider_model });
+  }
+  if (existingJob.status === "failed") return json({ error: "previous_placement_analysis_failed" }, 409);
+  if (existingJob.status === "processing") return json({ error: "placement_analysis_in_progress" }, 409);
+  const { data: claimedJob, error: claimError } = await adminClient
+    .from("creator_placement_jobs")
+    .update({ status: "processing" })
+    .eq("id", jobId)
+    .eq("status", "queued")
+    .select("id")
+    .maybeSingle();
+  if (claimError || !claimedJob) return json({ error: "placement_analysis_in_progress" }, 409);
+
+  const content: any[] = [
       {
         type: "text",
         text: [
@@ -221,7 +241,7 @@ Deno.serve(async (req: Request) => {
       provider_model: model,
       error_code: null,
       completed_at: new Date().toISOString(),
-    }).eq("id", jobId).eq("status", "processing");
+    }).eq("id", jobId).eq("status", "processing").select("id").maybeSingle();
 
     if (saveError) {
       await markFailed("placement_result_save_failed");
