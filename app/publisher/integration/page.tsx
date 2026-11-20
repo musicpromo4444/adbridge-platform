@@ -142,7 +142,7 @@ export default function PublisherIntegration() {
                   <p>Checking key status…</p>
                 ) : keyStatus?.has_key ? (
                   <>
-                    <p><strong>{keyStatus.active ? "Active" : "Revoked / unavailable"}</strong> · Version {keyStatus.key_version ?? "—"}</p>
+                    <p><strong>{keyStatus.active ? "Active" : keyStatus.revoked_at ? "Revoked" : "Inactive — property not verified"}</strong> · Version {keyStatus.key_version ?? "—"}</p>
                     {keyStatus.rotated_at && <p>Last issued or rotated: {new Date(keyStatus.rotated_at).toLocaleString()}</p>}
                     {keyStatus.revoked_at && <p>Revoked: {new Date(keyStatus.revoked_at).toLocaleString()}</p>}
                     {!keyStatus.property_verified && <p>This property is not currently verified, so its events cannot qualify for publisher tracking.</p>}

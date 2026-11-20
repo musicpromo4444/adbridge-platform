@@ -71,7 +71,7 @@ begin
   where s.property_id = p_property_id for update;
 
   if found then
-    v_version := pg_catalog.coalesce(v_existing.key_version, 1) + 1;
+    v_version := coalesce(v_existing.key_version, 1) + 1;
     v_action := 'rotated';
     update public.publisher_tracking_secrets s
     set publisher_id = p_actor_id, secret_value = p_secret_value, key_version = v_version,
