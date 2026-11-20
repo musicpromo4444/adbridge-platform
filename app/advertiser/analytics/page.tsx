@@ -85,7 +85,9 @@ export default function AdvertiserAnalytics() {
       if (!live) return;
       const queryFailed = submissionResult.error || linkResult.error || conversionResult.error || fundingResult.error;
       if (queryFailed) {
-        setError("Some analytics could not be loaded. The figures below may be incomplete; refresh to try again.");
+        setError("Campaign analytics could not be fully loaded. No partial totals are being presented as complete. Please retry.");
+        setLoading(false);
+        return;
       }
 
       const submissions = (submissionResult.data || []) as SubmissionMetric[];
@@ -137,7 +139,7 @@ export default function AdvertiserAnalytics() {
         <p>See verified delivery, accepted tracking activity, approved conversions and confirmed campaign funding. A tracking-link click is never counted as a video view.</p>
       </section>
 
-      {error && <div className="successBox" role="alert">{error}</div>}
+      {error && <div className="successBox" role="alert">{error} <button type="button" className="secondary" onClick={() => window.location.reload()}>Retry analytics</button></div>}
 
       <div className="grid" aria-label="All campaign analytics">
         <div className="card"><strong>Campaigns</strong><h2>{loading ? "—" : number(totals.campaigns)}</h2><p>Your campaigns in AdBridge.</p></div>
@@ -159,7 +161,7 @@ export default function AdvertiserAnalytics() {
             <Link href="/advertiser/new">Create a campaign →</Link>
           </div>
         )}
-        {!loading && rows.length > 0 && (
+        {!loading && !error && rows.length > 0 && (
           <div className="opps">
             {rows.map(row => (
               <article key={row.campaign.id}>
