@@ -32,7 +32,8 @@ begin
      or nullif(trim(coalesce(p_external_video_id, '')), '') is null
      or length(trim(p_external_video_id)) > 200
      or p_metric_value is null
-     or p_metric_value < 0 then
+     or p_metric_value < 0
+     or p_metric_value > 9007199254740991 then
     raise exception 'valid submission, platform, video id and non-negative metric are required'
       using errcode = '22023';
   end if;
