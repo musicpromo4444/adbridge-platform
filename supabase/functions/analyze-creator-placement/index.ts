@@ -1,4 +1,3 @@
-import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { validateFrames, validatePlacementResult } from "../_shared/placement-analysis.mjs";
 
@@ -226,7 +225,7 @@ Deno.serve(async (req: Request) => {
       return json({ error: "ai_provider_invalid_response" }, 502);
     }
 
-    let validated;
+    let validated: any;
     try {
       validated = validatePlacementResult(parsed, durationSeconds);
     } catch {
