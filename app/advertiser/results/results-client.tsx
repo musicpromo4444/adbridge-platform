@@ -72,7 +72,7 @@ export default function Results() {
       const { error: invokeError } = await supabase.functions.invoke("track-video-metrics", { body: { submission_id: submission.id } });
       if (!invokeError) checked++;
     }
-    await load();
+    await load(campaignId);
     setBusy(false);
     setMessage(checked ? "Requested fresh checks for " + checked + " published submission(s)." : "No published submissions were ready for a metrics check.");
   }
