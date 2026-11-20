@@ -18,7 +18,7 @@ type Job = {
   id: string;
   status: string;
   campaign_id: string;
-  campaigns?: CampaignSummary | null;
+  campaigns?: CampaignSummary | CampaignSummary[] | null;
 };
 
 type Submission = {
@@ -153,7 +153,7 @@ export default function Work() {
 
         <div className="opps">
           {jobs.map(job => {
-            const campaign = job.campaigns;
+            const campaign = Array.isArray(job.campaigns) ? job.campaigns[0] : job.campaigns;
             const method = (campaign?.payment_method || "").toLowerCase();
             const isCpm = method === "cpm" || method === "views";
             const jobSubmissions = submissions.filter(submission =>
