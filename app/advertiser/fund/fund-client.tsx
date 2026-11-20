@@ -103,8 +103,9 @@ export default function Fund() {
   }, [verifyMode, campaignIdFromUrl, reference]);
 
   async function createCampaign() {
-    if (!supabase) { setError("Database connection is not ready."); return; }
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const client = supabase;
+    if (!client) { setError("Database connection is not ready."); return; }
+    const { data: { user }, error: authError } = await client.auth.getUser();
     if (authError || !user) { window.location.href = "/login"; return; }
     if (!name.trim() || !instructions.trim()) { setError("Campaign name and clear partner instructions are required."); return; }
     if (!selectedPlatforms.length || !selectedFormats.length) { setError("Choose at least one supported platform and delivery format."); return; }
@@ -131,11 +132,11 @@ export default function Fund() {
     }
 
     const uploadedUrls = uploadedPaths.map(path =>
-      supabase.storage.from("campaign-assets").getPublicUrl(path).data.publicUrl
+      client.storage.from("campaign-assets").getPublicUrl(path).data.publicUrl
     );
     setSaving(true);
     setError("");
-    const { data, error: createError } = await supabase.rpc("create_advertiser_campaign", {
+    const { data, error: createError } = await client.rpc("create_advertiser_campaign", {
       p_name: name.trim(),
       p_goal: goal,
       p_instructions: instructions.trim(),
