@@ -33,4 +33,4 @@ The server validates geometry, timing, confidence, and frame bounds before persi
 
 ## Deployment
 
-Apply supabase/migrations/20261120182000_adbridge_creator_video_placement_jobs.sql before enabling the Edge Function. Deploy supabase/functions/analyze-creator-placement/index.ts with JWT verification enabled. Configure the AI secrets in Supabase Edge Function Secrets before expecting successful analyses.
+Apply supabase/migrations/20261120182000_adbridge_creator_video_placement_jobs.sql before enabling the Edge Function. Deploy supabase/functions/analyze-creator-placement/index.ts and its deno.json with JWT verification enabled. Configure the AI secrets in Supabase Edge Function Secrets before expecting successful analyses.
