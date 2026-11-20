@@ -16,6 +16,7 @@ test("metric snapshot RPC is invoker-only, service-role-only and uses an empty s
   assert.match(migration, /security invoker/i);
   assert.match(migration, /set search_path = ''/i);
   assert.match(migration, /coalesce\(auth\.role\(\), ''\) <> 'service_role'/i);
+  assert.match(migration, /p_metric_value > 9007199254740991/);
   assert.match(migration, /grant usage on schema private to service_role/i);
   assert.match(migration, /revoke all on function public\.record_submission_metric_snapshot\([\s\S]*?from public, anon, authenticated/i);
   assert.match(migration, /grant execute on function public\.record_submission_metric_snapshot\([\s\S]*?to service_role/i);
