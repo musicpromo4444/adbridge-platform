@@ -235,7 +235,7 @@ Deno.serve(async (req: Request) => {
     }
 
     const result = { ...validated, logo_url: asset.asset_url };
-    const { error: saveError } = await adminClient.from("creator_placement_jobs").update({
+    const { data: savedJob, error: saveError } = await adminClient.from("creator_placement_jobs").update({
       status: "succeeded",
       result,
       provider_model: model,
@@ -243,7 +243,7 @@ Deno.serve(async (req: Request) => {
       completed_at: new Date().toISOString(),
     }).eq("id", jobId).eq("status", "processing").select("id").maybeSingle();
 
-    if (saveError) {
+    if (saveError || !savedJob) {
       await markFailed("placement_result_save_failed");
       return json({ error: "placement_result_save_failed" }, 500);
     }
