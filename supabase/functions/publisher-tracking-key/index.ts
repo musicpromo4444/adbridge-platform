@@ -51,7 +51,8 @@ Deno.serve(async (req: Request) => {
   if (!validUuid(propertyId)) return json({ error: "Valid property_id required" }, 400);
   // Omitted action remains a rotate request for compatibility with existing integrations.
   const action = typeof payload.action === "string" ? payload.action.toLowerCase() : "rotate";
-  if (!["status", "rotate", "revoke"].includes(action)) {
+  const allowedActions = new Set(["status", "rotate", "revoke"]);
+  if (!allowedActions.has(action)) {
     return json({ error: "Unsupported key action" }, 400);
   }
 
@@ -105,7 +106,7 @@ Deno.serve(async (req: Request) => {
     const { data: result, error: revokeError } = await db.rpc("revoke_publisher_tracking_key", {
       p_property_id: propertyId, p_actor_id: actorId,
     });
-    if (revokeError) return json({ error: "Signing key could not be revoked" }, 500);
+    if (revokeError || result?.ok !== true) return json({ error: "Signing key could not be revoked" }, 500);
     const status: KeyStatus = {
       has_key: result?.has_key === true,
       active: false,

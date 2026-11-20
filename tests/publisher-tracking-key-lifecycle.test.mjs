@@ -21,8 +21,9 @@ test("rotation validates verified ownership and serializes key versions", () => 
   assert.match(migration, /v_property\.verified is not true/i);
   assert.match(migration, /p\.role = 'publisher'/i);
   assert.match(migration, /for update/i);
-  assert.match(migration, /v_version := pg_catalog\.coalesce\(v_existing\.key_version, 1\) \+ 1/i);
+  assert.match(migration, /v_version := coalesce\(v_existing\.key_version, 1\) \+ 1/i);
   assert.match(migration, /revoked_at = null, revoked_by = null/i);
+  assert.doesNotMatch(migration, /pg_catalog\.coalesce/i);
 });
 
 test("database key lifecycle functions use an empty search path and server-only execution", () => {
@@ -65,6 +66,8 @@ test("publisher integration UI exposes real status, rotation, and revocation act
   assert.match(page, /action: "rotate"/);
   assert.match(page, /action: "revoke"/);
   assert.match(page, /Revoke active signing key/);
+  assert.match(page, /properties\.map\(property =>/);
+  assert.match(page, /!selected\?\.verified/);
   assert.match(page, /keyStatus\?\.active/);
 });
 
