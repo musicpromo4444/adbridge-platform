@@ -72,14 +72,14 @@ export default function AdvertiserBilling() {
         <span className="eyebrow">ADVERTISER BILLING</span>
         <h1>Your campaign <em>payments.</em></h1>
         <p>View campaign funding and refund records. Confirmed campaign funds remain allocated to the campaign until valid delivery and payout rules are met.</p>
-        <div className="statsGrid">
+        {!error && <div className="statsGrid">
           <div><b>CONFIRMED FUNDING</b><strong>{loading ? "—" : naira(totals.confirmed)}</strong></div>
           <div><b>AWAITING CONFIRMATION</b><strong>{loading ? "—" : naira(totals.pending)}</strong></div>
           <div><b>CREATOR / PUBLISHER PAYOUTS</b><strong>{loading ? "—" : naira(totals.paid)}</strong></div>
           <div><b>PAYOUTS HELD FOR REVIEW</b><strong>{loading ? "—" : naira(totals.held)}</strong></div>
           <div><b>REFUNDS RECORDED</b><strong>{loading ? "—" : naira(totals.refunded)}</strong></div>
-        </div>
-        {error && <div className="successBox" role="alert">{error}</div>}
+        </div>}
+        {error && <div className="successBox" role="alert">{error} <button type="button" className="secondary" onClick={() => window.location.reload()}>Retry billing</button></div>}
         {loading && <div className="successBox">Loading billing history…</div>}
         {!loading && !error && rows.length === 0 && (
           <div className="notificationEmpty"><h2>No billing records yet</h2><p>When you fund a campaign, the payment record will appear here.</p><Link href="/advertiser/new">Create a campaign →</Link></div>
