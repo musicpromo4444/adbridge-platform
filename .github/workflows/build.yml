@@ -23,6 +23,14 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Run unit tests
+        run: npm test
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check placement Edge Function
+        run: deno check --no-lock supabase/functions/analyze-creator-placement/index.ts
       - name: Type-check application
         run: npx tsc --noEmit
       - name: Build production application
