@@ -30,7 +30,7 @@ jobs:
         with:
           deno-version: v2.x
       - name: Type-check video metrics Edge Function
-        run: deno check --no-lock supabase/functions/track-video-metrics/index.ts
+        run: deno check --no-lock --node-modules-dir=auto supabase/functions/track-video-metrics/index.ts
       - name: Type-check application
         run: npx tsc --noEmit
       - name: Build production application
