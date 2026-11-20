@@ -10,7 +10,7 @@ create table if not exists public.creator_placement_jobs (
   frame_width integer not null check (frame_width between 1 and 7680),
   frame_height integer not null check (frame_height between 1 and 7680),
   frame_count smallint not null check (frame_count between 4 and 6),
-  status text not null default 'processing' check (status in ('processing','succeeded','failed')),
+  status text not null default 'queued' check (status in ('queued','processing','succeeded','failed')),
   result jsonb,
   provider_model text,
   error_code text,
@@ -18,7 +18,7 @@ create table if not exists public.creator_placement_jobs (
   completed_at timestamptz,
   constraint creator_placement_jobs_request_unique unique (creator_id, request_id),
   constraint creator_placement_jobs_state_consistent check (
-    (status = 'processing' and result is null and completed_at is null and error_code is null)
+    (status in ('queued','processing') and result is null and completed_at is null and error_code is null and provider_model is null)
     or (status = 'succeeded' and result is not null and completed_at is not null and error_code is null and provider_model is not null)
     or (status = 'failed' and result is null and completed_at is not null and error_code is not null)
   )
@@ -76,6 +76,10 @@ declare
   v_existing_asset uuid;
   v_existing_platform text;
   v_existing_placement text;
+  v_existing_duration numeric;
+  v_existing_width integer;
+  v_existing_height integer;
+  v_existing_frame_count integer;
   v_recent_count integer;
   v_job_id uuid;
 begin
@@ -132,8 +136,12 @@ begin
     raise exception 'select an uploaded campaign logo or image asset' using errcode = '22023';
   end if;
 
-  select j.id, j.campaign_id, j.campaign_asset_id, j.platform, j.placement_type
-  into v_existing_id, v_existing_campaign, v_existing_asset, v_existing_platform, v_existing_placement
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_user::text, 0));
+
+  select j.id, j.campaign_id, j.campaign_asset_id, j.platform, j.placement_type,
+         j.duration_seconds, j.frame_width, j.frame_height, j.frame_count
+  into v_existing_id, v_existing_campaign, v_existing_asset, v_existing_platform, v_existing_placement,
+       v_existing_duration, v_existing_width, v_existing_height, v_existing_frame_count
   from public.creator_placement_jobs j
   where j.creator_id = v_user
     and j.request_id = p_request_id
@@ -142,13 +150,16 @@ begin
     if v_existing_campaign <> p_campaign_id
        or v_existing_asset <> p_campaign_asset_id
        or v_existing_platform <> p_platform
-       or v_existing_placement <> p_placement_type then
+       or v_existing_placement <> p_placement_type
+       or v_existing_duration <> p_duration_seconds
+       or v_existing_width <> p_frame_width
+       or v_existing_height <> p_frame_height
+       or v_existing_frame_count <> p_frame_count then
       raise exception 'request id was already used for different placement input' using errcode = '23505';
     end if;
     return v_existing_id;
   end if;
 
-  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended(v_user::text, 0));
   select pg_catalog.count(*) into v_recent_count
   from public.creator_placement_jobs j
   where j.creator_id = v_user
