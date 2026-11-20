@@ -5,3 +5,6 @@ project_id = "wilfmtzxxnkdcyiozamq"
 # short-lived, one-time state value for the provider callback.
 [functions.social-oauth-start]
 verify_jwt = false
+
+[functions.analyze-creator-placement]
+verify_jwt = true
