@@ -31,8 +31,8 @@ test("snapshot, submission summary and CPM payout are in one ordered transaction
   assert.ok(payoutAt > updateAt, "CPM payout follows the persisted snapshot and summary");
   assert.match(migration, /for update/i);
   assert.match(migration, /greatest\(coalesce\(v_submission\.current_metric, 0\), p_metric_value\)/i);
-  assert.match(migration, /metric_status = case\\s+when v_reached then 'verified'\\s+else 'tracking'/i);
-  assert.match(migration, /metric_verified_at = case\\s+when v_reached then coalesce\\(v_submission\\.metric_verified_at, v_checked_at\\)\\s+else null/i);
+  assert.ok(migration.includes("metric_status = case\n           when v_reached then 'verified'\n           else 'tracking'"));
+  assert.ok(migration.includes("metric_verified_at = case\n           when v_reached then coalesce(v_submission.metric_verified_at, v_checked_at)\n           else null"));
 });
 
 test("Edge Function validates provider counts and persists only through the atomic RPC", () => {
