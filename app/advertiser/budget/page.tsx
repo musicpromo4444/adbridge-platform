@@ -68,14 +68,14 @@ export default function AdvertiserBudget() {
         <span className="eyebrow">CAMPAIGN BUDGET CONTROL</span>
         <h1>Know where every <em>naira goes.</em></h1>
         <p>Only provider-confirmed campaign funding is treated as available money. Creator and publisher payments already committed to delivery are deducted from the remaining funded balance.</p>
-        {error && <div className="successBox" role="alert">{error}</div>}
-        <section className="statsGrid" aria-label="Budget totals">
+        {error && <div className="successBox" role="alert">{error} <button type="button" className="secondary" onClick={() => window.location.reload()}>Retry budget</button></div>}
+        {!error && <section className="statsGrid" aria-label="Budget totals">
           <div><b>CONFIRMED FUNDING</b><strong>{loading ? "—" : money(totals.confirmed)}</strong><small>Confirmed ledger entries only</small></div>
           <div><b>COMMITTED PAYOUTS</b><strong>{loading ? "—" : money(totals.committed)}</strong><small>Pending, held or released creator payments</small></div>
           <div><b>CONFIRMED REFUNDS</b><strong>{loading ? "—" : money(totals.refunded)}</strong><small>Refund ledger entries deducted</small></div>
           <div><b>REMAINING FUNDED BUDGET</b><strong>{loading ? "—" : money(totals.remaining)}</strong><small>Funding less refunds and committed payouts</small></div>
           <div><b>PLANNED CAMPAIGN BUDGET</b><strong>{loading ? "—" : money(totals.planned)}</strong><small>Campaign limits, not deposited funds</small></div>
-        </section>
+        </section>}
         {loading && <div className="successBox">Reconciling campaign funding and committed delivery…</div>}
         {!loading && !error && rows.length === 0 && <div className="notificationEmpty"><h2>No campaign budgets yet</h2><p>Create a campaign to start a budget ledger. A planned budget is not treated as funded money.</p><Link href="/advertiser/new">Create a campaign →</Link></div>}
         {!loading && !error && rows.length > 0 && <div className="opps">
