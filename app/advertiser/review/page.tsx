@@ -27,6 +27,7 @@ export default function Review() {
     if (initial) setLoading(true);
     else setRefreshing(true);
     setError("");
+    setRows([]);
 
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
@@ -128,16 +129,16 @@ export default function Review() {
           </button>
         </div>
 
-        <div className="statsGrid" aria-label="Submission review totals">
+        {!error && <div className="statsGrid" aria-label="Submission review totals">
           <div><b>TOTAL SUBMISSIONS</b><strong>{loading ? "—" : counts.total}</strong><small>Across selected campaigns</small></div>
           <div><b>WAITING</b><strong>{loading ? "—" : counts.waiting}</strong><small>Awaiting AdBridge review</small></div>
           <div><b>APPROVED</b><strong>{loading ? "—" : counts.approved}</strong><small>Passed review</small></div>
           <div><b>CHANGES REQUESTED</b><strong>{loading ? "—" : counts.changes}</strong><small>Needs creator correction</small></div>
           <div><b>REJECTED</b><strong>{loading ? "—" : counts.rejected}</strong><small>Not approved</small></div>
           {counts.other > 0 && <div><b>OTHER STATUSES</b><strong>{loading ? "—" : counts.other}</strong><small>Additional workflow states</small></div>}
-        </div>
+        </div>}
 
-        {error && <div className="successBox" role="alert">{error}</div>}
+        {error && <div className="successBox" role="alert">{error} <button type="button" className="secondary" onClick={() => void load(campaignId)}>Retry review</button></div>}
         {loading && <div className="successBox">Loading campaign review summaries…</div>}
         {!loading && !error && summaries.length > 0 && (
           <>
