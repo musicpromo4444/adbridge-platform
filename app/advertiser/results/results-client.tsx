@@ -100,7 +100,7 @@ export default function Results() {
           <>
             <p><b>{selected.name}</b> · {selected.platform || "Multiple platforms"} · {selected.payment_method || "Payment model not set"}</p>
             <div className="statsGrid">
-              <div><b>PLATFORM-VERIFIED VIEWS</b><strong>{totals.views.toLocaleString()}</strong></div>
+              <div><b>{selected.payment_method === "cpm" ? "PLATFORM-VERIFIED VIEWS" : "PLATFORM-CHECKED POST METRIC"}</b><strong>{totals.views.toLocaleString()}</strong></div>
               <div><b>TOTAL CLICKS</b><strong>{clicks.total.toLocaleString()}</strong></div>
               <div><b>UNIQUE CLICKS</b><strong>{clicks.unique.toLocaleString()}</strong></div>
               <div><b>APPROVED CONVERSIONS</b><strong>{conversions.toLocaleString()}</strong></div>
@@ -113,7 +113,7 @@ export default function Results() {
                 <div><b>AWAITING REVIEW</b><strong>{totals.waiting}</strong></div>
                 <div><b>CHANGES REQUESTED</b><strong>{totals.changes}</strong></div>
               </div>
-              <p>{totals.checked} submission(s) have received a successful platform API metric check. Their returned view counts are included; unverified or unchecked figures are excluded. {submissions.filter(s => s.metric_status === "verified").length} submission(s) have also reached their target metric.</p>
+              <p>{totals.checked} submission(s) have received a successful platform API metric check. Their latest platform-reported post metric is included; unchecked figures are excluded. For CPM campaigns this metric is verified video views. {submissions.filter(s => s.metric_status === "verified").length} submission(s) have also reached their target metric.</p>
               <button className="primary" disabled={busy || !submissions.some(s => !!s.posted_url)} onClick={refresh}>
                 {busy ? "Checking published metrics…" : "Check latest verified views"}
               </button>
