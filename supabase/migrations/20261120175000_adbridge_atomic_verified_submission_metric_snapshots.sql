@@ -113,13 +113,12 @@ begin
          last_metric_check_at = v_checked_at,
          tracking_error = null,
          metric_status = case
-           when v_reached or lower(coalesce(v_submission.metric_status, '')) = 'verified'
-             then 'verified'
+           when v_reached then 'verified'
            else 'tracking'
          end,
          metric_verified_at = case
            when v_reached then coalesce(v_submission.metric_verified_at, v_checked_at)
-           else v_submission.metric_verified_at
+           else null
          end
    where id = p_submission_id;
 
