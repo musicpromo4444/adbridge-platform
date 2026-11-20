@@ -24,6 +24,7 @@ catch{setError("Add a valid website or app destination URL.");return}
 }
 const selectedAssetTypes=assets.split(",").map(x=>assetMap[x]).filter(Boolean);
 const uploadedPaths=assetPaths.split(",").map(x=>x.trim()).filter(Boolean);
+if(uploadedPaths.length>5||uploadedPaths.some(path=>!path.startsWith(user.id+"/")||path.includes("..")||path.startsWith("/"))){setError("One or more uploaded campaign files are invalid or do not belong to your account. Please return to campaign details and upload them again.");return}
 const uploadedUrls=uploadedPaths.map(path=>supabase!.storage.from("campaign-assets").getPublicUrl(path).data.publicUrl);
 setSaving(true);setError("");
 const{data,error:e}=await supabase.rpc("create_advertiser_campaign",{
