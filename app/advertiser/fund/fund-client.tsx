@@ -111,7 +111,7 @@ export default function Fund() {
     if (!selectedPlatforms.length || !selectedFormats.length) { setError("Choose at least one supported platform and delivery format."); return; }
     if (!Number.isFinite(numericRate) || numericRate <= 0) { setError("Enter a payment rate or agreed fee greater than zero."); return; }
     if (!Number.isFinite(numericBudget) || numericBudget <= 0) { setError("Enter a maximum campaign budget greater than zero."); return; }
-    if (!Number.isFinite(numericResults) || numericResults <= 0) { setError("Enter a target result greater than zero."); return; }
+    if (!Number.isInteger(numericResults) || numericResults <= 0) { setError("Enter a whole-number target result greater than zero."); return; }
     if (numericBudget < numericRate && method !== "cpm") { setError("The maximum budget should be at least as large as the agreed rate or fee."); return; }
     if (["cpc", "link_traffic", "cpi", "cpa"].includes(method)) {
       try {
@@ -145,7 +145,7 @@ export default function Fund() {
       p_payment_method: method,
       p_payment_rate: numericRate,
       p_max_budget: numericBudget,
-      p_desired_results: Math.floor(numericResults),
+      p_desired_results: numericResults,
       p_destination_url: destination.trim() || null,
       p_asset_types: selectedAssets.map(asset => assetMap[asset]),
       p_asset_urls: uploadedUrls
