@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Campaign = { id: string; name: string; goal: string; platform: string | null; max_budget: number | null; desired_results: number | null; payment_method: string | null; payment_rate: number | null; funded_amount: number | null };
-type SubmissionMetric = { id: string; status: string; current_metric: number | null; target_metric: number | null; metric_status: string | null; posted_url: string | null };
+type SubmissionMetric = { id: string; status: string; current_metric: number | null; target_metric: number | null; metric_status: string | null; last_metric_check_at: string | null; posted_url: string | null };
 
 export default function Results() {
   const params = useSearchParams();
@@ -21,7 +21,7 @@ export default function Results() {
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
 
-  async function load() {
+  async function load(preferredCampaignId = requestedId || campaignId) {
     if (!supabase) { setError("AdBridge database is not connected."); setLoading(false); return; }
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) { window.location.href = "/login"; return; }
@@ -33,12 +33,12 @@ export default function Results() {
     if (campaignError) { setError("We couldn't load your campaign results."); setLoading(false); return; }
     const list = (owned || []) as Campaign[];
     setCampaigns(list);
-    const selected = list.find(c => c.id === (requestedId || campaignId)) || list[0];
+    const selected = list.find(c => c.id === preferredCampaignId) || list[0];
     if (!selected) { setCampaignId(""); setSubmissions([]); setClicks({ total: 0, unique: 0 }); setConversions(0); setLoading(false); return; }
     setCampaignId(selected.id);
 
     const [{ data: metrics, error: metricsError }, { data: links, error: linksError }, { count, error: conversionError }] = await Promise.all([
-      supabase.from("submissions").select("id,status,current_metric,target_metric,metric_status,posted_url").eq("campaign_id", selected.id),
+      supabase.from("submissions").select("id,status,current_metric,target_metric,metric_status,last_metric_check_at,posted_url").eq("campaign_id", selected.id),
       supabase.from("tracking_links").select("click_count,unique_click_count").eq("campaign_id", selected.id),
       supabase.from("cpa_conversion_events").select("id", { count: "exact", head: true }).eq("campaign_id", selected.id).eq("status", "approved")
     ]);
@@ -56,11 +56,11 @@ export default function Results() {
 
   const selected = campaigns.find(c => c.id === campaignId) || null;
   const totals = useMemo(() => ({
-    views: submissions.reduce((n, s) => n + (s.metric_status === "verified" ? Number(s.current_metric || 0) : 0), 0),
+    views: submissions.reduce((n, s) => n + (s.last_metric_check_at ? Number(s.current_metric || 0) : 0), 0),
     approved: submissions.filter(s => s.status === "approved").length,
     waiting: submissions.filter(s => s.status === "waiting").length,
     changes: submissions.filter(s => s.status === "changes_requested").length,
-    checked: submissions.filter(s => s.metric_status === "verified").length
+    checked: submissions.filter(s => !!s.last_metric_check_at).length
   }), [submissions]);
 
   async function refresh() {
@@ -100,7 +100,7 @@ export default function Results() {
           <>
             <p><b>{selected.name}</b> · {selected.platform || "Multiple platforms"} · {selected.payment_method || "Payment model not set"}</p>
             <div className="statsGrid">
-              <div><b>VERIFIED VIEWS</b><strong>{totals.views.toLocaleString()}</strong></div>
+              <div><b>PLATFORM-VERIFIED VIEWS</b><strong>{totals.views.toLocaleString()}</strong></div>
               <div><b>TOTAL CLICKS</b><strong>{clicks.total.toLocaleString()}</strong></div>
               <div><b>UNIQUE CLICKS</b><strong>{clicks.unique.toLocaleString()}</strong></div>
               <div><b>APPROVED CONVERSIONS</b><strong>{conversions.toLocaleString()}</strong></div>
@@ -113,7 +113,7 @@ export default function Results() {
                 <div><b>AWAITING REVIEW</b><strong>{totals.waiting}</strong></div>
                 <div><b>CHANGES REQUESTED</b><strong>{totals.changes}</strong></div>
               </div>
-              <p>{totals.checked} submission(s) have verified view metrics. Unverified figures are excluded from the verified views total.</p>
+              <p>{totals.checked} submission(s) have received a successful platform API metric check. Their returned view counts are included; unverified or unchecked figures are excluded. {submissions.filter(s => s.metric_status === "verified").length} submission(s) have also reached their target metric.</p>
               <button className="primary" disabled={busy || !submissions.some(s => !!s.posted_url)} onClick={refresh}>
                 {busy ? "Checking published metrics…" : "Check latest verified views"}
               </button>
@@ -135,7 +135,7 @@ export default function Results() {
   async function loadFor(id: string) {
     if (!supabase || !id) return;
     const [{ data: metrics, error: metricsError }, { data: links, error: linksError }, { count, error: conversionError }] = await Promise.all([
-      supabase.from("submissions").select("id,status,current_metric,target_metric,metric_status,posted_url").eq("campaign_id", id),
+      supabase.from("submissions").select("id,status,current_metric,target_metric,metric_status,last_metric_check_at,posted_url").eq("campaign_id", id),
       supabase.from("tracking_links").select("click_count,unique_click_count").eq("campaign_id", id),
       supabase.from("cpa_conversion_events").select("id", { count: "exact", head: true }).eq("campaign_id", id).eq("status", "approved")
     ]);
