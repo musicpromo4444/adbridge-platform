@@ -56,7 +56,7 @@ export default function Results() {
 
   const selected = campaigns.find(c => c.id === campaignId) || null;
   const totals = useMemo(() => ({
-    views: submissions.reduce((n, s) => n + (s.last_metric_check_at ? Number(s.current_metric || 0) : 0), 0),
+    views: submissions.filter(s => s.metric_status === "verified").reduce((n, s) => n + Number(s.current_metric || 0), 0),
     approved: submissions.filter(s => s.status === "approved").length,
     waiting: submissions.filter(s => s.status === "waiting").length,
     changes: submissions.filter(s => s.status === "changes_requested").length,
@@ -67,14 +67,27 @@ export default function Results() {
     if (!supabase || !submissions.length) return;
     setBusy(true); setMessage(""); setError("");
     let checked = 0;
-    for (const submission of submissions) {
-      if (!submission.posted_url) continue;
-      const { error: invokeError } = await supabase.functions.invoke("track-video-metrics", { body: { submission_id: submission.id } });
-      if (!invokeError) checked++;
+    let failed = 0;
+    try {
+      for (const submission of submissions) {
+        if (!submission.posted_url) continue;
+        const { error: invokeError } = await supabase.functions.invoke("track-video-metrics", { body: { submission_id: submission.id } });
+        if (invokeError) failed++;
+        else checked++;
+      }
+      await load(campaignId);
+      setMessage(
+        checked
+          ? "Requested fresh checks for " + checked + " published submission(s)." + (failed ? " " + failed + " check(s) could not be requested." : "")
+          : failed
+            ? "The metrics check could not be requested. Please try again."
+            : "No published submissions were ready for a metrics check."
+      );
+    } catch {
+      setError("The metrics refresh could not be completed. Please try again.");
+    } finally {
+      setBusy(false);
     }
-    await load(campaignId);
-    setBusy(false);
-    setMessage(checked ? "Requested fresh checks for " + checked + " published submission(s)." : "No published submissions were ready for a metrics check.");
   }
 
   return (
@@ -113,7 +126,7 @@ export default function Results() {
                 <div><b>AWAITING REVIEW</b><strong>{totals.waiting}</strong></div>
                 <div><b>CHANGES REQUESTED</b><strong>{totals.changes}</strong></div>
               </div>
-              <p>{totals.checked} submission(s) have received a successful platform API metric check. Their latest platform-reported post metric is included; unchecked figures are excluded. For CPM campaigns this metric is verified video views. {submissions.filter(s => s.metric_status === "verified").length} submission(s) have also reached their target metric.</p>
+              <p>{totals.checked} submission(s) have received a successful platform API metric check. The headline metric includes only submissions marked verified by AdBridge; checked but unverified figures are excluded. For CPM campaigns this is verified video views. {submissions.filter(s => s.metric_status === "verified").length} submission(s) have also reached their target metric.</p>
               <button className="primary" disabled={busy || !submissions.some(s => !!s.posted_url)} onClick={refresh}>
                 {busy ? "Checking published metrics…" : "Check latest verified views"}
               </button>
