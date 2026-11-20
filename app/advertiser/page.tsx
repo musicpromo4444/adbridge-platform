@@ -119,6 +119,8 @@ export default function Advertiser() {
           <Link href="/advertiser/review">Review campaign activity →</Link>
           <div className="asideDivider" />
           <Link href="/advertiser/campaigns">Manage campaigns →</Link>
+          <div className="asideDivider" />
+          <Link href="/advertiser/budget">Campaign budget control →</Link>
         </aside>
       </div>
 
@@ -131,6 +133,7 @@ export default function Advertiser() {
           <Link href="/advertiser/results"><b>↗</b><span>Campaign results</span><small>Track verified views, clicks and conversions</small></Link>
           <Link href="/advertiser/analytics"><b>▥</b><span>Analytics</span><small>Performance across your campaigns</small></Link>
           <Link href="/advertiser/billing"><b>₦</b><span>Billing & payments</span><small>Confirmed funding and refunds</small></Link>
+          <Link href="/advertiser/budget"><b>↗</b><span>Budget control</span><small>Confirmed funds, committed payouts and remaining balance</small></Link>
         </div>
       </section>
     </main>
