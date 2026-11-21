@@ -86,7 +86,7 @@ export default function PublisherCenter(){
   <div className="dashTop"><Link href="/" className="back">← AdBridge</Link><span className="testBadge">PUBLISHER DELIVERY CENTER</span><Link href="/creator" className="switch">Creator Dashboard →</Link></div>
   <div className="formCard wide">
    <span className="eyebrow">PUBLISHERS · WEBSITES · APPS</span><h1>Apply for ads on <em>the property you actually own.</em></h1>
-   <div className="choiceRow"><Link className="secondary" href="/publisher/applications">My applications & property status →</Link><Link className="secondary" href="/publisher/integration">Server tracking integration →</Link><Link className="secondary" href="/creator/earnings">Earnings & payouts →</Link></div>
+   <div className="choiceRow"><Link className="secondary" href="/publisher/applications">My applications & property status →</Link><Link className="secondary" href="/publisher/integration">Server tracking integration →</Link><Link className="secondary" href="/creator/earnings">Earnings & payouts →</Link><Link className="secondary" href="/notifications">Notifications →</Link></div>
    <p>AdBridge is not limited to social creators. Website owners, web apps, Android apps, iOS apps and social publishers can all apply for compatible campaigns.</p>
    {loading?<div className="successBox">Loading publisher opportunities…</div>:<>
     <label>1. Active campaign</label><select className="textInput" value={campaignId} onChange={e=>setCampaignId(e.target.value)}><option value="">Select a campaign</option>{campaigns.map(c=><option key={c.id} value={c.id}>{c.name} · {c.goal}</option>)}</select>
