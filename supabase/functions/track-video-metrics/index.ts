@@ -99,7 +99,6 @@ Deno.serve(async (req: Request) => {
   let platform = String(submission.tracking_platform || "").toLowerCase();
   let videoId: string | null = null;
   let views = 0;
-  let source = "platform_api";
   let raw: Record<string, unknown> = {};
 
   if (platform === "youtube" || (!platform && /youtu/i.test(submission.posted_url || ""))) {
@@ -216,56 +215,45 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Automatic tracking for this platform is not connected yet.", platform }, 409);
   }
 
-  // Platform counters are cumulative. A stale API response must never
-  // reduce an already-recorded verified count.
-  const currentMetric = Math.max(Number(submission.current_metric || 0), views);
-  const target = Number(submission.target_metric || 0);
-  const reached = target > 0 && currentMetric >= target;
-  const now = new Date().toISOString();
+  // Provider counters must be finite, non-negative safe integers before they
+  // can enter the auditable metric ledger or trigger a CPM payout.
+  if (!videoId) return json({ error: "The platform did not return a usable video identifier." }, 502);
+  if (!Number.isSafeInteger(views) || views < 0) {
+    return json({ error: "The platform returned an invalid view count. No metric or payout was recorded." }, 502);
+  }
 
-  const { error: metricInsertError } = await db.from("submission_metrics").insert({
-    submission_id: submission.id,
-    platform,
-    external_video_id: videoId,
-    metric_name: "views",
-    metric_value: currentMetric,
-    checked_at: now,
-    source,
-    raw_data: raw,
+  // One database transaction writes the immutable snapshot, updates the
+  // monotonic submission summary, and invokes the existing budget-gated CPM
+  // payout function. If any step fails, none of those writes are committed.
+  const { data: metricResult, error: metricError } = await db.rpc(
+    "record_submission_metric_snapshot",
+    {
+      p_submission_id: submission.id,
+      p_platform: platform,
+      p_external_video_id: videoId,
+      p_metric_value: views,
+      p_raw_data: raw,
+    },
+  );
+
+  if (metricError || !metricResult || metricResult.success !== true) {
+    console.error("Atomic metric snapshot transaction failed", metricError?.message || "invalid RPC response");
+    return json({
+      error: "Verified metrics could not be committed. No CPM payout was processed.",
+    }, 500);
+  }
+
+  return json({
+    success: true,
+    snapshot_id: metricResult.snapshot_id,
+    platform: metricResult.platform,
+    video_id: metricResult.video_id,
+    views: metricResult.views,
+    provider_views: metricResult.provider_views,
+    target: metricResult.target,
+    reached: metricResult.reached,
+    stale_snapshot: metricResult.stale_snapshot,
+    checked_at: metricResult.checked_at,
+    payout: metricResult.payout ?? null,
   });
-
-  const update: Record<string, unknown> = {
-    tracking_platform: platform,
-    external_video_id: videoId,
-    current_metric: currentMetric,
-    last_metric_check_at: now,
-    tracking_error: null,
-  };
-  if (reached) {
-    update.metric_status = "verified";
-    update.metric_verified_at = now;
-  } else {
-    update.metric_status = "tracking";
-  }
-  const { error: submissionUpdateError } = await db.from("submissions")
-    .update(update).eq("id", submission.id);
-  if (submissionUpdateError) {
-    return json({ error: "Verified metrics could not be saved.", details: submissionUpdateError.message }, 500);
-  }
-
-  let payout: unknown = null;
-  if (reached) {
-    // The database function locks the campaign, enforces the funded budget,
-    // and uses the submission's unique payment constraint to prevent races.
-    const { data: payoutResult, error: payoutError } = await db.rpc(
-      "release_cpm_submission_payment",
-      { p_submission_id: submission.id },
-    );
-    if (payoutError) {
-      return json({ error: "Metrics were saved, but creator payout could not be processed.", details: payoutError.message }, 500);
-    }
-    payout = payoutResult;
-  }
-
-  return json({ success: true, platform, video_id: videoId, views: currentMetric, target, reached, payout });
 });
