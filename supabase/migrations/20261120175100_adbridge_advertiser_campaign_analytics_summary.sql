@@ -1,9 +1,11 @@
 -- Return advertiser-owned campaign aggregates without exposing raw creator or conversion rows.
--- The private helper is SECURITY DEFINER only because cpa_conversion_events is intentionally
--- not directly readable by authenticated clients. It filters by auth.uid() and returns
--- aggregate counts only; the public API wrapper remains SECURITY INVOKER.
+-- cpa_conversion_events is intentionally not table-readable by authenticated clients.
+-- Grant only the two columns needed for a count; its existing RLS policy still limits
+-- rows to the advertiser who owns the campaign (or an admin).
 
-create or replace function private.get_my_advertiser_campaign_analytics()
+grant select (campaign_id, status) on public.cpa_conversion_events to authenticated;
+
+create or replace function public.get_my_advertiser_campaign_analytics()
 returns table (
   campaign_id uuid,
   campaign_name text,
@@ -26,7 +28,7 @@ returns table (
 )
 language sql
 stable
-security definer
+security invoker
 set search_path = ''
 as $function$
   select
@@ -78,7 +80,7 @@ as $function$
     where t.campaign_id = c.id
   ) link_metrics on true
   left join lateral (
-    select count(*) as approved_conversions
+    select count(e.campaign_id) as approved_conversions
     from public.cpa_conversion_events e
     where e.campaign_id = c.id
       and e.status = 'approved'
@@ -100,50 +102,10 @@ as $function$
   order by c.created_at desc;
 $function$;
 
-create or replace function public.get_my_advertiser_campaign_analytics()
-returns table (
-  campaign_id uuid,
-  campaign_name text,
-  goal text,
-  platform text,
-  campaign_status text,
-  payment_method text,
-  payment_rate numeric,
-  max_budget numeric,
-  desired_results integer,
-  verified_views numeric,
-  verified_submissions bigint,
-  tracked_submissions bigint,
-  latest_metric_check_at timestamptz,
-  stale_metric_submissions bigint,
-  tracking_clicks numeric,
-  unique_tracking_clicks numeric,
-  approved_conversions bigint,
-  confirmed_funding numeric
-)
-language sql
-stable
-security invoker
-set search_path = ''
-as $function$
-  select *
-  from private.get_my_advertiser_campaign_analytics();
-$function$;
-
-grant usage on schema private to authenticated;
-
-revoke all on function private.get_my_advertiser_campaign_analytics()
-  from public, anon, authenticated;
-grant execute on function private.get_my_advertiser_campaign_analytics()
-  to authenticated;
-
 revoke all on function public.get_my_advertiser_campaign_analytics()
   from public, anon, authenticated;
 grant execute on function public.get_my_advertiser_campaign_analytics()
   to authenticated;
 
-comment on function private.get_my_advertiser_campaign_analytics()
-  is 'Returns aggregate-only analytics for campaigns owned by the authenticated advertiser; raw creator and conversion records are not exposed.';
-
 comment on function public.get_my_advertiser_campaign_analytics()
-  is 'Authenticated advertiser analytics summary with verified metric freshness, clicks, approved conversions, and confirmed funding.';
+  is 'SECURITY INVOKER advertiser analytics summary. Existing RLS limits rows; authenticated clients receive only campaign_id/status columns for aggregate conversion counts.';
