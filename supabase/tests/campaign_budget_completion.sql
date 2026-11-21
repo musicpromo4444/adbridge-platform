@@ -6,6 +6,7 @@ declare
   v_read_state_update boolean;
   v_body_update boolean;
   v_insert boolean;
+  v_service_insert boolean;
   v_trigger_count integer;
   v_fn record;
 begin
@@ -28,12 +29,13 @@ begin
   v_read_state_update := has_column_privilege('authenticated', 'public.notifications', 'is_read', 'UPDATE');
   v_body_update := has_column_privilege('authenticated', 'public.notifications', 'body', 'UPDATE');
   v_insert := has_table_privilege('authenticated', 'public.notifications', 'INSERT');
+  v_service_insert := has_table_privilege('service_role', 'public.notifications', 'INSERT');
 
-  if v_table_update or not v_read_state_update or v_body_update or v_insert then
+  if v_table_update or not v_read_state_update or v_body_update or v_insert or not v_service_insert then
     raise exception 'notification grants are broader or narrower than the is_read-only contract';
   end if;
 
-  select count(*) into v_trigger_count
+  select count(distinct trigger_name) into v_trigger_count
   from information_schema.triggers
   where trigger_schema = 'public'
     and trigger_name in (
