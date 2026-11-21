@@ -93,17 +93,19 @@ export default function Work() {
                   </div>
                 )}
 
-                {job.status === "accepted" || job.status === "in_progress" ? (
-                  <div className="choiceRow">
-                    <Link className="primary" href={"/creator/studio?campaign=" + job.campaign_id}>Create with AI Studio →</Link>
-                    <Link className="secondary" href={"/creator/submit?job=" + job.id}>Send completed work →</Link>
-                  </div>
-                ) : job.status === "submitted" ? (
+                {job.status === "submitted" ? (
                   <div className="successBox">Waiting for advertiser review.</div>
                 ) : job.status === "approved" ? (
                   <div className="successBox">Approved. Check Earnings for any released payment; approval alone does not confirm a transfer.</div>
                 ) : job.status === "completed" ? (
                   <div className="successBox">Your campaign job is complete. Check Earnings for the actual released-payment record.</div>
+                ) : campaign?.status === "completed" ? (
+                  <div className="successBox">Campaign delivery has ended. Do not start new deliverables for this campaign; check Earnings for any released amount.</div>
+                ) : job.status === "accepted" || job.status === "in_progress" ? (
+                  <div className="choiceRow">
+                    <Link className="primary" href={"/creator/studio?campaign=" + job.campaign_id}>Create with AI Studio →</Link>
+                    <Link className="secondary" href={"/creator/submit?job=" + job.id}>Send completed work →</Link>
+                  </div>
                 ) : (
                   <div className="successBox">Changes were requested. Update and resubmit through the normal submission process.</div>
                 )}
