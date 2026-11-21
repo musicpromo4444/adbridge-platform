@@ -84,23 +84,21 @@ test("rejects invalid campaign ids, timestamps, and money", () => {
   );
 });
 
-test("uses an advertiser-scoped private helper and an invoker public wrapper", () => {
-  assert.match(migration, /create or replace function private\.get_my_advertiser_campaign_analytics\(\)/i);
-  assert.match(migration, /security definer\s+set search_path = ''/i);
-  assert.match(migration, /c\.advertiser_id = \(select auth\.uid\(\)\)/i);
-  assert.match(migration, /profile\.role = 'advertiser'/i);
+test("uses an authenticated SECURITY INVOKER RPC and narrow conversion column grant", () => {
+  assert.match(migration, /grant select \(campaign_id, status\) on public\.cpa_conversion_events to authenticated/i);
   assert.match(migration, /create or replace function public\.get_my_advertiser_campaign_analytics\(\)/i);
   assert.match(migration, /security invoker\s+set search_path = ''/i);
+  assert.match(migration, /c\.advertiser_id = \(select auth\.uid\(\)\)/i);
+  assert.match(migration, /profile\.role = 'advertiser'/i);
   assert.match(migration, /revoke all on function public\.get_my_advertiser_campaign_analytics\(\)\s+from public, anon, authenticated/i);
   assert.match(migration, /grant execute on function public\.get_my_advertiser_campaign_analytics\(\)\s+to authenticated/i);
-  assert.match(migration, /revoke all on function private\.get_my_advertiser_campaign_analytics\(\)\s+from public, anon, authenticated/i);
-  assert.match(migration, /grant execute on function private\.get_my_advertiser_campaign_analytics\(\)\s+to authenticated/i);
+  assert.doesNotMatch(migration, /security definer/i);
 });
 
 test("returns aggregate-only data and does not expose creator or conversion identifiers", () => {
   assert.doesNotMatch(migration, /creator_id|posted_url|external_conversion_id|raw_data/i);
   assert.match(migration, /approved_conversions bigint/i);
-  assert.match(migration, /count\(\*\) as approved_conversions/i);
+  assert.match(migration, /count\(e\.campaign_id\) as approved_conversions/i);
   assert.match(migration, /e\.status = 'approved'/i);
 });
 
