@@ -7,6 +7,7 @@ const migration = await read("../supabase/migrations/20261121175000_adbridge_cam
 const advertiserPage = await read("../app/advertiser/campaigns/page.tsx");
 const creatorPage = await read("../app/creator/work/page.tsx");
 const notificationPage = await read("../app/notifications/page.tsx");
+const publisherPage = await read("../app/publisher/page.tsx");
 const lifecycleTypes = await read("../lib/campaign-lifecycle.ts");
 
 test("campaign completion metadata is persisted", () => {
@@ -66,6 +67,7 @@ test("frontend exposes completion reason and uses the shared notification inbox"
   assert.doesNotMatch(creatorPage, /Completed and paid\./i);
   assert.match(creatorPage, /campaign\?\.status === "completed" \?/);
   assert.match(notificationPage, /from\("notifications"\)/);
+  assert.match(publisherPage, /href="\/notifications"/);
   assert.match(notificationPage, /update\(\{ is_read: true \}\)/);
   assert.match(lifecycleTypes, /budget_exhausted/);
   assert.match(lifecycleTypes, /target_reached/);
