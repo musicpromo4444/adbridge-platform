@@ -27,19 +27,53 @@ $$;
 create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
-  campaign_id uuid references public.campaigns(id) on delete cascade,
+  campaign_id uuid,
   kind text not null default 'general',
   title text not null,
   body text not null,
   link text,
   is_read boolean not null default false,
-  completion_reason text
-    check (
-      completion_reason is null
-      or completion_reason in ('budget_exhausted', 'target_reached', 'manual')
-    ),
+  completion_reason text,
   created_at timestamptz not null default now()
 );
+
+-- Older deployments may already have the original notifications inbox without
+-- campaign metadata. Upgrade that table in place before creating lifecycle
+-- indexes or writing completion notifications.
+alter table public.notifications
+  add column if not exists campaign_id uuid,
+  add column if not exists completion_reason text;
+
+do $
+begin
+  if not exists (
+    select 1
+    from pg_catalog.pg_constraint
+    where conrelid = 'public.notifications'::regclass
+      and conname = 'notifications_campaign_id_fkey'
+  ) then
+    alter table public.notifications
+      add constraint notifications_campaign_id_fkey
+      foreign key (campaign_id)
+      references public.campaigns(id)
+      on delete cascade;
+  end if;
+
+  if not exists (
+    select 1
+    from pg_catalog.pg_constraint
+    where conrelid = 'public.notifications'::regclass
+      and conname = 'notifications_completion_reason_check'
+  ) then
+    alter table public.notifications
+      add constraint notifications_completion_reason_check
+      check (
+        completion_reason is null
+        or completion_reason in ('budget_exhausted', 'target_reached', 'manual')
+      );
+  end if;
+end
+$;
 
 create index if not exists notifications_user_created_idx
   on public.notifications (user_id, created_at desc);
