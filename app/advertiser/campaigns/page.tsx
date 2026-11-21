@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { completionReasonLabel } from "@/lib/campaign-lifecycle";
 
 type Campaign = {
   id: string;
@@ -15,6 +16,8 @@ type Campaign = {
   payment_method: string | null;
   payment_rate: number | null;
   funded_amount: number | null;
+  completion_reason: string | null;
+  completed_at: string | null;
   created_at: string;
 };
 
@@ -57,7 +60,7 @@ export default function Campaigns() {
     }
     const { data, error: queryError } = await supabase
       .from("campaigns")
-      .select("id,name,goal,platform,status,max_budget,desired_results,payment_method,payment_rate,funded_amount,created_at")
+      .select("id,name,goal,platform,status,max_budget,desired_results,payment_method,payment_rate,funded_amount,completion_reason,completed_at,created_at")
       .eq("advertiser_id", user.id)
       .order("created_at", { ascending: false });
     if (queryError) setError("We couldn't load your campaigns right now. Please refresh and try again.");
@@ -81,7 +84,7 @@ export default function Campaigns() {
 
   const filtered = useMemo(() => campaigns.filter(c =>
     (tab === "all" || c.status === tab) &&
-    [c.name, c.goal, c.platform || "", c.payment_method || "", c.status]
+    [c.name, c.goal, c.platform || "", c.payment_method || "", c.status, c.completion_reason || ""]
       .join(" ").toLowerCase().includes(search.toLowerCase().trim())
   ), [campaigns, tab, search]);
 
@@ -115,6 +118,7 @@ export default function Campaigns() {
           <button className="secondary" type="button" onClick={() => void load()} disabled={loading || refreshing || !!busy}>
             {refreshing ? "Refreshing…" : "Refresh campaigns"}
           </button>
+          <Link className="secondary" href="/notifications">Notifications</Link>
         </div>
 
         <div className="statsGrid" aria-label="Campaign status totals">
@@ -166,6 +170,12 @@ export default function Campaigns() {
                     {!isTerminal && <button className="secondary" disabled={busy === c.id} onClick={() => void changeStatus(c.id, "closed")}>{busy === c.id ? "Saving…" : "Close campaign"}</button>}
                   </div>
                   {c.status === "funded" && <small>Funding is confirmed. Activation is permitted only when the full campaign budget has been received.</small>}
+                  {c.status === "completed" && (
+                    <div className="successBox">
+                      <b>Completion reason:</b> {completionReasonLabel(c.completion_reason)}
+                      {c.completed_at && <p>Completed {new Date(c.completed_at).toLocaleString()}.</p>}
+                    </div>
+                  )}
                   {isTerminal && <small>This campaign is in a terminal state. Create a new campaign to launch different work.</small>}
                 </article>
               );
