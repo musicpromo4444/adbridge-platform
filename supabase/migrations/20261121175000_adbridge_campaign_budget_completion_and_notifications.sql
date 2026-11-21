@@ -22,42 +22,47 @@ begin
 end
 $$;
 
-create table if not exists public.campaign_lifecycle_notifications (
+-- The application already has a shared notifications screen. This migration
+-- supplies its table and restricts client writes to the read-state column.
+create table if not exists public.notifications (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references public.profiles(id) on delete cascade,
-  campaign_id uuid not null references public.campaigns(id) on delete cascade,
-  event_type text not null default 'campaign_completed'
-    check (event_type = 'campaign_completed'),
-  completion_reason text not null
-    check (completion_reason in ('budget_exhausted', 'target_reached', 'manual')),
+  campaign_id uuid references public.campaigns(id) on delete cascade,
+  kind text not null default 'general',
   title text not null,
-  message text not null,
-  read_at timestamptz,
-  created_at timestamptz not null default now(),
-  constraint campaign_lifecycle_notifications_once
-    unique (campaign_id, user_id, event_type)
+  body text not null,
+  link text,
+  is_read boolean not null default false,
+  completion_reason text
+    check (
+      completion_reason is null
+      or completion_reason in ('budget_exhausted', 'target_reached', 'manual')
+    ),
+  created_at timestamptz not null default now()
 );
 
-create index if not exists campaign_lifecycle_notifications_user_created_idx
-  on public.campaign_lifecycle_notifications (user_id, created_at desc);
+create index if not exists notifications_user_created_idx
+  on public.notifications (user_id, created_at desc);
 
-alter table public.campaign_lifecycle_notifications enable row level security;
+create unique index if not exists notifications_campaign_completion_once
+  on public.notifications (campaign_id, user_id, kind)
+  where kind = 'campaign_completed';
 
-revoke all on table public.campaign_lifecycle_notifications from public, anon, authenticated;
-grant select on table public.campaign_lifecycle_notifications to authenticated;
-grant update (read_at) on table public.campaign_lifecycle_notifications to authenticated;
+alter table public.notifications enable row level security;
 
-drop policy if exists campaign_lifecycle_notifications_owner_select
-  on public.campaign_lifecycle_notifications;
-create policy campaign_lifecycle_notifications_owner_select
-  on public.campaign_lifecycle_notifications
+revoke all on table public.notifications from public, anon, authenticated;
+grant select on table public.notifications to authenticated;
+grant update (is_read) on table public.notifications to authenticated;
+
+drop policy if exists notifications_owner_select on public.notifications;
+create policy notifications_owner_select
+  on public.notifications
   for select to authenticated
   using ((select auth.uid()) = user_id);
 
-drop policy if exists campaign_lifecycle_notifications_owner_read_state
-  on public.campaign_lifecycle_notifications;
-create policy campaign_lifecycle_notifications_owner_read_state
-  on public.campaign_lifecycle_notifications
+drop policy if exists notifications_owner_read_state on public.notifications;
+create policy notifications_owner_read_state
+  on public.notifications
   for update to authenticated
   using ((select auth.uid()) = user_id)
   with check ((select auth.uid()) = user_id);
@@ -253,13 +258,14 @@ begin
     from recipients
     group by user_id
   )
-  insert into public.campaign_lifecycle_notifications (
+  insert into public.notifications (
     user_id,
     campaign_id,
-    event_type,
+    kind,
     completion_reason,
     title,
-    message
+    body,
+    link
   )
   select
     recipient.user_id,
@@ -275,9 +281,16 @@ begin
         'Your campaign "' || new.name || '" ended because ' || v_reason_text || '. Review the campaign results and budget.'
       else
         'Campaign "' || new.name || '" ended because ' || v_reason_text || '. This does not confirm payment; check your AdBridge earnings ledger for any released amount.'
+    end,
+    case
+      when recipient.audience = 'advertiser' then '/advertiser/campaigns'
+      when recipient.audience = 'creator' then '/creator/work'
+      else '/publisher'
     end
   from deduplicated_recipients recipient
-  on conflict (campaign_id, user_id, event_type) do nothing;
+  on conflict (campaign_id, user_id, kind)
+    where kind = 'campaign_completed'
+  do nothing;
 
   return new;
 end;
@@ -339,7 +352,7 @@ comment on column public.campaigns.completion_reason is
   'Why campaign delivery became terminal: budget_exhausted, target_reached, or manual.';
 comment on column public.campaigns.completed_at is
   'Timestamp when campaign status first changed to completed.';
-comment on table public.campaign_lifecycle_notifications is
-  'Owner-scoped campaign completion notices; payment status must be checked in the earnings ledger.';
+comment on table public.notifications is
+  'Owner-scoped application notifications. Campaign completion notices never imply that a creator payment was released.';
 
 commit;
