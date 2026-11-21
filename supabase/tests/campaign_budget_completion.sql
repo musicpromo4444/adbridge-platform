@@ -24,6 +24,48 @@ begin
   if not has_table_privilege('authenticated', 'public.notifications', 'SELECT') then
     raise exception 'authenticated must be able to read owner-scoped notifications';
   end if;
+  if not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'notifications'
+      and column_name = 'campaign_id'
+      and data_type = 'uuid'
+  ) then
+    raise exception 'notifications.campaign_id must exist as uuid';
+  end if;
+
+  if not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'notifications'
+      and column_name = 'completion_reason'
+      and data_type = 'text'
+  ) then
+    raise exception 'notifications.completion_reason must exist as text';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_catalog.pg_constraint
+    where conrelid = 'public.notifications'::regclass
+      and conname = 'notifications_campaign_id_fkey'
+      and contype = 'f'
+  ) then
+    raise exception 'notifications.campaign_id must reference campaigns';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_catalog.pg_constraint
+    where conrelid = 'public.notifications'::regclass
+      and conname = 'notifications_completion_reason_check'
+      and contype = 'c'
+  ) then
+    raise exception 'notifications.completion_reason must be constrained to supported reasons';
+  end if;
+
 
   v_table_update := has_table_privilege('authenticated', 'public.notifications', 'UPDATE');
   v_read_state_update := has_column_privilege('authenticated', 'public.notifications', 'is_read', 'UPDATE');
