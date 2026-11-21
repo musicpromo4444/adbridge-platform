@@ -53,6 +53,7 @@ alter table public.notifications enable row level security;
 revoke all on table public.notifications from public, anon, authenticated;
 grant select on table public.notifications to authenticated;
 grant update (is_read) on table public.notifications to authenticated;
+grant insert on table public.notifications to service_role;
 
 drop policy if exists notifications_owner_select on public.notifications;
 create policy notifications_owner_select
