@@ -7,6 +7,7 @@ const migration = readFileSync(
   new URL("../supabase/migrations/20261120175100_adbridge_advertiser_campaign_analytics_summary.sql", import.meta.url),
   "utf8",
 );
+const sqlTest = readFileSync(new URL("../supabase/tests/advertiser_campaign_analytics_summary.sql", import.meta.url), "utf8");
 const page = readFileSync(new URL("../app/advertiser/analytics/page.tsx", import.meta.url), "utf8");
 const rpcClient = readFileSync(new URL("../lib/advertiser-analytics.ts", import.meta.url), "utf8");
 
@@ -115,6 +116,14 @@ test("marks CPM submissions stale when no successful check exists or the check i
   assert.match(migration, /s\.metric_status in \('tracking', 'verified'\)/i);
   assert.match(migration, /s\.last_metric_check_at is null/i);
   assert.match(migration, /s\.last_metric_check_at < pg_catalog\.now\(\) - interval '24 hours'/i);
+});
+
+test("includes read-only catalog checks for RLS, RPC grants, and sensitive columns", () => {
+  assert.match(sqlTest, /not p\.prosecdef/i);
+  assert.match(sqlTest, /has_function_privilege\('anon'/i);
+  assert.match(sqlTest, /has_column_privilege\('authenticated'.*'creator_id'/i);
+  assert.match(sqlTest, /relrowsecurity/i);
+  assert.match(sqlTest, /participants read cpa conversion events/i);
 });
 
 test("advertiser analytics uses only the secure aggregate RPC and suppresses partial totals", () => {
