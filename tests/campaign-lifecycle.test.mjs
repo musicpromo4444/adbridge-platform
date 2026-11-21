@@ -9,6 +9,7 @@ const creatorPage = await read("../app/creator/work/page.tsx");
 const notificationPage = await read("../app/notifications/page.tsx");
 const publisherPage = await read("../app/publisher/page.tsx");
 const lifecycleTypes = await read("../lib/campaign-lifecycle.ts");
+const lifecycleSqlTest = await read("../supabase/tests/campaign_budget_completion.sql");
 
 test("campaign completion metadata is persisted", () => {
   assert.match(migration, /add column if not exists completion_reason text/i);
@@ -59,6 +60,16 @@ test("shared notifications are owner-scoped and only read state is client-updata
   assert.match(migration, /using \(\(select auth\.uid\(\)\) = user_id\)/i);
   assert.match(migration, /revoke all on table public\.notifications from public, anon, authenticated/i);
   assert.match(migration, /on conflict \(campaign_id, user_id, kind\)/i);
+});
+
+test("notification migration upgrades a pre-existing inbox table in place", () => {
+  assert.match(migration, /alter table public\.notifications\s+add column if not exists campaign_id uuid/i);
+  assert.match(migration, /add column if not exists completion_reason text/i);
+  assert.match(migration, /notifications_campaign_id_fkey[\s\S]*foreign key \(campaign_id\)[\s\S]*references public\.campaigns/i);
+  assert.match(migration, /notifications_completion_reason_check[\s\S]*completion_reason in \('budget_exhausted', 'target_reached', 'manual'\)/i);
+  assert.match(lifecycleSqlTest, /column_name = 'campaign_id'/i);
+  assert.match(lifecycleSqlTest, /column_name = 'completion_reason'/i);
+  assert.match(lifecycleSqlTest, /notifications_campaign_id_fkey/i);
 });
 
 test("frontend exposes completion reason and uses the shared notification inbox", () => {
