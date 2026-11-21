@@ -24,10 +24,13 @@ export default function Notifications() {
 
   const load = useCallback(async () => {
     if (!supabase) {
+      setRows([]);
       setError("AdBridge database is not configured.");
       setLoading(false);
       return;
     }
+    setLoading(true);
+    setError("");
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       window.location.href = "/login";
@@ -40,6 +43,7 @@ export default function Notifications() {
       .order("created_at", { ascending: false })
       .limit(100);
     if (queryError) {
+      setRows([]);
       setError("Notifications could not be loaded. Please refresh and try again.");
     } else {
       setRows((data || []) as Notification[]);
