@@ -54,6 +54,7 @@ test("shared notifications are owner-scoped and only read state is client-updata
   assert.match(migration, /create table if not exists public\.notifications/i);
   assert.match(migration, /enable row level security/i);
   assert.match(migration, /grant update \(is_read\)[\s\S]*to authenticated/i);
+  assert.match(migration, /grant insert on table public\.notifications to service_role/i);
   assert.match(migration, /using \(\(select auth\.uid\(\)\) = user_id\)/i);
   assert.match(migration, /revoke all on table public\.notifications from public, anon, authenticated/i);
   assert.match(migration, /on conflict \(campaign_id, user_id, kind\)/i);
