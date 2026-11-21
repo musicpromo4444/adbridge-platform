@@ -23,6 +23,14 @@ jobs:
           node-version: 22
       - name: Install dependencies
         run: npm install
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Run security and integration contract tests
+        run: npm test
+      - name: Type-check publisher key Edge Function
+        run: deno check --node-modules-dir=auto supabase/functions/publisher-tracking-key/index.ts
       - name: Type-check application
         run: npx tsc --noEmit
       - name: Build production application

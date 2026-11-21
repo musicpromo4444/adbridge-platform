@@ -1,6 +1,6 @@
 # AdBridge publisher event signing
 
-Website and app publishers can submit impression, click, video-view, install, and conversion events through the `track-ad-event` Supabase Edge Function.
+Website and app publishers submit impression, click, video-view, install, and conversion events through the `track-ad-event` Supabase Edge Function.
 
 ## 1. Issue a property key
 
@@ -11,12 +11,32 @@ An authenticated owner of an already verified publisher property calls:
 with their Supabase user access token and JSON body:
 
 ```json
-{ "property_id": "YOUR_VERIFIED_PROPERTY_UUID" }
+{ "property_id": "YOUR_VERIFIED_PROPERTY_UUID", "action": "rotate" }
 ```
 
-The function returns a per-property `tracking_secret` once. Store it only in the publisher's server environment. Never put it in browser JavaScript or a public mobile application bundle. Calling the key endpoint again rotates the key and invalidates the previous one.
+For compatibility, omitting `action` still means `rotate`. The endpoint returns a per-property `tracking_secret` once. Store it only in the publisher's private server environment. Never put it in browser JavaScript, a public repository, or a public mobile application bundle.
 
-## 2. Sign each event on the publisher server
+Each rotation increments the key version, records an audit event, clears any previous revocation, and immediately invalidates the old secret. The response includes non-secret status metadata alongside the one-time new secret.
+
+## 2. Check or revoke a key
+
+The same authenticated owner can check status without receiving the secret:
+
+```json
+{ "property_id": "YOUR_VERIFIED_PROPERTY_UUID", "action": "status" }
+```
+
+The response reports whether a key exists, whether it is currently active, its version, last rotation time, and revocation time. It never returns `secret_value`.
+
+To revoke a key immediately:
+
+```json
+{ "property_id": "YOUR_VERIFIED_PROPERTY_UUID", "action": "revoke" }
+```
+
+Revocation is idempotent and does not delete the audit record. AdBridge's event receiver rejects signatures for a revoked key. A new key can be issued later if the property remains verified.
+
+## 3. Sign each event on the publisher server
 
 Build the exact JSON body, then sign the timestamp and exact raw body:
 
@@ -50,7 +70,7 @@ For a video-view event, include `playback_started`, `watch_seconds`, `heartbeat_
 
 The signature must be generated on the publisher's server. AdBridge never trusts a client-supplied `server_verified` field. It sets the trusted flag only after validating the per-property HMAC, a five-minute timestamp window, the verified property/placement association, and event evidence.
 
-## 3. What AdBridge enforces
+## 4. What AdBridge enforces
 
 - Duplicate event IDs are rejected.
 - Publisher properties must be verified and belong to the placement owner.
@@ -58,3 +78,5 @@ The signature must be generated on the publisher's server. AdBridge never trusts
 - IP and visitor velocity are scored; high-volume IP traffic is rate-limited.
 - Client-only telemetry remains unverified and cannot become payable.
 - Suspicious events create fraud flags and hold related publisher earnings.
+- Rotated and revoked signing keys invalidate previous signatures.
+- Key lifecycle audit records contain the actor, property, action, key version, and timestamp, but never the secret.

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Property = { id: string; name: string; property_type: string; url: string | null; verified: boolean };
+type KeyStatus = { has_key: boolean; active: boolean; key_version: number | null; rotated_at: string | null; revoked_at: string | null; property_verified: boolean };
 
 export default function PublisherIntegration() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -14,6 +15,26 @@ export default function PublisherIntegration() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [keyStatus, setKeyStatus] = useState<KeyStatus | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusReady, setStatusReady] = useState(false);
+
+  async function loadKeyStatus(id: string) {
+    if (!supabase || !id) { setKeyStatus(null); setStatusReady(false); setStatusLoading(false); return; }
+    setStatusReady(false);
+    setStatusLoading(true);
+    const { data, error: statusError } = await supabase.functions.invoke("publisher-tracking-key", {
+      body: { action: "status", property_id: id },
+    });
+    if (statusError || !data?.success || !data?.status) {
+      setKeyStatus(null);
+      setError("Signing-key status could not be loaded. Retry before rotating or revoking a key.");
+    } else {
+      setKeyStatus(data.status as KeyStatus);
+      setStatusReady(true);
+    }
+    setStatusLoading(false);
+  }
 
   useEffect(() => {
     let live = true;
@@ -38,7 +59,10 @@ export default function PublisherIntegration() {
       else {
         const list = (data || []) as Property[];
         setProperties(list);
-        setPropertyId(list.find(item => item.verified)?.id || "");
+        const initialPropertyId = list.find(item => item.verified)?.id || "";
+        setPropertyId(initialPropertyId);
+        if (initialPropertyId) void loadKeyStatus(initialPropertyId);
+        else setKeyStatus(null);
       }
       setLoading(false);
     }
@@ -47,13 +71,13 @@ export default function PublisherIntegration() {
   }, []);
 
   async function issueKey() {
-    if (!supabase || !propertyId) return;
+    if (!supabase || !propertyId || !selected?.verified || !statusReady) return;
     setBusy(true);
     setError("");
     setMessage("");
     setSecret("");
     const { data, error: invokeError } = await supabase.functions.invoke("publisher-tracking-key", {
-      body: { property_id: propertyId },
+      body: { action: "rotate", property_id: propertyId },
     });
     if (invokeError || !data?.tracking_secret) {
       setError(data?.error || invokeError?.message || "A tracking key could not be issued.");
@@ -61,7 +85,29 @@ export default function PublisherIntegration() {
       return;
     }
     setSecret(String(data.tracking_secret));
-    setMessage("A new property signing key was issued. This is the only time this key will be shown.");
+    if (data.status) { setKeyStatus(data.status as KeyStatus); setStatusReady(true); }
+    setMessage("A new property signing key was issued or rotated. This is the only time this key will be shown.");
+    setBusy(false);
+  }
+
+  async function revokeKey() {
+    if (!supabase || !propertyId || !keyStatus || !keyStatus.has_key || keyStatus.revoked_at) return;
+    if (!window.confirm("Revoke this property's signing key now? Signed server events using it will be rejected.")) return;
+    setBusy(true);
+    setError("");
+    setMessage("");
+    setSecret("");
+    const { data, error: invokeError } = await supabase.functions.invoke("publisher-tracking-key", {
+      body: { action: "revoke", property_id: propertyId },
+    });
+    if (invokeError || !data?.success || !data?.status) {
+      setError(data?.error || invokeError?.message || "The signing key could not be revoked.");
+      setBusy(false);
+      return;
+    }
+    setKeyStatus(data.status as KeyStatus);
+    setStatusReady(true);
+    setMessage("The property signing key has been revoked. Signed events using that key will no longer be accepted.");
     setBusy(false);
   }
 
@@ -79,11 +125,11 @@ export default function PublisherIntegration() {
         {error && <div className="successBox" role="alert">{error}</div>}
         {!loading && (
           <>
-            <label htmlFor="publisher-property">Verified website or app</label>
-            <select id="publisher-property" className="textInput" value={propertyId} onChange={event => { setPropertyId(event.target.value); setSecret(""); setMessage(""); }} >
+            <label htmlFor="publisher-property">Website or app property</label>
+            <select id="publisher-property" className="textInput" value={propertyId} onChange={event => { const id = event.target.value; setPropertyId(id); setSecret(""); setMessage(""); setError(""); setKeyStatus(null); if (id) void loadKeyStatus(id); }} >
               <option value="">Choose a verified property</option>
-              {properties.filter(property => property.verified).map(property => (
-                <option value={property.id} key={property.id}>{property.name} · {property.property_type}</option>
+              {properties.map(property => (
+                <option value={property.id} key={property.id}>{property.name} · {property.property_type} · {property.verified ? "verified" : "not verified"}</option>
               ))}
             </select>
             {selected && (
@@ -93,12 +139,34 @@ export default function PublisherIntegration() {
                 <p>Only the verified owner can issue a signing key for this property.</p>
               </div>
             )}
+            {selected && (
+              <div className="infoBox">
+                <b>Server signing key</b>
+                {statusLoading ? (
+                  <p>Checking key status…</p>
+                ) : keyStatus?.has_key ? (
+                  <>
+                    <p><strong>{keyStatus.active ? "Active" : keyStatus.revoked_at ? "Revoked" : "Inactive — property not verified"}</strong> · Version {keyStatus.key_version ?? "—"}</p>
+                    {keyStatus.rotated_at && <p>Last issued or rotated: {new Date(keyStatus.rotated_at).toLocaleString()}</p>}
+                    {keyStatus.revoked_at && <p>Revoked: {new Date(keyStatus.revoked_at).toLocaleString()}</p>}
+                    {!keyStatus.property_verified && <p>This property is not currently verified, so its events cannot qualify for publisher tracking.</p>}
+                  </>
+                ) : (
+                  <p>No signing key has been issued for this property.</p>
+                )}
+              </div>
+            )}
             {!properties.some(property => property.verified) && (
               <div className="successBox">No verified properties yet. Add your website or app in the Publisher Delivery Center and wait for AdBridge review before requesting a key.</div>
             )}
-            <button className="primary" disabled={busy || !propertyId} onClick={() => void issueKey()}>
-              {busy ? "Issuing secure key…" : "Issue / rotate server signing key →"}
+            <button className="primary" disabled={busy || statusLoading || !statusReady || !propertyId || !selected?.verified} onClick={() => void issueKey()}>
+              {busy ? "Saving secure key…" : keyStatus?.active ? "Rotate server signing key →" : "Issue server signing key →"}
             </button>
+            {keyStatus?.has_key && !keyStatus.revoked_at && (
+              <button className="secondary" disabled={busy || statusLoading} onClick={() => void revokeKey()}>
+                Revoke active signing key
+              </button>
+            )}
           </>
         )}
 
