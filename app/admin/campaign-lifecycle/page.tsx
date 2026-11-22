@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { completionReasonLabel, completionReasonSummary } from "@/lib/campaign-lifecycle";
-import { loadAdminCampaignLifecycleOverview } from "@/lib/admin-campaign-lifecycle";
+import {
+  loadAdminCampaignLifecycleOverview,
+  reconcileAdminCampaignBudget
+} from "@/lib/admin-campaign-lifecycle";
 import type {
   AdminCampaignLifecycleCampaign,
   AdminCampaignLifecycleOverview,
@@ -24,6 +27,9 @@ export default function AdminCampaignLifecycle() {
   const [overview, setOverview] = useState<AdminCampaignLifecycleOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [reconcilingId, setReconcilingId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState("");
+  const [actionError, setActionError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,6 +61,38 @@ export default function AdminCampaignLifecycle() {
     ].join(" ").toLowerCase().includes(term));
   }, [overview, query]);
 
+  async function reconcileBudget(row: AdminCampaignLifecycleCampaign) {
+    if (!row.needs_reconciliation || reconcilingId !== null) return;
+    const confirmed = window.confirm(
+      "Recheck the committed creator-payment ledger for \"" + (row.name || "this campaign") +
+      "\"? The campaign will be completed only if the locked ledger still shows that another payable result cannot be funded."
+    );
+    if (!confirmed) return;
+
+    setReconcilingId(row.id);
+    setActionMessage("");
+    setActionError("");
+    try {
+      const result = await reconcileAdminCampaignBudget(row.id);
+      let message = "";
+      if (result.changed) {
+        message = "Campaign \"" + (row.name || row.id) + "\" was completed after the server confirmed budget exhaustion. Owner notifications were handled by the database trigger.";
+      } else if (result.outcome === "not_exhausted") {
+        message = "The latest locked ledger can still fund the next payable result. The campaign was left unchanged.";
+      } else if (result.outcome === "unsupported_payment_method") {
+        message = "The payment method is not recognized. The campaign was left unchanged for manual review.";
+      } else {
+        message = "The campaign is no longer eligible for budget reconciliation. Its current status was not changed.";
+      }
+      await load();
+      setActionMessage(message);
+    } catch {
+      setActionError("Budget reconciliation failed. No success is assumed; refresh the lifecycle monitor and inspect the campaign ledger.");
+    } finally {
+      setReconcilingId(null);
+    }
+  }
+
   function renderCampaign(row: AdminCampaignLifecycleCampaign) {
     return (
       <article key={row.id}>
@@ -82,7 +120,16 @@ export default function AdminCampaignLifecycle() {
         </div>
         {row.needs_reconciliation && (
           <div className="successBox" role="alert">
-            This campaign is still active although its remaining funded budget cannot cover another payable result. Review the ledger and lifecycle trigger state before taking action.
+            <b>Budget reconciliation required.</b>
+            <p>This campaign is still active although its remaining funded budget cannot cover another payable result. The action below rechecks the locked ledger before changing campaign state.</p>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => void reconcileBudget(row)}
+              disabled={reconcilingId !== null || loading}
+            >
+              {reconcilingId === row.id ? "Reconciling…" : "Reconcile campaign budget"}
+            </button>
           </div>
         )}
         {row.status === "completed" && (
@@ -112,7 +159,7 @@ export default function AdminCampaignLifecycle() {
       <div className="formCard wide">
         <span className="eyebrow">ADMIN · DELIVERY & BUDGET CONTROL</span>
         <h1>Campaign <em>lifecycle monitor.</em></h1>
-        <p>Inspect campaign status, committed creator spend, remaining funded budget and persisted completion reasons. This page is read-only; it does not approve payments or alter campaign state.</p>
+        <p>Inspect campaign status, committed creator spend, remaining funded budget and persisted completion reasons. Budget reconciliation is an explicit admin action; it does not approve payments or release creator earnings.</p>
 
         {summary && (
           <div className="statsGrid">
@@ -130,7 +177,7 @@ export default function AdminCampaignLifecycle() {
               type="button"
               className={filter === status ? "primary" : "secondary"}
               aria-pressed={filter === status}
-              onClick={() => setFilter(status)}
+              onClick={() => { setActionMessage(""); setActionError(""); setFilter(status); }}
             >
               {status === "all" ? "All" : status.replaceAll("_", " ")}
             </button>
@@ -148,6 +195,8 @@ export default function AdminCampaignLifecycle() {
           aria-label="Search campaigns"
         />
 
+        {actionMessage && <div className="infoBox" role="status" aria-live="polite">{actionMessage}</div>}
+        {actionError && <div className="successBox" role="alert">{actionError}</div>}
         {error && <div className="successBox" role="alert">{error}</div>}
         {loading && <div className="successBox">Loading campaign lifecycle…</div>}
         {!loading && overview && (

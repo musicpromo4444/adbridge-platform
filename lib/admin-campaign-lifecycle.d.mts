@@ -51,3 +51,18 @@ export interface AdminCampaignLifecycleOverview {
 export function parseAdminCampaignLifecycleOverview(
   value: unknown
 ): AdminCampaignLifecycleOverview;
+
+
+export interface AdminCampaignBudgetReconciliation {
+  changed: boolean;
+  outcome: "completed" | "not_exhausted" | "not_eligible" | "unsupported_payment_method";
+  status: Exclude<CampaignLifecycleFilter, "all">;
+  completion_reason: "budget_exhausted" | "target_reached" | "manual" | null;
+  completed_at: string | null;
+  remaining_funded_budget: number;
+  required_next_result: number | null;
+}
+
+export function parseAdminCampaignBudgetReconciliation(
+  value: unknown
+): AdminCampaignBudgetReconciliation;
