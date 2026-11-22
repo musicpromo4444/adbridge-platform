@@ -81,7 +81,7 @@ test("admin RPC is invoker-secured, admin-gated and explicitly granted", () => {
   assert.match(migration, /p\.role = 'admin'/i);
   assert.match(migration, /revoke all on function public\.admin_campaign_lifecycle_overview\(text, integer\)[\s\S]*from public, anon, authenticated/i);
   assert.match(migration, /grant execute on function public\.admin_campaign_lifecycle_overview\(text, integer\)[\s\S]*to authenticated/i);
-  assert.match(sqlTest, /has_function_privilege\('anon'/i);
+  assert.match(sqlTest, /has_function_privilege\([\s\S]*'anon'/i);
   assert.match(sqlTest, /v_security_definer/i);
 });
 
