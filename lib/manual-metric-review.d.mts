@@ -1,5 +1,3 @@
-import type { SupabaseClient } from "@supabase/supabase-js";
-
 export type ManualMetricEvidenceInput = {
   submissionId: string;
   claimedMetric: number;
@@ -33,17 +31,3 @@ export declare function normalizeManualMetricInput(
 
 export declare function parseManualMetricEvidenceResult(value: unknown): ManualMetricEvidenceResult;
 export declare function parseManualMetricReviewResult(value: unknown): ManualMetricReviewResult;
-
-export declare function submitManualMetricEvidence(
-  client: SupabaseClient,
-  input: ManualMetricEvidenceInput
-): Promise<ManualMetricEvidenceResult>;
-
-export declare function reviewManualMetricEvidence(
-  client: SupabaseClient,
-  input: {
-    metricVerificationId: string;
-    decision: ManualMetricReviewDecision;
-    reviewNote?: string | null;
-  }
-): Promise<ManualMetricReviewResult>;
