@@ -22,7 +22,8 @@ $$;
 
 -- Keep creator evidence submission, but remove browser control over review fields.
 revoke all on table public.metric_verifications from public, anon, authenticated;
-grant select on table public.metric_verifications to authenticated;
+grant select (id, submission_id, evidence_url, claimed_metric, note, status, review_note, created_at, reviewed_at)
+  on table public.metric_verifications to authenticated;
 grant insert (submission_id, evidence_url, claimed_metric, note)
   on table public.metric_verifications to authenticated;
 
@@ -132,7 +133,9 @@ as $function$
 declare
   v_submission public.submissions%rowtype;
   v_campaign public.campaigns%rowtype;
-  v_existing public.metric_verifications%rowtype;
+  v_existing_id uuid;
+  v_existing_metric bigint;
+  v_existing_url text;
   v_new_id uuid;
 begin
   if auth.uid() is null then
@@ -194,8 +197,8 @@ begin
     raise exception 'campaign has no valid view target' using errcode = '22023';
   end if;
 
-  select mv.*
-    into v_existing
+  select mv.id, mv.claimed_metric, mv.evidence_url
+    into v_existing_id, v_existing_metric, v_existing_url
   from public.metric_verifications mv
   where mv.submission_id = p_submission_id
     and mv.status = 'pending'
@@ -203,11 +206,11 @@ begin
   limit 1;
 
   if found then
-    if v_existing.claimed_metric = p_claimed_metric
-       and v_existing.evidence_url = pg_catalog.btrim(p_evidence_url) then
+    if v_existing_metric = p_claimed_metric
+       and v_existing_url = pg_catalog.btrim(p_evidence_url) then
       return pg_catalog.jsonb_build_object(
         'ok', true,
-        'id', v_existing.id,
+        'id', v_existing_id,
         'status', 'pending',
         'duplicate', true
       );
