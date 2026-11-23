@@ -32,7 +32,7 @@ test("creator evidence RPC is invoker-security, owner-scoped and idempotent", ()
   assert.match(migration, /s\.creator_id = \(select auth\.uid\(\)\)/i);
   assert.match(migration, /pg_advisory_xact_lock/);
   assert.match(migration, /manual metric evidence is already awaiting review/i);
-  assert.match(migration, /v_existing\.claimed_metric = p_claimed_metric/);
+  assert.match(migration, /v_existing_metric = p_claimed_metric/);
   assert.match(migration, /grant execute on function public\.submit_manual_metric_evidence[\s\S]*to authenticated/i);
 });
 
@@ -101,7 +101,7 @@ test("creator submission UI offers optional CPM evidence and a retry after a tra
   assert.match(creatorPage, /Manual view evidence/);
   assert.match(creatorPage, /submitManualMetricEvidence/);
   assert.match(creatorPage, /Retry manual evidence/);
-  assert.match(creatorPage, /metricEvidenceError/);
+  assert.match(creatorPage, /manualMetricError/);
 });
 
 test("manual metric evidence and review response parsers reject unconfirmed results", () => {
