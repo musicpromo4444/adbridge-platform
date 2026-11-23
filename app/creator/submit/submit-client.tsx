@@ -18,9 +18,14 @@ const hosts: { [key: string]: string[] } = {
   Snapchat: ["snapchat.com"],
 };
 
+const first = <T,>(value: T | T[] | null | undefined): T | null =>
+  Array.isArray(value) ? value[0] ?? null : value ?? null;
+
 export default function Submit() {
   const params = useSearchParams();
   const job = params.get("job") || "";
+  const retrySubmissionId = params.get("submission") || "";
+  const retryMode = params.get("metric") === "retry" && !!retrySubmissionId;
   const [posted, setPosted] = useState("");
   const [evidence, setEvidence] = useState("");
   const [note, setNote] = useState("");
@@ -35,13 +40,67 @@ export default function Submit() {
   const [savedSubmissionId, setSavedSubmissionId] = useState("");
   const [manualMetricSaved, setManualMetricSaved] = useState(false);
   const [manualMetricError, setManualMetricError] = useState("");
+  const [retryBlockedMessage, setRetryBlockedMessage] = useState("");
+  const [latestReviewNote, setLatestReviewNote] = useState("");
 
   useEffect(() => {
     let active = true;
     async function loadPaymentMethod() {
-      if (!supabase || !job) return;
+      if (!supabase) return;
       const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) return;
+      if (authError || !user) {
+        window.location.href = "/login";
+        return;
+      }
+
+      if (retryMode) {
+        const { data: submission, error: submissionError } = await supabase
+          .from("submissions")
+          .select("id,status,campaigns(payment_method)")
+          .eq("id", retrySubmissionId)
+          .eq("creator_id", user.id)
+          .maybeSingle();
+        if (!active) return;
+        if (submissionError || !submission) {
+          setRetryBlockedMessage("This campaign submission could not be found for your account.");
+          return;
+        }
+        setSavedSubmissionId(submission.id);
+        const campaign = first(submission.campaigns);
+        const paymentMethod = String(campaign?.payment_method || "");
+        setMethod(paymentMethod);
+        if (!["cpm", "views"].includes(paymentMethod.toLowerCase())) {
+          setRetryBlockedMessage("Manual view evidence is only available for CPM campaigns.");
+          return;
+        }
+        if (submission.status !== "waiting") {
+          setRetryBlockedMessage("This submission is no longer awaiting metric review.");
+          return;
+        }
+
+        const { data: latest, error: metricError } = await supabase
+          .from("metric_verifications")
+          .select("id,status,review_note,created_at")
+          .eq("submission_id", submission.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (!active) return;
+        if (metricError) {
+          setRetryBlockedMessage("The current evidence status could not be checked. Refresh before submitting again.");
+          return;
+        }
+        if (latest?.status === "pending") {
+          setLatestReviewNote(latest.review_note || "");
+          setRetryBlockedMessage("Your latest manual evidence is still awaiting review. Do not submit another copy yet.");
+          return;
+        }
+        setLatestReviewNote(latest?.review_note || "");
+        setRetryBlockedMessage("");
+        return;
+      }
+
+      if (!job) return;
       const { data: creatorJob } = await supabase
         .from("creator_campaigns")
         .select("campaign_id")
@@ -58,7 +117,7 @@ export default function Submit() {
     }
     void loadPaymentMethod();
     return () => { active = false; };
-  }, [job]);
+  }, [job, retryMode, retrySubmissionId]);
 
   const isCpm = ["cpm", "views"].includes(method.toLowerCase());
   const special = ["product_placement", "brand_mention", "partnership", "job", "placement"].includes(method.toLowerCase());
@@ -90,6 +149,29 @@ export default function Submit() {
   }
 
   async function submit() {
+    if (retryMode) {
+      if (!supabase || !savedSubmissionId) {
+        setError("The existing submission could not be loaded.");
+        return;
+      }
+      if (retryBlockedMessage) {
+        setError(retryBlockedMessage);
+        return;
+      }
+      setSaving(true);
+      setError("");
+      setManualMetricError("");
+      try {
+        await saveManualEvidence(savedSubmissionId);
+        setSent(true);
+      } catch (retryError) {
+        setManualMetricError(retryError instanceof Error ? retryError.message : "Updated metric evidence could not be saved. Try again.");
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
     if (!supabase || !job) {
       setError("Open this page from an accepted campaign.");
       return;
@@ -247,84 +329,95 @@ export default function Submit() {
     <main className="formPage">
       <Link href="/creator/work" className="back">← My Work</Link>
       <div className="formCard">
-        <span className="eyebrow">SEND COMPLETED WORK</span>
-        <h1>Ready to <em>submit?</em></h1>
-        <p>Submit the public link. AdBridge verifies results where the configured platform integration supports it.</p>
-
-        <label>Platform</label>
-        <select className="textInput" value={platform} onChange={event => setPlatform(event.target.value)} disabled={sent}>
-          {Object.keys(hosts).map(value => <option key={value}>{value}</option>)}
-        </select>
-
-        <label>Published work link</label>
-        <input className="textInput" value={posted} onChange={event => setPosted(event.target.value)} placeholder="https://tiktok.com/..." disabled={sent} />
-
-        {platform === "Snapchat" && (
+        {retryMode ? (
           <>
-            <label>Evidence / Insights link</label>
-            <input className="textInput" value={evidence} onChange={event => setEvidence(event.target.value)} placeholder="Paste eligible Insights evidence link" disabled={sent} />
-          </>
-        )}
-
-        {special && (
-          <>
-            <label>Proof / evidence</label>
-            <input className="textInput" value={evidence} onChange={event => setEvidence(event.target.value)} placeholder="Optional screenshot, transcript or proof link" disabled={sent} />
-          </>
-        )}
-
-        {isCpm && (
-          <div className="infoBox">
-            <b>Optional manual view evidence</b>
-            <p>If AdBridge cannot retrieve views automatically for this platform, you may submit the current whole-number view count and a public insights/evidence URL. AdBridge reviews this separately; an accepted metric does not guarantee a payout.</p>
-            <label>Current view count</label>
-            <input
-              className="textInput"
-              value={claimedMetric}
-              onChange={event => setClaimedMetric(event.target.value)}
-              inputMode="numeric"
-              placeholder="e.g. 12500"
-              disabled={sent}
-            />
+            <span className="eyebrow">UPDATE CPM METRIC EVIDENCE</span>
+            <h1>Submit corrected <em>evidence.</em></h1>
+            <p>This updates the existing campaign submission. It does not create another creator job or new campaign submission.</p>
+            {retryBlockedMessage && <div className="successBox" role="alert">{retryBlockedMessage}</div>}
+            {latestReviewNote && <div className="infoBox"><b>Latest review feedback</b><p>{latestReviewNote}</p></div>}
+            <label>Current whole-number view count</label>
+            <input className="textInput" value={claimedMetric} onChange={event => setClaimedMetric(event.target.value)} inputMode="numeric" placeholder="e.g. 12500" disabled={saving || sent || !!retryBlockedMessage} />
             <label>Public insights / evidence URL</label>
-            <input
-              className="textInput"
-              value={metricEvidenceUrl}
-              onChange={event => setMetricEvidenceUrl(event.target.value)}
-              placeholder="https://..."
-              disabled={sent}
-            />
-          </div>
-        )}
-
-        <label>{special ? "Add a note for AdBridge review" : "Anything AdBridge should know?"}</label>
-        <textarea value={note} onChange={event => setNote(event.target.value)} placeholder="Optional note" disabled={sent} />
-
-        {error && <div className="successBox" role="alert">{error}</div>}
-        {manualMetricError && <div className="successBox" role="alert">{manualMetricError}</div>}
-
-        <button className="primary" disabled={saving || sent} onClick={() => void submit()}>
-          {saving ? "Sending…" : sent ? "Sent for approval ✓" : "Send for approval →"}
-        </button>
-
-        {sent && (
+            <input className="textInput" value={metricEvidenceUrl} onChange={event => setMetricEvidenceUrl(event.target.value)} placeholder="https://..." disabled={saving || sent || !!retryBlockedMessage} />
+            <label>Note for AdBridge review</label>
+            <textarea value={note} onChange={event => setNote(event.target.value)} placeholder="Explain what changed or where the evidence can be checked…" disabled={saving || sent || !!retryBlockedMessage} />
+            {error && <div className="successBox" role="alert">{error}</div>}
+            {manualMetricError && <div className="successBox" role="alert">{manualMetricError}</div>}
+            <button className="primary" type="button" disabled={saving || sent || !!retryBlockedMessage} onClick={() => void submit()}>
+              {saving ? "Sending…" : sent ? "Updated evidence submitted ✓" : "Submit updated evidence →"}
+            </button>
+            {sent && <div className="successBox">Updated manual metric evidence was sent for review. Any eligible payment remains subject to verified target and funded-budget checks.</div>}
+          </>
+        ) : (
           <>
-            <div className="successBox">
-              <b>Submission received.</b>
-              <br />
-              {trackingUrl && <>Your unique campaign link: <a href={trackingUrl} target="_blank" rel="noreferrer noopener">{trackingUrl}</a><br />Use this link wherever you promote the campaign.<br /></>}
-              {manualMetricSaved
-                ? "Manual view evidence was sent for AdBridge review. Any eligible CPM payment will appear separately in your earnings ledger."
-                : manualMetricError
-                  ? "Your campaign work was submitted, but manual metric evidence still needs to be saved."
-                  : cpmCampaignText(method)}
-            </div>
-            {manualMetricError && savedSubmissionId && (
-              <button className="secondary" type="button" disabled={saving} onClick={() => void retryManualEvidence()}>
-                {saving ? "Retrying…" : "Retry manual evidence"}
-              </button>
+            <span className="eyebrow">SEND COMPLETED WORK</span>
+            <h1>Ready to <em>submit?</em></h1>
+            <p>Submit the public link. AdBridge verifies results where the configured platform integration supports it.</p>
+
+            <label>Platform</label>
+            <select className="textInput" value={platform} onChange={event => setPlatform(event.target.value)} disabled={sent}>
+              {Object.keys(hosts).map(value => <option key={value}>{value}</option>)}
+            </select>
+
+            <label>Published work link</label>
+            <input className="textInput" value={posted} onChange={event => setPosted(event.target.value)} placeholder="https://tiktok.com/..." disabled={sent} />
+
+            {platform === "Snapchat" && (
+              <>
+                <label>Evidence / Insights link</label>
+                <input className="textInput" value={evidence} onChange={event => setEvidence(event.target.value)} placeholder="Paste eligible Insights evidence link" disabled={sent} />
+              </>
             )}
-            <Link className="secondary" href="/creator/work">Back to my work →</Link>
+
+            {special && (
+              <>
+                <label>Proof / evidence</label>
+                <input className="textInput" value={evidence} onChange={event => setEvidence(event.target.value)} placeholder="Optional screenshot, transcript or proof link" disabled={sent} />
+              </>
+            )}
+
+            {isCpm && (
+              <div className="infoBox">
+                <b>Optional manual view evidence</b>
+                <p>If AdBridge cannot retrieve views automatically for this platform, you may submit the current whole-number view count and a public insights/evidence URL. AdBridge reviews this separately; an accepted metric does not guarantee a payout.</p>
+                <label>Current view count</label>
+                <input className="textInput" value={claimedMetric} onChange={event => setClaimedMetric(event.target.value)} inputMode="numeric" placeholder="e.g. 12500" disabled={sent} />
+                <label>Public insights / evidence URL</label>
+                <input className="textInput" value={metricEvidenceUrl} onChange={event => setMetricEvidenceUrl(event.target.value)} placeholder="https://..." disabled={sent} />
+              </div>
+            )}
+
+            <label>{special ? "Add a note for AdBridge review" : "Anything AdBridge should know?"}</label>
+            <textarea value={note} onChange={event => setNote(event.target.value)} placeholder="Optional note" disabled={sent} />
+
+            {error && <div className="successBox" role="alert">{error}</div>}
+            {manualMetricError && <div className="successBox" role="alert">{manualMetricError}</div>}
+
+            <button className="primary" disabled={saving || sent} onClick={() => void submit()}>
+              {saving ? "Sending…" : sent ? "Sent for approval ✓" : "Send for approval →"}
+            </button>
+
+            {sent && (
+              <>
+                <div className="successBox">
+                  <b>Submission received.</b>
+                  <br />
+                  {trackingUrl && <>Your unique campaign link: <a href={trackingUrl} target="_blank" rel="noreferrer noopener">{trackingUrl}</a><br />Use this link wherever you promote the campaign.<br /></>}
+                  {manualMetricSaved
+                    ? "Manual view evidence was sent for AdBridge review. Any eligible CPM payment will appear separately in your earnings ledger."
+                    : manualMetricError
+                      ? "Your campaign work was submitted, but manual metric evidence still needs to be saved."
+                      : cpmCampaignText(method)}
+                </div>
+                {manualMetricError && savedSubmissionId && (
+                  <button className="secondary" type="button" disabled={saving} onClick={() => void retryManualEvidence()}>
+                    {saving ? "Retrying…" : "Retry manual evidence"}
+                  </button>
+                )}
+                <Link className="secondary" href="/creator/work">Back to my work →</Link>
+              </>
+            )}
           </>
         )}
       </div>
