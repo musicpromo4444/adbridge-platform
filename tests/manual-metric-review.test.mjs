@@ -103,7 +103,7 @@ test("creator submission UI offers optional CPM evidence and a retry after a tra
   assert.match(creatorPage, /Retry manual evidence/);
   assert.match(creatorPage, /manualMetricError/);
   assert.match(creatorPage, /retryMode/);
-  assert.match(creatorPage, /Submit corrected evidence/);
+  assert.match(creatorPage, /Submit updated evidence/);
   assert.match(migration, /creator\/submit\?submission=/);
 });
 
