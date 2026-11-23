@@ -27,6 +27,11 @@ begin
     raise exception 'creator insert privileges are not limited to evidence fields';
   end if;
 
+  if not has_column_privilege('authenticated', 'public.metric_verifications', 'review_note', 'SELECT')
+     or has_column_privilege('authenticated', 'public.metric_verifications', 'reviewed_by', 'SELECT') then
+    raise exception 'creator metric review visibility exposes internal reviewer identity or hides feedback';
+  end if;
+
   if not has_function_privilege('authenticated', 'public.submit_manual_metric_evidence(uuid,bigint,text,text)', 'EXECUTE')
      or has_function_privilege('anon', 'public.submit_manual_metric_evidence(uuid,bigint,text,text)', 'EXECUTE') then
     raise exception 'creator evidence RPC grants are incorrect';
