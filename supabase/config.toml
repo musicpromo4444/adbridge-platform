@@ -5,3 +5,8 @@ project_id = "wilfmtzxxnkdcyiozamq"
 # short-lived, one-time state value for the provider callback.
 [functions.social-oauth-start]
 verify_jwt = false
+
+# Manual metric decisions are administrator-only and are revalidated inside
+# the Edge Function before its service-role RPC call.
+[functions.review-manual-metric]
+verify_jwt = true
