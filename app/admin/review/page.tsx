@@ -91,7 +91,7 @@ export default function AdminReview() {
           setMetricError("The related campaign details for manual metric evidence could not be loaded.");
           setMetricRows([]);
         } else {
-          const byId = new Map((related || []).map(item => [item.id, item as unknown as SubmissionSummary]));
+          const byId = new Map<string, SubmissionSummary>((related || []).map(item => [item.id, item as unknown as SubmissionSummary] as const));
           setMetricRows(evidence.map(item => ({
             ...item,
             submission: byId.get(item.submission_id) || null,
