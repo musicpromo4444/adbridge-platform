@@ -246,7 +246,9 @@ export default function AdminReview() {
           {loading
             ? <div className="successBox">Loading submissions…</div>
             : <div className="opps">
-              {rows.map(row => (
+              {rows.map(row => {
+                const postedUrl = safeHttpUrl(row.posted_url);
+                return (
                 <article key={row.id}>
                   <b>{String(row.status).toUpperCase()}</b>
                   <h3>{row.campaigns?.name || "Campaign"}</h3>
@@ -258,7 +260,9 @@ export default function AdminReview() {
                       <p>Review the submitted Snapchat evidence link and public post before approving this submission.</p>
                     </div>
                   )}
-                  <a className="secondary" href={row.posted_url} target="_blank" rel="noreferrer noopener">Open submitted work ↗</a>
+                  {postedUrl
+                    ? <a className="secondary" href={postedUrl} target="_blank" rel="noreferrer noopener">Open submitted work ↗</a>
+                    : <p className="fieldHint">No valid HTTP(S) public post URL was saved.</p>}
                   {row.status !== "approved" && (
                     <div className="choiceRow">
                       <button className="primary" disabled={!!busy} onClick={() => void update(row.id, "approved")}>
@@ -268,7 +272,8 @@ export default function AdminReview() {
                     </div>
                   )}
                 </article>
-              ))}
+                );
+              })}
               {!rows.length && <div className="successBox">No submissions yet.</div>}
             </div>}
         </section>
