@@ -200,8 +200,7 @@ begin
   where mv.submission_id = p_submission_id
     and mv.status = 'pending'
   order by mv.created_at desc
-  limit 1
-  for update;
+  limit 1;
 
   if found then
     if v_existing.claimed_metric = p_claimed_metric
