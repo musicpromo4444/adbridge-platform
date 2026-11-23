@@ -3,7 +3,8 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { normalizeManualMetricInput, submitManualMetricEvidence } from "@/lib/manual-metric-review.mjs";
+import { normalizeManualMetricInput } from "@/lib/manual-metric-review.mjs";
+import { submitManualMetricEvidence } from "@/lib/manual-metric-review-client";
 
 const hosts: { [key: string]: string[] } = {
   TikTok: ["tiktok.com"],
