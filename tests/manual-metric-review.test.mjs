@@ -59,7 +59,8 @@ test("approved evidence updates verified metrics before invoking the budget-gate
   const payoutAt = migration.indexOf("v_payout := public.release_cpm_submission_payment(v_submission.id)");
   assert.ok(verifiedAt >= 0 && payoutAt > verifiedAt);
   assert.match(migration, /greatest\(coalesce\(current_metric, 0\), v_metric\.claimed_metric\)/i);
-  assert.match(migration, /target_not_reached|budget_exhausted/i);
+  assert.match(migration, /No payment was released in this review/i);
+  assert.match(migration, /available funded budget/i);
 });
 
 test("rejected evidence requires a reason and does not invoke the payout branch", () => {
