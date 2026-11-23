@@ -47,20 +47,20 @@ test("history parser never returns unsafe evidence links", () => {
 });
 
 test("admin history RPC is invoker-security, role-gated, bounded and keyset-paginated", () => {
-  assert.match(migration, /security invoker[\\s\\S]*set search_path = ''/i);
-  assert.match(migration, /p\\.role = 'admin'/i);
+  assert.match(migration, /security invoker[\s\S]*set search_path = ''/i);
+  assert.match(migration, /p\.role = 'admin'/i);
   assert.match(migration, /p_page_size < 1 or p_page_size > 50/i);
-  assert.match(migration, /pg_catalog\\.pg_advisory_xact_lock|\\(mv\\.reviewed_at, mv\\.id\\) < \\(p_before_reviewed_at, p_before_id\\)/i);
-  assert.match(migration, /limit \\(p_page_size \\+ 1\\)/i);
+  assert.match(migration, /pg_catalog\.pg_advisory_xact_lock|\(mv\.reviewed_at, mv\.id\) < \(p_before_reviewed_at, p_before_id\)/i);
+  assert.match(migration, /limit \(p_page_size \+ 1\)/i);
   assert.match(migration, /metric_verifications_review_history_idx/i);
-  assert.match(migration, /grant execute on function public\\.get_admin_metric_review_history[\\s\\S]*to authenticated/i);
+  assert.match(migration, /grant execute on function public\.get_admin_metric_review_history[\s\S]*to authenticated/i);
 });
 
 test("history response deliberately excludes creator and reviewer identifiers", () => {
   assert.doesNotMatch(migration, /creator_id|reviewed_by/i);
   assert.match(migration, /campaign_name/);
   assert.match(migration, /review_note/);
-  assert.match(migration, /'status', v\\.status/i);
+  assert.match(migration, /'status', v\.status/i);
 });
 
 test("admin review page uses the dedicated history component and RPC adapter", () => {
@@ -69,13 +69,13 @@ test("admin review page uses the dedicated history component and RPC adapter", (
   assert.match(component, /Load older decisions/);
   assert.match(component, /No completed manual CPM evidence reviews yet/);
   assert.match(client, /get_admin_metric_review_history/);
-  assert.doesNotMatch(component, /\\.from\\(["']metric_verifications/);
+  assert.doesNotMatch(component, /\.from\(["']metric_verifications/);
 });
 
 test("SQL assertions cover admin RLS, function grants, invoker security and identity minimization", () => {
   assert.match(sqlAssertions, /participants read metric verifications/i);
-  assert.match(sqlAssertions, /has_function_privilege\\('authenticated'/i);
-  assert.match(sqlAssertions, /has_function_privilege\\('anon'/i);
+  assert.match(sqlAssertions, /has_function_privilege\('authenticated'/i);
+  assert.match(sqlAssertions, /has_function_privilege\('anon'/i);
   assert.match(sqlAssertions, /pg_get_functiondef/i);
   assert.match(sqlAssertions, /reviewed_by/i);
 });
