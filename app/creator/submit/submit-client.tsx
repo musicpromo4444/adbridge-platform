@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { normalizeManualMetricInput } from "@/lib/manual-metric-review.mjs";
 import { submitManualMetricEvidence } from "@/lib/manual-metric-review-client";
+import { CreatorMetricReviewHistory } from "./metric-review-history";
 
 const hosts: { [key: string]: string[] } = {
   TikTok: ["tiktok.com"],
@@ -348,6 +349,7 @@ export default function Submit() {
               {saving ? "Sending…" : sent ? "Updated evidence submitted ✓" : "Submit updated evidence →"}
             </button>
             {sent && <div className="successBox">Updated manual metric evidence was sent for review. Any eligible payment remains subject to verified target and funded-budget checks.</div>}
+            <CreatorMetricReviewHistory submissionId={retrySubmissionId} />
           </>
         ) : (
           <>
@@ -416,6 +418,9 @@ export default function Submit() {
                   </button>
                 )}
                 <Link className="secondary" href="/creator/work">Back to my work →</Link>
+                {(manualMetricSaved || manualMetricError) && savedSubmissionId && (
+                  <CreatorMetricReviewHistory submissionId={savedSubmissionId} />
+                )}
               </>
             )}
           </>
