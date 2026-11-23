@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { reviewManualMetricEvidence } from "@/lib/manual-metric-review-client";
+import { AdminMetricReviewHistory } from "./metric-review-history";
 
 type CampaignSummary = { name: string; payment_method: string | null };
 type SubmissionSummary = {
@@ -240,6 +241,8 @@ export default function AdminReview() {
             );
           })}
         </section>
+
+        <AdminMetricReviewHistory />
 
         <section>
           <div className="sectionHead"><h2>Creator work submissions</h2></div>
