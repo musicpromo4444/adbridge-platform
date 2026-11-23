@@ -2,7 +2,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { reviewManualMetricEvidence } from "@/lib/manual-metric-review";
+import { reviewManualMetricEvidence } from "@/lib/manual-metric-review-client";
 
 type CampaignSummary = { name: string; payment_method: string | null };
 type SubmissionSummary = {
