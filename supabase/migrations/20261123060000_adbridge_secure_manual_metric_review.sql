@@ -395,7 +395,7 @@ begin
       else 'Manual metric evidence needs attention'
     end,
     v_body,
-    '/creator/work',
+    '/creator/submit?submission=' || v_metric.submission_id::text || '&metric=retry',
     v_metric.id
   )
   on conflict do nothing;
