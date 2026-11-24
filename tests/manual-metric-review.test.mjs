@@ -40,11 +40,11 @@ test("manual metric evidence URLs reject embedded credentials in creator and adm
 });
 
 test("database trigger rejects credential-bearing evidence URLs for inserts and URL updates", () => {
-  assert.match(urlGuardMigration, /create trigger metric_verifications_evidence_url_guard[\\s\\S]*before insert or update of evidence_url/i);
+  assert.match(urlGuardMigration, /create trigger metric_verifications_evidence_url_guard[\s\S]*before insert or update of evidence_url/i);
   assert.match(urlGuardMigration, /security invoker[\\s\\S]*set search_path = ''/i);
   assert.match(urlGuardMigration, /v_authority ~ '@'/i);
   assert.match(sqlAssertions, /metric_verifications_evidence_url_guard/);
-  assert.match(sqlAssertions, /has_function_privilege\\('authenticated', 'public\\.guard_metric_verification_evidence_url/);
+  assert.match(sqlAssertions, /has_function_privilege\('authenticated', 'public\.guard_metric_verification_evidence_url/);
 });
 
 test("creator evidence RPC is invoker-security, owner-scoped and idempotent", () => {
