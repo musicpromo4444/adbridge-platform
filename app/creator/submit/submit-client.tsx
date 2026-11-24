@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { normalizeManualMetricInput } from "@/lib/manual-metric-review.mjs";
 import { submitManualMetricEvidence } from "@/lib/manual-metric-review-client";
 import { CreatorMetricReviewHistory } from "./metric-review-history";
+import { normalizeSocialPostUrl } from "@/lib/social-post-url.mjs";
 
 const hosts: { [key: string]: string[] } = {
   TikTok: ["tiktok.com"],
@@ -177,16 +178,11 @@ export default function Submit() {
       setError("Open this page from an accepted campaign.");
       return;
     }
-    let publicUrl: URL;
+    let postedUrl: string;
     try {
-      publicUrl = new URL(posted.trim());
-      if (!["http:", "https:"].includes(publicUrl.protocol)) throw new Error("protocol");
-    } catch {
-      setError("Enter a valid public post URL.");
-      return;
-    }
-    if (!hosts[platform]?.some(host => publicUrl.hostname === host || publicUrl.hostname.endsWith("." + host))) {
-      setError("That link does not match the selected platform.");
+      postedUrl = normalizeSocialPostUrl(platform, posted);
+    } catch (urlError) {
+      setError(urlError instanceof Error ? urlError.message : "Enter a valid public post URL for the selected platform.");
       return;
     }
 
@@ -259,7 +255,7 @@ export default function Submit() {
         campaign_id: creatorJob.campaign_id,
         creator_id: user.id,
         creator_campaign_id: creatorJob.id,
-        posted_url: posted.trim(),
+        posted_url: postedUrl,
         note: finalNote,
         status: "waiting",
         tracking_platform: platform.toLowerCase(),
