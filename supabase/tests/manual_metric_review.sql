@@ -97,3 +97,46 @@ begin
   end if;
 end
 $$;
+
+
+-- Evidence URLs are opened by administrators and must not carry embedded
+-- usernames or passwords. The trigger applies to RPC and direct table writes.
+do $$
+declare
+  v_security_definer boolean;
+  v_config text;
+  v_definition text;
+begin
+  if not exists (
+    select 1
+    from pg_catalog.pg_trigger t
+    where t.tgrelid = 'public.metric_verifications'::regclass
+      and t.tgname = 'metric_verifications_evidence_url_guard'
+      and not t.tgisinternal
+  ) then
+    raise exception 'manual metric evidence URL guard trigger is missing';
+  end if;
+
+  select p.prosecdef,
+         coalesce(array_to_string(p.proconfig, ','), ''),
+         pg_catalog.pg_get_functiondef(p.oid)
+    into v_security_definer, v_config, v_definition
+  from pg_catalog.pg_proc p
+  join pg_catalog.pg_namespace n on n.oid = p.pronamespace
+  where n.nspname = 'public'
+    and p.proname = 'guard_metric_verification_evidence_url'
+    and pg_catalog.pg_get_function_identity_arguments(p.oid) = '';
+
+  if v_security_definer is distinct from false
+     or position('search_path=' in v_config) = 0
+     or position('@' in v_definition) = 0 then
+    raise exception 'evidence URL guard must be invoker-security with a pinned search path and credential check';
+  end if;
+
+  if has_function_privilege('anon', 'public.guard_metric_verification_evidence_url()', 'EXECUTE')
+     or has_function_privilege('authenticated', 'public.guard_metric_verification_evidence_url()', 'EXECUTE')
+     or has_function_privilege('service_role', 'public.guard_metric_verification_evidence_url()', 'EXECUTE') then
+    raise exception 'trigger-only evidence URL guard must not be directly executable by API roles';
+  end if;
+end
+$$;

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
   normalizeManualMetricInput,
+  safeHttpUrlWithoutCredentials,
   parseManualMetricEvidenceResult,
   parseManualMetricReviewResult,
 } from "../lib/manual-metric-review.mjs";
@@ -13,6 +14,7 @@ const edge = await read("../supabase/functions/review-manual-metric/index.ts");
 const adminPage = await read("../app/admin/review/page.tsx");
 const creatorPage = await read("../app/creator/submit/submit-client.tsx");
 const notificationPage = await read("../app/notifications/page.tsx");
+const urlGuardMigration = await read("../supabase/migrations/20261124060000_adbridge_reject_credential_bearing_evidence_urls.sql");
 const sqlAssertions = await read("../supabase/tests/manual_metric_review.sql");
 const config = await read("../supabase/config.toml");
 
@@ -24,6 +26,25 @@ test("manual metric input accepts only safe whole-number counts and HTTP(S) evid
   assert.throws(() => normalizeManualMetricInput("12.5", "https://example.com"));
   assert.throws(() => normalizeManualMetricInput("-1", "https://example.com"));
   assert.throws(() => normalizeManualMetricInput("10", "javascript:alert(1)"));
+});
+
+test("manual metric evidence URLs reject embedded credentials in creator and administrator flows", () => {
+  assert.equal(safeHttpUrlWithoutCredentials("https://example.com/insights"), "https://example.com/insights");
+  assert.equal(safeHttpUrlWithoutCredentials("https://reviewer:secret@example.com/insights"), null);
+  assert.equal(safeHttpUrlWithoutCredentials("javascript:alert(1)"), null);
+  assert.throws(
+    () => normalizeManualMetricInput("10", "https://reviewer:secret@example.com/insights"),
+    /without embedded credentials/
+  );
+  assert.match(adminPage, /safeHttpUrlWithoutCredentials as safeHttpUrl/);
+});
+
+test("database trigger rejects credential-bearing evidence URLs for inserts and URL updates", () => {
+  assert.match(urlGuardMigration, /create trigger metric_verifications_evidence_url_guard[\\s\\S]*before insert or update of evidence_url/i);
+  assert.match(urlGuardMigration, /security invoker[\\s\\S]*set search_path = ''/i);
+  assert.match(urlGuardMigration, /v_authority ~ '@'/i);
+  assert.match(sqlAssertions, /metric_verifications_evidence_url_guard/);
+  assert.match(sqlAssertions, /has_function_privilege\\('authenticated', 'public\\.guard_metric_verification_evidence_url/);
 });
 
 test("creator evidence RPC is invoker-security, owner-scoped and idempotent", () => {

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { reviewManualMetricEvidence } from "@/lib/manual-metric-review-client";
+import { safeHttpUrlWithoutCredentials as safeHttpUrl } from "@/lib/manual-metric-review.mjs";
 import { AdminMetricReviewHistory } from "./metric-review-history";
 
 type CampaignSummary = { name: string; payment_method: string | null };
@@ -28,15 +29,6 @@ type MetricReviewRow = {
 
 const first = <T,>(value: T | T[] | null | undefined): T | null =>
   Array.isArray(value) ? value[0] ?? null : value ?? null;
-
-function safeHttpUrl(value: string | null | undefined): string | null {
-  try {
-    const url = new URL(value || "");
-    return ["http:", "https:"].includes(url.protocol) ? url.toString() : null;
-  } catch {
-    return null;
-  }
-}
 
 export default function AdminReview() {
   const [rows, setRows] = useState<any[]>([]);

@@ -1,3 +1,5 @@
+export declare function safeHttpUrlWithoutCredentials(value: unknown): string | null;
+
 export type ManualMetricEvidenceInput = {
   submissionId: string;
   claimedMetric: number;
