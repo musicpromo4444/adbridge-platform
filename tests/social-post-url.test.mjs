@@ -43,3 +43,14 @@ test("requires exact platform and domain pairing", () => {
   assert.throws(() => normalizeSocialPostUrl("Instagram", "https://youtube.com/watch?v=1"));
   assert.throws(() => normalizeSocialPostUrl("Unknown", "https://example.com/post/1"));
 });
+
+test("rejects platform homepages and query-only URLs", () => {
+  for (const url of [
+    "https://tiktok.com",
+    "https://tiktok.com/",
+    "https://instagram.com/?utm_source=adbridge",
+    "https://youtube.com/?v=123",
+  ]) {
+    assert.throws(() => normalizeSocialPostUrl("TikTok", url));
+  }
+});
