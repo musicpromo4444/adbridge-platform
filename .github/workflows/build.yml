@@ -1,4 +1,5 @@
 name: AdBridge build verification
+# Social-post path validation follow-up uses this same CI gate.
 
 on:
   push:
