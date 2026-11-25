@@ -1,10 +1,11 @@
 name: AdBridge build verification
+# Social-post path validation follow-up uses this same CI gate.
 
 on:
   push:
     branches: [main]
   pull_request:
-    branches: [main, feature/secure-manual-metric-review]
+    branches: [main, feature/secure-manual-metric-review, feature/strict-social-post-url-validation]
   workflow_dispatch:
 
 jobs:
