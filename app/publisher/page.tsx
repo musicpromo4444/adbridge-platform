@@ -66,21 +66,17 @@ export default function PublisherCenter(){
   if(!selectedProperty||!selectedPlatforms.length||!selectedFormats.length){setError("Choose a verified property, then select compatible platforms and ad formats.");return}
   setSaving(true);setError("");setMessage("");
   const{data:{user}}=await supabase.auth.getUser();if(!user){window.location.href="/login";return}
-  const [existingRes,verifiedRes]=await Promise.all([
-   supabase.from("publisher_campaigns").select("selected_platform,selected_format").eq("publisher_id",user.id).eq("campaign_id",campaignId),
-   supabase.from("publisher_properties").select("platforms,ad_formats").eq("publisher_id",user.id).eq("verified",true)
-  ]);
-  if(verifiedRes.error||existingRes.error){setError("Could not check application history or verified properties.");setSaving(false);return}
+  const existingRes=await supabase.from("publisher_campaigns").select("selected_platform,selected_format,selected_property_id").eq("publisher_id",user.id).eq("campaign_id",campaignId).eq("selected_property_id",selectedProperty.id);
+  if(existingRes.error){setError("Could not check application history for this property.");setSaving(false);return}
   const seen=new Set((existingRes.data||[]).map(x=>x.selected_platform+"|"+x.selected_format));
   const combos:string[]=[];
   for(const p of selectedPlatforms)for(const f of selectedFormats){
-   const propertyMatch=(verifiedRes.data||[]).some(prop=>(prop.platforms||[]).includes(p)&&(prop.ad_formats||[]).includes(f));
-   if(propertyMatch&&!seen.has(p+"|"+f))combos.push(p+"|"+f);
+   if((selectedProperty.platforms||[]).includes(p)&&(selectedProperty.ad_formats||[]).includes(f)&&!seen.has(p+"|"+f))combos.push(p+"|"+f);
   }
   if(!combos.length){setError("No new applications for this property and selection. Check previous applications or choose another supported format.");setSaving(false);return}
   const{error:insertError}=await supabase.from("publisher_campaigns").insert(combos.map(pair=>{const[p,f]=pair.split("|");return{campaign_id:campaignId,publisher_id:user.id,selected_property_id:selectedProperty.id,selected_platform:p,selected_format:f,status:"applied"}}));
   if(insertError)setError("Application submission failed. Please retry.");
-  else{setMessage(combos.length<selectedPlatforms.length*selectedFormats.length?"Application submitted for combinations supported by your verified inventory. Unsupported combinations were skipped.":"Your publisher application has been submitted for review.");await load()}
+  else{setMessage("Application submitted for this verified property and selected compatible placements.");await load()}
   setSaving(false);
  }
  return <main className="formPage publisherPage">
