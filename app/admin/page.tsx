@@ -2,90 +2,67 @@
 import Link from "next/link";
 import {useEffect,useState} from "react";
 import {supabase} from "@/lib/supabase";
-
-type Stats={users:number;creators:number;advertisers:number;campaigns:number;active:number;paused:number;closed:number;submissions:number;pendingReviews:number;payments:number;funded:number;released:number;withdrawals:number;pendingWithdrawals:number;ads:number;activeAds:number};
+type Stats={users:number;creators:number;verifiedCreators:number;advertisers:number;publishers:number;campaigns:number;active:number;fundedCampaigns:number;paused:number;closed:number;submissions:number;pendingReviews:number;payments:number;confirmedFunding:number;pendingFunding:number;released:number;heldPayouts:number;withdrawals:number;pendingWithdrawals:number;ads:number;activeAds:number;publisherApplications:number;pendingPublisherApplications:number;approvedPublisherApplications:number;properties:number;verifiedProperties:number;fraudFlagsOpen:number;events24h:number;verifiedEvents24h:number;reviewEvents24h:number;blockedEvents24h:number;payableEvents24h:number;clickEvents24h:number;publisherEvents24h:number;metricChecks24h:number;conversionEvents24h:number};
 type Activity={label:string;detail:string;time:string};
-
+const empty:Stats={users:0,creators:0,verifiedCreators:0,advertisers:0,publishers:0,campaigns:0,active:0,fundedCampaigns:0,paused:0,closed:0,submissions:0,pendingReviews:0,payments:0,confirmedFunding:0,pendingFunding:0,released:0,heldPayouts:0,withdrawals:0,pendingWithdrawals:0,ads:0,activeAds:0,publisherApplications:0,pendingPublisherApplications:0,approvedPublisherApplications:0,properties:0,verifiedProperties:0,fraudFlagsOpen:0,events24h:0,verifiedEvents24h:0,reviewEvents24h:0,blockedEvents24h:0,payableEvents24h:0,clickEvents24h:0,publisherEvents24h:0,metricChecks24h:0,conversionEvents24h:0};
+const money=(n:number)=>"₦"+Number(n||0).toLocaleString("en-NG",{maximumFractionDigits:2});
 export default function Admin(){
- const [stats,setStats]=useState<Stats>({users:0,creators:0,advertisers:0,campaigns:0,active:0,paused:0,closed:0,submissions:0,pendingReviews:0,payments:0,funded:0,released:0,withdrawals:0,pendingWithdrawals:0,ads:0,activeAds:0});
- const [activity,setActivity]=useState<Activity[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(""),[allow,setAllow]=useState(true),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
+ const[stats,setStats]=useState<Stats>(empty),[activity,setActivity]=useState<Activity[]>([]),[loading,setLoading]=useState(true),[error,setError]=useState(""),[allow,setAllow]=useState(false),[busy,setBusy]=useState(false),[message,setMessage]=useState("");
  async function load(){
   if(!supabase){setError("Database connection is not ready.");setLoading(false);return}
-  const [users,campaigns,subs,payments,withdrawals,settings,ads]=await Promise.all([
-   supabase.from("profiles").select("id,role,created_at,display_name").order("created_at",{ascending:false}),
+  const{data:{user},error:authError}=await supabase.auth.getUser();if(authError||!user){window.location.href="/login";return}
+  const{data:profile,error:profileError}=await supabase.from("profiles").select("role").eq("id",user.id).single();
+  if(profileError||profile?.role!=="admin"){window.location.href="/";return}
+  const[users,campaigns,subs,payments,withdrawals,settings,ads,publisherApps,properties,fraudFlags,fraudHealth]=await Promise.all([
+   supabase.from("profiles").select("id,role,created_at,display_name,verified").order("created_at",{ascending:false}),
    supabase.from("campaigns").select("id,name,status,max_budget,funded_amount,created_at").order("created_at",{ascending:false}),
    supabase.from("submissions").select("id,status,submitted_at").order("submitted_at",{ascending:false}),
    supabase.from("campaign_payments").select("id,amount,status,type,created_at,campaigns(name)").order("created_at",{ascending:false}),
    supabase.from("creator_withdrawals").select("id,amount,status,created_at").order("created_at",{ascending:false}),
    supabase.from("platform_settings").select("allow_new_campaigns").eq("id",1).maybeSingle(),
-   supabase.from("ad_placements").select("id,enabled,created_at").order("created_at",{ascending:false})
+   supabase.from("ad_placements").select("id,enabled,created_at").order("created_at",{ascending:false}),
+   supabase.from("publisher_campaigns").select("id,status,applied_at").order("applied_at",{ascending:false}),
+   supabase.from("publisher_properties").select("id,verified,created_at"),
+   supabase.from("fraud_flags").select("id,status,created_at"),
+   supabase.rpc("admin_fraud_health")
   ]);
-  const failed=[users,campaigns,subs,payments,withdrawals,settings,ads].some((x:any)=>x.error);
-  if(failed)setError("Some dashboard data could not be loaded.");
-  const us=users.data||[],cs=campaigns.data||[],ss=subs.data||[],ps=payments.data||[],ws=withdrawals.data||[],ad=ads.data||[];
-  setAllow(settings.data?.allow_new_campaigns??true);
+  const results=[users,campaigns,subs,payments,withdrawals,settings,ads,publisherApps,properties,fraudFlags,fraudHealth];if(results.some((x:any)=>x.error))setError("Some operations data is unavailable. Refresh to retry.");
+  const us=users.data||[],cs=campaigns.data||[],ss=subs.data||[],ps=payments.data||[],ws=withdrawals.data||[],ad=ads.data||[],pa=publisherApps.data||[],pr=properties.data||[],ff=fraudFlags.data||[],fh=fraudHealth.data||{};
+  setAllow(settings.data?.allow_new_campaigns??false);
   setStats({
-   users:us.length,creators:us.filter((x:any)=>x.role==="creator").length,advertisers:us.filter((x:any)=>x.role==="advertiser").length,
-   campaigns:cs.length,active:cs.filter((x:any)=>x.status==="active").length,paused:cs.filter((x:any)=>x.status==="paused").length,closed:cs.filter((x:any)=>x.status==="closed").length,
+   users:us.length,creators:us.filter((x:any)=>x.role==="creator").length,verifiedCreators:us.filter((x:any)=>x.role==="creator"&&x.verified).length,advertisers:us.filter((x:any)=>x.role==="advertiser").length,publishers:us.filter((x:any)=>x.role==="publisher").length,
+   campaigns:cs.length,active:cs.filter((x:any)=>x.status==="active").length,fundedCampaigns:cs.filter((x:any)=>x.status==="funded").length,paused:cs.filter((x:any)=>x.status==="paused").length,closed:cs.filter((x:any)=>x.status==="closed").length,
    submissions:ss.length,pendingReviews:ss.filter((x:any)=>x.status==="submitted").length,payments:ps.length,
-   funded:ps.filter((x:any)=>x.type==="funding").reduce((a:any,x:any)=>a+Number(x.amount||0),0),
-   released:ps.filter((x:any)=>x.status==="released").reduce((a:any,x:any)=>a+Number(x.amount||0),0),
-   withdrawals:ws.length,pendingWithdrawals:ws.filter((x:any)=>x.status==="pending").length,ads:ad.length,activeAds:ad.filter((x:any)=>x.enabled).length
+   confirmedFunding:ps.filter((x:any)=>x.type==="funding"&&["held","released"].includes(x.status)).reduce((a:number,x:any)=>a+Number(x.amount||0),0),
+   pendingFunding:ps.filter((x:any)=>x.type==="funding"&&x.status==="pending").reduce((a:number,x:any)=>a+Number(x.amount||0),0),
+   released:ps.filter((x:any)=>x.type==="creator_payment"&&x.status==="released").reduce((a:number,x:any)=>a+Number(x.amount||0),0),
+   heldPayouts:ps.filter((x:any)=>x.type==="creator_payment"&&["held","pending"].includes(x.status)).reduce((a:number,x:any)=>a+Number(x.amount||0),0),
+   withdrawals:ws.length,pendingWithdrawals:ws.filter((x:any)=>x.status==="pending").length,ads:ad.length,activeAds:ad.filter((x:any)=>x.enabled).length,
+   publisherApplications:pa.length,pendingPublisherApplications:pa.filter((x:any)=>x.status==="applied").length,approvedPublisherApplications:pa.filter((x:any)=>x.status==="approved").length,properties:pr.length,verifiedProperties:pr.filter((x:any)=>x.verified).length,
+   fraudFlagsOpen:ff.filter((x:any)=>["open","reviewing"].includes(x.status)).length,events24h:Number(fh.events_24h||0),verifiedEvents24h:Number(fh.verified_24h||0),reviewEvents24h:Number(fh.review_queue||0),blockedEvents24h:Number(fh.blocked_24h||0),payableEvents24h:Number(fh.payable_24h||0),clickEvents24h:Number(fh.click_events_24h||0),publisherEvents24h:Number(fh.publisher_events_24h||0),metricChecks24h:Number(fh.metric_checks_24h||0),conversionEvents24h:Number(fh.conversion_events_24h||0)
   });
-  const a:Activity[]=[];
-  cs.slice(0,4).forEach((x:any)=>a.push({label:"Campaign",detail:x.name,time:x.created_at}));
-  ss.slice(0,3).forEach((x:any)=>a.push({label:"Submission",detail:"Creator work submitted",time:x.submitted_at}));
-  ps.slice(0,3).forEach((x:any)=>a.push({label:"Payment",detail:"₦"+Number(x.amount||0).toLocaleString()+" · "+(x.campaigns?.name||"Campaign"),time:x.created_at}));
-  setActivity(a.sort((x,y)=>new Date(y.time).getTime()-new Date(x.time).getTime()).slice(0,8));setLoading(false)
+  const a:Activity[]=[];cs.slice(0,4).forEach((x:any)=>a.push({label:"Campaign",detail:x.name,time:x.created_at}));ss.slice(0,3).forEach((x:any)=>a.push({label:"Submission",detail:"Creator work submitted",time:x.submitted_at}));ps.slice(0,3).forEach((x:any)=>a.push({label:x.type==="funding"?"Funding":"Creator payout",detail:money(Number(x.amount||0))+" · "+(x.campaigns?.name||"Campaign")+" · "+x.status,time:x.created_at}));pa.slice(0,3).forEach((x:any)=>a.push({label:"Publisher application",detail:x.status,time:x.applied_at}));ws.slice(0,2).forEach((x:any)=>a.push({label:"Withdrawal",detail:money(Number(x.amount||0))+" · "+x.status,time:x.created_at}));
+  setActivity(a.filter(x=>x.time).sort((x,y)=>new Date(y.time).getTime()-new Date(x.time).getTime()).slice(0,10));setLoading(false);
  }
- useEffect(()=>{load()},[]);
+ useEffect(()=>{void load()},[]);
  async function toggleCampaigns(){
-  if(!supabase)return;setBusy(true);setMessage("");setError("");
-  const next=!allow;const {error:e}=await supabase.from("platform_settings").upsert({id:1,allow_new_campaigns:next,updated_at:new Date().toISOString()},{onConflict:"id"});
-  if(e)setError("Couldn't change campaign availability.");else{setAllow(next);setMessage(next?"New campaigns are allowed.":"New campaigns are paused.")}setBusy(false)
+  if(!supabase)return;setBusy(true);setMessage("");setError("");const next=!allow;
+  const{error:e}=await supabase.from("platform_settings").upsert({id:1,allow_new_campaigns:next,updated_at:new Date().toISOString()},{onConflict:"id"});
+  if(e)setError("Couldn't change campaign availability.");else{setAllow(next);setMessage(next?"New campaigns are allowed.":"New campaigns are paused.");}setBusy(false)
  }
- const money=(n:number)=>"₦"+n.toLocaleString();
  return <main className="dashboard">
   <div className="dashTop"><Link href="/" className="back">← AdBridge</Link><span className="testBadge">ADMIN CONTROL CENTER</span><Link href="/advertiser" className="switch">Advertiser →</Link></div>
-  <div className="dashHero"><div><span className="eyebrow">ADMIN DASHBOARD</span><h1>Control the <em>marketplace.</em></h1><p>One place for operations, money, people, campaigns, ads and platform controls.</p></div></div>
-  {error&&<div className="successBox">{error}</div>}{message&&<div className="successBox">✓ {message}</div>}
-  <div className="statsGrid">
-   <div><b>Users</b><strong>{loading?"—":stats.users}</strong><small>{stats.creators} creators · {stats.advertisers} advertisers</small></div>
-   <div><b>Campaigns</b><strong>{loading?"—":stats.campaigns}</strong><small>{stats.active} active · {stats.paused} paused</small></div>
-   <div><b>Needs review</b><strong>{loading?"—":stats.pendingReviews}</strong><small>Creator submissions waiting</small></div>
-   <div><b>Funded</b><strong>{loading?"—":money(stats.funded)}</strong><small>{stats.payments} payment records</small></div>
-  </div>
-  <div className="statsGrid">
-   <div><b>Released to creators</b><strong>{loading?"—":money(stats.released)}</strong><small>Approved campaign earnings</small></div>
-   <div><b>Withdrawals</b><strong>{loading?"—":stats.pendingWithdrawals}</strong><small>Pending of {stats.withdrawals} requests</small></div>
-   <div><b>Ad placements</b><strong>{loading?"—":stats.activeAds+"/"+stats.ads}</strong><small>Active universal placements</small></div>
-   <div><b>Marketplace</b><strong>{allow?"ON":"OFF"}</strong><small>New campaign creation</small></div>
-  </div>
+  <div className="dashHero"><div><span className="eyebrow">ADMIN DASHBOARD · LIVE OPERATIONS</span><h1>Control the <em>marketplace.</em></h1><p>Monitor people, campaigns, money, publisher inventory, delivery and fraud signals from one secure control centre.</p></div></div>
+  {error&&<div className="successBox" role="alert">{error}<button className="secondary" onClick={()=>void load()}>Retry</button></div>}{message&&<div className="successBox">✓ {message}</div>}
+  <section className="quick"><h2>People and campaigns</h2><div className="statsGrid"><div><b>USERS</b><strong>{loading?"—":stats.users}</strong><small>{stats.creators} creators · {stats.advertisers} advertisers · {stats.publishers} publishers</small></div><div><b>VERIFIED CREATORS</b><strong>{loading?"—":stats.verifiedCreators}</strong><small>Creator profiles verified</small></div><div><b>CAMPAIGNS</b><strong>{loading?"—":stats.campaigns}</strong><small>{stats.active} active · {stats.fundedCampaigns} funded · {stats.paused} paused</small></div><div><b>SUBMISSIONS WAITING</b><strong>{loading?"—":stats.pendingReviews}</strong><small>{stats.submissions} total submissions</small></div></div></section>
+  <section className="quick"><h2>Money and marketplace</h2><div className="statsGrid"><div><b>CONFIRMED FUNDING</b><strong>{loading?"—":money(stats.confirmedFunding)}</strong><small>{money(stats.pendingFunding)} pending funding records</small></div><div><b>RELEASED PAYOUTS</b><strong>{loading?"—":money(stats.released)}</strong><small>Creator payments</small></div><div><b>HELD PAYOUTS</b><strong>{loading?"—":money(stats.heldPayouts)}</strong><small>Pending or held creator payment</small></div><div><b>WITHDRAWALS</b><strong>{loading?"—":stats.pendingWithdrawals}</strong><small>Pending of {stats.withdrawals} requests</small></div></div></section>
+  <section className="quick"><h2>Publisher inventory and fraud health</h2><div className="statsGrid"><div><b>APPLICATIONS</b><strong>{loading?"—":stats.pendingPublisherApplications}</strong><small>{stats.approvedPublisherApplications} approved · {stats.publisherApplications} total</small></div><div><b>VERIFIED PROPERTIES</b><strong>{loading?"—":stats.verifiedProperties}</strong><small>{stats.properties} registered websites/apps</small></div><div><b>OPEN FRAUD FLAGS</b><strong>{loading?"—":stats.fraudFlagsOpen}</strong><small>Open or reviewing</small></div><div><b>EVENTS ASSESSED · 24H</b><strong>{loading?"—":stats.events24h}</strong><small>{stats.verifiedEvents24h} verified · {stats.reviewEvents24h} review · {stats.blockedEvents24h} blocked</small></div></div><div className="statsGrid"><div><b>CLICK ASSESSMENTS</b><strong>{loading?"—":stats.clickEvents24h}</strong></div><div><b>PUBLISHER EVENTS</b><strong>{loading?"—":stats.publisherEvents24h}</strong></div><div><b>PLATFORM METRIC CHECKS</b><strong>{loading?"—":stats.metricChecks24h}</strong></div><div><b>CONVERSION EVENTS</b><strong>{loading?"—":stats.conversionEvents24h}</strong></div></div></section>
+  <section className="quick"><h2>Platform status</h2><div className="statsGrid"><div><b>AD PLACEMENTS</b><strong>{loading?"—":stats.activeAds+"/"+stats.ads}</strong><small>Active / all</small></div><div><b>MARKETPLACE</b><strong>{allow?"ON":"OFF"}</strong><small>New campaign creation</small></div><div><b>PAUSED CAMPAIGNS</b><strong>{loading?"—":stats.paused}</strong><small>Can be reviewed and reopened</small></div><div><b>PAYABLE EVENTS · 24H</b><strong>{loading?"—":stats.payableEvents24h}</strong><small>Still subject to campaign budget and payout gates</small></div></div></section>
   <div className="quickGrid adminGrid">
-   <Link href="/admin/campaigns"><b>◈</b><span>Campaigns</span><small>Review, pause, reopen and monitor</small></Link>
-   <Link href="/admin/users"><b>●</b><span>Users</span><small>Creators and advertisers</small></Link>
-   <Link href="/admin/publishers"><b>▣</b><span>Publisher applications</span><small>Approve website and app publishers</small></Link>
-   <Link href="/admin/verification"><b>✓</b><span>Creator verification</span><small>Review AdBridge promotional posts</small></Link>
-   <Link href="/admin/payments"><b>₦</b><span>Payments</span><small>Funding and released money</small></Link>
-   <Link href="/admin/withdrawals"><b>↗</b><span>Withdrawals</span><small>{stats.pendingWithdrawals} pending requests</small></Link>
-   <Link href="/admin/fraud"><b>⚑</b><span>Fraud review</span><small>Review suspicious clicks and payment holds</small></Link>
-   <Link href="/admin/ads"><b>✦</b><span>Ads Manager</span><small>Formats, providers, targeting and caps</small></Link>
-   <Link href="/admin/settings"><b>⚙</b><span>Platform Settings</span><small>Commission and marketplace rules</small></Link>
-   <Link href="/rankings"><b>№</b><span>Global Rankings</span><small>Worldwide top 20 creators and advertisers</small></Link>
+   <Link href="/admin/campaigns"><b>◈</b><span>Campaigns</span><small>Review, pause, reopen and monitor</small></Link><Link href="/admin/users"><b>●</b><span>Users</span><small>Creators, advertisers and publishers</small></Link><Link href="/admin/publishers"><b>▣</b><span>Publisher applications</span><small>Approve websites, apps and placements</small></Link><Link href="/admin/verification"><b>✓</b><span>Creator verification</span><small>Review promo-post verification</small></Link><Link href="/admin/payments"><b>₦</b><span>Payments</span><small>Funding and creator payout records</small></Link><Link href="/admin/withdrawals"><b>↗</b><span>Withdrawals</span><small>Review creator withdrawal requests</small></Link><Link href="/admin/fraud"><b>⚑</b><span>Fraud review</span><small>Assess flags, risk scores and holds</small></Link><Link href="/admin/ads"><b>✦</b><span>Ads Manager</span><small>Formats, providers, targeting and caps</small></Link><Link href="/admin/settings"><b>⚙</b><span>Platform Settings</span><small>Commission and marketplace rules</small></Link><Link href="/rankings"><b>№</b><span>Global Rankings</span><small>Worldwide top 20 creators and advertisers</small></Link><Link href="/advertiser/analytics"><b>▤</b><span>Measurement reports</span><small>Verified campaign performance</small></Link>
   </div>
-  <div className="formCard wide">
-   <span className="eyebrow">QUICK CONTROL</span><h2>Marketplace availability</h2>
-   <p>Turn new campaign creation on or off without taking existing campaigns offline.</p>
-   <div className="choiceRow"><button className={allow?"primary":"secondary"} disabled={busy} onClick={toggleCampaigns}>{busy?"Saving…":allow?"New campaigns: ON":"New campaigns: OFF"}</button><Link className="secondary" href="/admin/settings">Open all settings</Link></div>
-  </div>
-  <div className="formCard wide">
-   <span className="eyebrow">OPERATIONS</span><h2>What needs attention</h2>
-   <div className="opps">
-    <Link href="/admin/review" className="infoBox"><b>SUBMISSIONS</b><h3>{stats.pendingReviews} waiting for review</h3><small>Open creator review queue</small></Link>
-    <Link href="/admin/withdrawals" className="infoBox"><b>WITHDRAWALS</b><h3>{stats.pendingWithdrawals} pending</h3><small>Review creator withdrawal requests</small></Link>
-    <Link href="/admin/ads" className="infoBox"><b>ADS</b><h3>{stats.activeAds} active placements</h3><small>Manage universal ad delivery</small></Link>
-   </div>
-  </div>
+  <div className="formCard wide"><span className="eyebrow">QUICK CONTROL</span><h2>Marketplace availability</h2><p>Turn new campaign creation on or off without taking existing campaigns offline.</p><div className="choiceRow"><button className={allow?"primary":"secondary"} disabled={busy||loading} onClick={toggleCampaigns}>{busy?"Saving…":allow?"New campaigns: ON":"New campaigns: OFF"}</button><Link className="secondary" href="/admin/settings">Open all settings</Link></div></div>
+  <section className="quick"><h2>What needs attention</h2><div className="opps"><Link href="/admin/review" className="infoBox"><b>CREATOR SUBMISSIONS</b><h3>{loading?"—":stats.pendingReviews} waiting for review</h3><small>Open creator review queue</small></Link><Link href="/admin/publishers" className="infoBox"><b>PUBLISHER APPLICATIONS</b><h3>{loading?"—":stats.pendingPublisherApplications} pending</h3><small>Approve verified property applications</small></Link><Link href="/admin/fraud" className="infoBox"><b>FRAUD INVESTIGATION</b><h3>{loading?"—":stats.fraudFlagsOpen} open flags</h3><small>Investigate suspicious activity and payment holds</small></Link><Link href="/admin/withdrawals" className="infoBox"><b>WITHDRAWALS</b><h3>{loading?"—":stats.pendingWithdrawals} pending</h3><small>Review and process withdrawals</small></Link></div></section>
   <div className="formCard wide"><span className="eyebrow">RECENT ACTIVITY</span><h2>What's happening</h2>{loading?<div className="successBox">Loading activity…</div>:activity.length?<div className="opps">{activity.map((x,i)=><article key={i}><b>{x.label.toUpperCase()}</b><h3>{x.detail}</h3><small>{new Date(x.time).toLocaleString()}</small></article>)}</div>:<div className="successBox">No activity yet.</div>}</div>
  </main>
 }
