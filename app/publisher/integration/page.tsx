@@ -80,7 +80,7 @@ export default function PublisherIntegration() {
         {!loading && (
           <>
             <label htmlFor="publisher-property">Verified website or app</label>
-            <select id="publisher-property" className="textInput" value={propertyId} onChange={event => { setPropertyId(event.target.value); setSecret(""); setMessage(""); }} >
+            <select id="publisher-property" className="textInput" value={propertyId} onChange={event => { const next = properties.find(p => p.id === event.target.value); setPropertyId(event.target.value); setServePlatform(next?.platforms?.[0] || ""); setServeFormat(next?.ad_formats?.[0] || ""); setSecret(""); setMessage(""); }} >
               <option value="">Choose a verified property</option>
               {properties.filter(property => property.verified).map(property => (
                 <option value={property.id} key={property.id}>{property.name} · {property.property_type}</option>
