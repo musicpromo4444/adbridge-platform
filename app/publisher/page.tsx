@@ -16,7 +16,7 @@ const pretty=(v:string)=>v.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase(
 
 export default function PublisherCenter(){
  const[campaigns,setCampaigns]=useState<Campaign[]>([]),[targets,setTargets]=useState<Target[]>([]),[allFormats,setAllFormats]=useState<Format[]>([]),[properties,setProperties]=useState<Property[]>([]),[applications,setApplications]=useState<Application[]>([]);
- const[campaignId,setCampaignId]=useState(""),[selectedPlatforms,setSelectedPlatforms]=useState<string[]>([]),[selectedFormats,setSelectedFormats]=useState<string[]>([]);
+ const[campaignId,setCampaignId]=useState(""),[selectedPropertyId,setSelectedPropertyId]=useState(""),[selectedPlatforms,setSelectedPlatforms]=useState<string[]>([]),[selectedFormats,setSelectedFormats]=useState<string[]>([]);
  const[propertyType,setPropertyType]=useState("website"),[propertyName,setPropertyName]=useState(""),[propertyUrl,setPropertyUrl]=useState(""),[propertyFormatsSelected,setPropertyFormatsSelected]=useState<string[]>([]),[editingId,setEditingId]=useState("");
  const[saving,setSaving]=useState(false),[loading,setLoading]=useState(true),[message,setMessage]=useState(""),[error,setError]=useState("");
 
@@ -35,7 +35,7 @@ export default function PublisherCenter(){
   if(c.data?.[0]&&!campaignId)setCampaignId(c.data[0].id);setLoading(false);
  }
  useEffect(()=>{void load()},[]);
- const campaign=campaigns.find(c=>c.id===campaignId);
+ const campaign=campaigns.find(c=>c.id===campaignId);\n const verifiedProperties=properties.filter(p=>p.verified);\n const selectedProperty=verifiedProperties.find(p=>p.id===selectedPropertyId)||null;
  const campaignTargets=useMemo(()=>targets.filter(t=>t.campaign_id===campaignId),[targets,campaignId]);
  const campaignFormats=useMemo(()=>allFormats.filter(f=>f.campaign_id===campaignId),[allFormats,campaignId]);
  const compatiblePlatforms=useMemo(()=>platforms.filter(p=>campaignTargets.some(t=>t.platform==="all"||t.platform===p[0])),[campaignTargets]);
@@ -63,7 +63,7 @@ export default function PublisherCenter(){
  }
  async function apply(){
   if(!supabase||!campaignId)return;
-  if(!selectedPlatforms.length||!selectedFormats.length){setError("Select at least one compatible platform and ad format.");return}
+  if(!selectedProperty||!selectedPlatforms.length||!selectedFormats.length){setError("Choose a verified property, then select compatible platforms and ad formats.");return}
   setSaving(true);setError("");setMessage("");
   const{data:{user}}=await supabase.auth.getUser();if(!user){window.location.href="/login";return}
   const [existingRes,verifiedRes]=await Promise.all([
@@ -77,8 +77,8 @@ export default function PublisherCenter(){
    const propertyMatch=(verifiedRes.data||[]).some(prop=>(prop.platforms||[]).includes(p)&&(prop.ad_formats||[]).includes(f));
    if(propertyMatch&&!seen.has(p+"|"+f))combos.push(p+"|"+f);
   }
-  if(!combos.length){setError("No new matching applications can be submitted. A verified property must support each selected platform and format. Register your property and wait for verification.");setSaving(false);return}
-  const{error:insertError}=await supabase.from("publisher_campaigns").insert(combos.map(pair=>{const[p,f]=pair.split("|");return{campaign_id:campaignId,publisher_id:user.id,selected_platform:p,selected_format:f,status:"applied"}}));
+  if(!combos.length){setError("No new applications for this property and selection. Check previous applications or choose another supported format.");setSaving(false);return}
+  const{error:insertError}=await supabase.from("publisher_campaigns").insert(combos.map(pair=>{const[p,f]=pair.split("|");return{campaign_id:campaignId,publisher_id:user.id,selected_property_id:selectedProperty.id,selected_platform:p,selected_format:f,status:"applied"}}));
   if(insertError)setError("Application submission failed. Please retry.");
   else{setMessage(combos.length<selectedPlatforms.length*selectedFormats.length?"Application submitted for combinations supported by your verified inventory. Unsupported combinations were skipped.":"Your publisher application has been submitted for review.");await load()}
   setSaving(false);
@@ -102,9 +102,9 @@ export default function PublisherCenter(){
     </section>
     <section className="quick"><h2>2. Apply to compatible ad campaigns</h2><label>Campaign</label><select className="textInput" value={campaignId} onChange={e=>setCampaignId(e.target.value)}><option value="">Select campaign</option>{campaigns.map(c=><option key={c.id} value={c.id}>{c.name} · {c.goal}</option>)}</select>
      {campaign&&<div className="infoBox"><b>{campaign.name}</b><p>Advertiser targeting: {campaignTargets.some(t=>t.platform==="all")?"All supported platforms":label(campaignTargets.map(t=>t.platform),platforms)}</p><p>Ready formats: {campaignFormats.filter(f=>f.status==="ready").length}</p></div>}
-     <label>Platforms for this application</label><div className="formatChoiceGrid"><button type="button" className={"formatChoice all "+(allPlatformSelected?"selected":"")} onClick={toggleAllPlatforms}><strong>All compatible</strong><small>Choose all platforms this campaign accepts</small></button>{compatiblePlatforms.map(([id,title])=><button type="button" key={id} className={"formatChoice "+(selectedPlatforms.includes(id)?"selected":"")} onClick={()=>toggle(setSelectedPlatforms,id)}><strong>{title}</strong><small>Publisher placement</small></button>)}</div>
-     <label>Available ad formats</label><div className="formatChoiceGrid"><button type="button" className={"formatChoice all "+(allFormatSelected?"selected":"")} onClick={toggleAllFormats}><strong>All ready formats</strong><small>Select every ready campaign format</small></button>{compatibleFormats.map(f=><button type="button" key={f.format} className={"formatChoice "+(selectedFormats.includes(f.format)?"selected":"")} onClick={()=>toggle(setSelectedFormats,f.format)}><strong>{formats.find(x=>x[0]===f.format)?.[1]||pretty(f.format)}</strong><small>{f.requirements||"AdBridge format requirements"}</small></button>)}</div>
-     <button type="button" className="primary fullButton" disabled={saving||!campaignId} onClick={()=>void apply()}>{saving?"Submitting…":"Apply for selected placements →"}</button>
+     <label>Verified property to receive this campaign</label><select className="textInput" value={selectedPropertyId} onChange={e=>{setSelectedPropertyId(e.target.value);setSelectedPlatforms([]);setSelectedFormats([])}}><option value="">Select verified property</option>{verifiedProperties.map(p=><option key={p.id} value={p.id}>{p.name} · {pretty(p.property_type)}</option>)}</select>{selectedProperty&&<div className="infoBox"><b>{selectedProperty.name}</b><p>{pretty(selectedProperty.property_type)} · Eligible formats: {label(selectedProperty.ad_formats||[],formats)}</p></div>}{!verifiedProperties.length&&<div className="successBox">You need at least one verified property before applying to publisher campaigns.</div>}<label>Platforms supported by this property and campaign</label><div className="formatChoiceGrid"><button type="button" className={"formatChoice all "+(allPlatformSelected?"selected":"")} onClick={toggleAllPlatforms}><strong>All compatible</strong><small>Choose all platforms this campaign accepts</small></button>{compatiblePlatforms.map(([id,title])=><button type="button" key={id} className={"formatChoice "+(selectedPlatforms.includes(id)?"selected":"")} onClick={()=>toggle(setSelectedPlatforms,id)}><strong>{title}</strong><small>Publisher placement</small></button>)}</div>
+     <label>Available formats supported by this property</label><div className="formatChoiceGrid"><button type="button" className={"formatChoice all "+(allFormatSelected?"selected":"")} onClick={toggleAllFormats}><strong>All ready formats</strong><small>Select every ready campaign format</small></button>{compatibleFormats.map(f=><button type="button" key={f.format} className={"formatChoice "+(selectedFormats.includes(f.format)?"selected":"")} onClick={()=>toggle(setSelectedFormats,f.format)}><strong>{formats.find(x=>x[0]===f.format)?.[1]||pretty(f.format)}</strong><small>{f.requirements||"AdBridge format requirements"}</small></button>)}</div>
+     <button type="button" className="primary fullButton" disabled={saving||!campaignId||!selectedPropertyId} onClick={()=>void apply()}>{saving?"Submitting…":"Apply for selected placements →"}</button>
      <p>Applications are submitted only when a verified property you own matches the selected platform and format. Existing combinations are not duplicated.</p>
     </section>
    </>}
