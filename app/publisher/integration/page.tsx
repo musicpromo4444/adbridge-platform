@@ -127,7 +127,20 @@ const { ads } = await response.json();
         )}
 
         <div className="quick">
-          <h2>Integration steps</h2>
+          <h2>1. Fetch approved campaign ads</h2>
+          <p>Select the verified property, platform and format. AdBridge returns only placements approved for that property and campaign, with the campaign live/funded and the creative URL/destination included.</p>
+          {selected && <>
+            <label>Platform</label>
+            <select className="textInput" value={servePlatform} onChange={event => {setServePlatform(event.target.value);setServeFormat(selected.ad_formats?.[0]||"");}}>
+              {(selected.platforms||[]).map(platform=><option key={platform} value={platform}>{platform.replaceAll("_"," ")}</option>)}
+            </select>
+            <label>Format</label>
+            <select className="textInput" value={serveFormat} onChange={event=>setServeFormat(event.target.value)}>
+              {(selected.ad_formats||[]).map(format=><option key={format} value={format}>{format.replaceAll("_"," ")}</option>)}
+            </select>
+            {serveSnippet&&<div className="unlockBox"><b>Fetch approved ads</b><pre style={{whiteSpace:"pre-wrap",overflowX:"auto"}}>{serveSnippet}</pre><button className="secondary" onClick={()=>void navigator.clipboard.writeText(serveSnippet).then(()=>setMessage("Ad fetch snippet copied."))}>Copy snippet</button></div>}
+          </>}
+          <h2>2. Send verified event signals</h2>
           <ol>
             <li>Fetch approved campaign ads using the property ID, platform and ad format. Render the returned creative and destination URL.</li>
             <li>Keep the signing secret in a private server environment variable.</li>
