@@ -35,7 +35,9 @@ export default function PublisherCenter(){
   if(c.data?.[0]&&!campaignId)setCampaignId(c.data[0].id);setLoading(false);
  }
  useEffect(()=>{void load()},[]);
- const campaign=campaigns.find(c=>c.id===campaignId);\n const verifiedProperties=properties.filter(p=>p.verified);\n const selectedProperty=verifiedProperties.find(p=>p.id===selectedPropertyId)||null;
+ const campaign=campaigns.find(c=>c.id===campaignId);
+ const verifiedProperties=properties.filter(p=>p.verified);
+ const selectedProperty=verifiedProperties.find(p=>p.id===selectedPropertyId)||null;
  const campaignTargets=useMemo(()=>targets.filter(t=>t.campaign_id===campaignId),[targets,campaignId]);
  const campaignFormats=useMemo(()=>allFormats.filter(f=>f.campaign_id===campaignId),[allFormats,campaignId]);
  const compatiblePlatforms=useMemo(()=>selectedProperty?platforms.filter(p=>(selectedProperty.platforms||[]).includes(p[0])&&campaignTargets.some(t=>t.platform==="all"||t.platform===p[0])):[],[campaignTargets,selectedProperty]);
