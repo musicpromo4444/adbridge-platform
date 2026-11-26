@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import NotificationBell from "@/components/NotificationBell";
 
 type Campaign={id:string;name:string;goal:string;platform:string|null;status:string};
 type Format={campaign_id:string;format:string;status:string;requirements:string|null};
@@ -82,12 +83,12 @@ export default function PublisherCenter(){
   setSaving(false);
  }
  return <main className="formPage publisherPage">
-  <div className="dashTop"><Link href="/" className="back">← AdBridge</Link><span className="testBadge">PUBLISHER DELIVERY CENTER</span><Link href="/creator" className="switch">Creator dashboard →</Link></div>
+  <div className="dashTop"><Link href="/" className="back">← AdBridge</Link><span className="testBadge">PUBLISHER DELIVERY CENTER</span><Link href="/creator" className="switch">Creator dashboard →</Link><NotificationBell /></div>
   <div className="formCard wide">
    <span className="eyebrow">PUBLISHER DASHBOARD · WEBSITES · APPS</span><h1>Monetize the inventory <em>you actually own.</em></h1>
    <p>Register and manage your websites, web apps and mobile apps, apply for compatible ad campaigns, and track your approval status. Property verification and event quality are managed independently by AdBridge.</p>
    <section className="statsGrid"><div><b>YOUR PROPERTIES</b><strong>{loading?"—":properties.length}</strong><small>Websites and apps registered</small></div><div><b>VERIFIED INVENTORY</b><strong>{loading?"—":stats.verified}</strong><small>{loading?"Loading":stats.waiting+" awaiting review"}</small></div><div><b>APPLICATIONS</b><strong>{loading?"—":applications.length}</strong><small>Submitted placements</small></div><div><b>APPROVED PLACEMENTS</b><strong>{loading?"—":stats.approved}</strong><small>{loading?"Loading":stats.pending+" awaiting review"}</small></div></section>
-   <div className="choiceRow"><Link className="secondary" href="/publisher/applications">Applications & decisions →</Link><Link className="secondary" href="/publisher/integration">Server tracking integration →</Link><Link className="secondary" href="/creator/earnings">Earnings & payouts →</Link></div>
+   <div className="choiceRow"><Link className="secondary" href="/publisher/applications">Applications & decisions →</Link><Link className="secondary" href="/publisher/integration">Server tracking integration →</Link><Link className="secondary" href="/creator/earnings">Earnings & payouts →</Link><Link className="secondary" href="/notifications">Notifications →</Link><Link className="secondary" href="/integrations">Integration hub →</Link></div>
    {error&&<div className="successBox" role="alert">{error}</div>}{message&&<div className="successBox">✓ {message}</div>}
    {loading?<div className="successBox">Loading publisher opportunities and inventory…</div>:<>
     <section className="quick"><h2>1. Your publisher properties</h2><p>Add or edit your property details and select only the ad formats it can support. You cannot self-verify ownership.</p>
