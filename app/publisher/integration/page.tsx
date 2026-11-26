@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-type Property = { id: string; name: string; property_type: string; url: string | null; verified: boolean };
+type Property = { id: string; name: string; property_type: string; url: string | null; verified: boolean; platforms: string[]; ad_formats: string[] };
 
 export default function PublisherIntegration() {
   const [properties, setProperties] = useState<Property[]>([]);
-  const [propertyId, setPropertyId] = useState("");
+  const [propertyId, setPropertyId] = useState("");\n  const [servePlatform, setServePlatform] = useState("");\n  const [serveFormat, setServeFormat] = useState("");
   const [secret, setSecret] = useState("");
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -30,7 +30,7 @@ export default function PublisherIntegration() {
       }
       const { data, error: queryError } = await supabase
         .from("publisher_properties")
-        .select("id,name,property_type,url,verified")
+        .select("id,name,property_type,url,verified,platforms,ad_formats")
         .eq("publisher_id", user.id)
         .order("created_at", { ascending: false });
       if (!live) return;
@@ -38,7 +38,7 @@ export default function PublisherIntegration() {
       else {
         const list = (data || []) as Property[];
         setProperties(list);
-        setPropertyId(list.find(item => item.verified)?.id || "");
+        setPropertyId(list.find(item => item.verified)?.id || "");\n        const firstVerified=list.find(item=>item.verified);\n        setServePlatform(firstVerified?.platforms?.[0]||"");\n        setServeFormat(firstVerified?.ad_formats?.[0]||"");
       }
       setLoading(false);
     }
@@ -65,7 +65,7 @@ export default function PublisherIntegration() {
     setBusy(false);
   }
 
-  const selected = properties.find(property => property.id === propertyId) || null;
+  const selected = properties.find(property => property.id === propertyId) || null;\n  const serveUrl = selected && servePlatform && serveFormat ? `https://wilfmtzxxnkdcyiozamq.supabase.co/functions/v1/serve-ad?property_id=${selected.id}&platform=${encodeURIComponent(servePlatform)}&format=${encodeURIComponent(serveFormat)}` : "";\n  const serveSnippet = serveUrl ? `const response = await fetch(${JSON.stringify(serveUrl)});\\nconst { ads } = await response.json();\\n\\n// Render each approved campaign creative from ads[];\\n// attach the placement_key to your event tracker.` : "";
 
   return (
     <main className="formPage">
@@ -118,10 +118,10 @@ export default function PublisherIntegration() {
         <div className="quick">
           <h2>Integration steps</h2>
           <ol>
-            <li>Install the AdBridge ad placement on your verified website or app using the placement key supplied for the approved placement.</li>
+            <li>Fetch approved campaign ads using the property ID, platform and ad format. Render the returned creative and destination URL.</li>
             <li>Keep the signing secret in a private server environment variable.</li>
             <li>Build the exact event JSON on your server and sign <code>unix_timestamp_seconds + "." + exact_request_body</code> using HMAC-SHA256.</li>
-            <li>Send the event to the AdBridge <code>track-ad-event</code> endpoint with <code>x-adbridge-timestamp</code> and <code>x-adbridge-signature</code> headers.</li>
+            <li>Send the event to the AdBridge <code>track-ad-event</code> endpoint with <code>x-adbridge-timestamp</code> and <code>x-adbridge-signature</code> headers. Use the placement key returned from the ad fetch endpoint.</li>
             <li>For native apps, also send <code>x-adbridge-app-id</code> matching the verified app identifier.</li>
             <li>Use a unique event ID for every event. Duplicate events are rejected; browser-only telemetry is not automatically payable.</li>
           </ol>
