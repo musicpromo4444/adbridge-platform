@@ -1,105 +1,114 @@
 "use client";
 import Link from "next/link";
-import {useEffect,useMemo,useState} from "react";
-import {supabase} from "@/lib/supabase";
+import { useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
 
 type Campaign={id:string;name:string;goal:string;platform:string|null;status:string};
 type Format={campaign_id:string;format:string;status:string;requirements:string|null};
 type Target={campaign_id:string;platform:string};
 type Property={id:string;property_type:string;name:string;url:string|null;platforms:string[];ad_formats:string[];verified:boolean};
-
-const platforms: Array<[string,string]>=[["instagram","Instagram"],["tiktok","TikTok"],["youtube","YouTube"],["facebook","Facebook"],["x","X"],["snapchat","Snapchat"],["linkedin","LinkedIn"],["website","Website"],["web_app","Web App"],["android_app","Android App"],["ios_app","iOS App"],["mobile_app","Mobile App"]];
-const formats: Array<[string,string]>=[["web","Web"],["web_app","Web App"],["android_app","Android App"],["ios_app","iOS App"],["social_post","Social Post"],["social_story","Social Story"],["social_reel","Social Reel"],["social_video","Social Video"],["web_banner","Web Banner"],["web_native","Web Native"],["web_interstitial","Web Interstitial"],["web_video","Web Video"],["app_banner","App Banner"],["app_native","App Native"],["app_interstitial","App Interstitial"],["app_video","App Video"],["app_rewarded_video","Rewarded Video"]];
-const publisherPlatformIds=["website","web_app","android_app","ios_app"];
-const publisherFormatIds=new Set(["web","web_app","android_app","ios_app","web_banner","web_native","web_interstitial","web_video","app_banner","app_native","app_interstitial","app_video","app_rewarded_video"]);
+type Application={status:string};
+const platforms:Array<[string,string]>=[["website","Website"],["web_app","Web App"],["android_app","Android App"],["ios_app","iOS App"]];
+const formats:Array<[string,string]>=[["web","Web"],["web_app","Web App"],["android_app","Android App"],["ios_app","iOS App"],["web_banner","Web Banner"],["web_native","Web Native"],["web_interstitial","Web Interstitial"],["web_video","Web Video"],["app_banner","App Banner"],["app_native","App Native"],["app_interstitial","App Interstitial"],["app_video","App Video"],["app_rewarded_video","Rewarded Video"]];
+const propertyFormats:Record<string,string[]>={website:["web","web_banner","web_native","web_interstitial","web_video"],web_app:["web_app","web_banner","web_native","web_interstitial","web_video"],android_app:["android_app","app_banner","app_native","app_interstitial","app_video","app_rewarded_video"],ios_app:["ios_app","app_banner","app_native","app_interstitial","app_video","app_rewarded_video"]};
 const label=(items:string[],map:Array<[string,string]>)=>items.map(x=>map.find(m=>m[0]===x)?.[1]||x).join(" · ");
+const pretty=(v:string)=>v.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase());
 
 export default function PublisherCenter(){
- const[campaigns,setCampaigns]=useState<Campaign[]>([]),[targets,setTargets]=useState<Target[]>([]),[allFormats,setAllFormats]=useState<Format[]>([]),[properties,setProperties]=useState<Property[]>([]);
- const[campaignId,setCampaignId]=useState(""),[selectedPlatforms,setSelectedPlatforms]=useState<string[]>([]),[selectedFormats,setSelectedFormats]=useState<string[]>([]),[propertyType,setPropertyType]=useState("website"),[propertyName,setPropertyName]=useState(""),[propertyUrl,setPropertyUrl]=useState(""),[saving,setSaving]=useState(false),[loading,setLoading]=useState(true),[message,setMessage]=useState(""),[error,setError]=useState("");
+ const[campaigns,setCampaigns]=useState<Campaign[]>([]),[targets,setTargets]=useState<Target[]>([]),[allFormats,setAllFormats]=useState<Format[]>([]),[properties,setProperties]=useState<Property[]>([]),[applications,setApplications]=useState<Application[]>([]);
+ const[campaignId,setCampaignId]=useState(""),[selectedPlatforms,setSelectedPlatforms]=useState<string[]>([]),[selectedFormats,setSelectedFormats]=useState<string[]>([]);
+ const[propertyType,setPropertyType]=useState("website"),[propertyName,setPropertyName]=useState(""),[propertyUrl,setPropertyUrl]=useState(""),[propertyFormatsSelected,setPropertyFormatsSelected]=useState<string[]>([]),[editingId,setEditingId]=useState("");
+ const[saving,setSaving]=useState(false),[loading,setLoading]=useState(true),[message,setMessage]=useState(""),[error,setError]=useState("");
 
  async function load(){
   if(!supabase){setError("AdBridge database is not connected.");setLoading(false);return}
-  const{data:{user}}=await supabase.auth.getUser(); if(!user){location.href="/login";return}
-  const [{data:cs},{data:ts},{data:fs},{data:ps}]=await Promise.all([
-   supabase.from("campaigns").select("id,name,goal,platform,status").eq("status","active").order("created_at",{ascending:false}),
-   supabase.from("campaign_platforms").select("campaign_id,platform"),
+  const{data:{user},error:authError}=await supabase.auth.getUser();if(authError||!user){window.location.href="/login";return}
+  const [c,t,f,p,a]=await Promise.all([
+   supabase.from("campaigns").select("id,name,goal,platform,status").in("status",["active","funded"]).order("created_at",{ascending:false}),
+   supabase.from("campaign_platforms").select("campaign_id,platform").eq("enabled",true),
    supabase.from("campaign_formats").select("campaign_id,format,status,requirements"),
-   supabase.from("publisher_properties").select("id,property_type,name,url,platforms,ad_formats,verified").eq("publisher_id",user.id).order("created_at",{ascending:false})
+   supabase.from("publisher_properties").select("id,property_type,name,url,platforms,ad_formats,verified").eq("publisher_id",user.id).order("created_at",{ascending:false}),
+   supabase.from("publisher_campaigns").select("status").eq("publisher_id",user.id)
   ]);
-  setCampaigns(cs??[]);setTargets(ts??[]);setAllFormats(fs??[]);setProperties((ps??[]) as Property[]);
-  if(cs?.[0])setCampaignId(cs[0].id);setLoading(false);
+  if(c.error||t.error||f.error||p.error||a.error)setError("Some dashboard data could not load. Refresh to retry.");
+  setCampaigns(c.data??[]);setTargets(t.data??[]);setAllFormats(f.data??[]);setProperties((p.data??[]) as Property[]);setApplications((a.data??[]) as Application[]);
+  if(c.data?.[0]&&!campaignId)setCampaignId(c.data[0].id);setLoading(false);
  }
- useEffect(()=>{load()},[]);
-
+ useEffect(()=>{void load()},[]);
  const campaign=campaigns.find(c=>c.id===campaignId);
  const campaignTargets=useMemo(()=>targets.filter(t=>t.campaign_id===campaignId),[targets,campaignId]);
  const campaignFormats=useMemo(()=>allFormats.filter(f=>f.campaign_id===campaignId),[allFormats,campaignId]);
- const compatiblePlatforms=useMemo(()=>platforms.filter(p=>publisherPlatformIds.includes(p[0])&&(campaignTargets.some(t=>t.platform==="all")||campaignTargets.some(t=>t.platform===p[0]))),[campaignTargets]);
- const compatibleFormats=campaignFormats.filter(f=>f.status==="ready"&&publisherFormatIds.has(f.format));
+ const compatiblePlatforms=useMemo(()=>platforms.filter(p=>campaignTargets.some(t=>t.platform==="all"||t.platform===p[0])),[campaignTargets]);
+ const compatibleFormats=campaignFormats.filter(f=>f.status==="ready");
  const allPlatformSelected=compatiblePlatforms.length>0&&selectedPlatforms.length===compatiblePlatforms.length;
  const allFormatSelected=compatibleFormats.length>0&&selectedFormats.length===compatibleFormats.length;
-
+ const stats={verified:properties.filter(p=>p.verified).length,waiting:properties.filter(p=>!p.verified).length,approved:applications.filter(a=>a.status==="approved").length,pending:applications.filter(a=>a.status==="applied").length};
  useEffect(()=>{setSelectedPlatforms([]);setSelectedFormats([])},[campaignId]);
- function toggle(setter:(value:string[]|((prev:string[])=>string[]))=>void,id:string){setter(a=>a.includes(id)?a.filter(x=>x!==id):[...a,id])}
+ function toggle(setter:(value:string[]|((prev:string[])=>string[]))=>void,id:string){setter(prev=>prev.includes(id)?prev.filter(x=>x!==id):[...prev,id])}
  function toggleAllPlatforms(){setSelectedPlatforms(allPlatformSelected?[]:compatiblePlatforms.map(x=>x[0]))}
  function toggleAllFormats(){setSelectedFormats(allFormatSelected?[]:compatibleFormats.map(x=>x.format))}
-
+ function clearPropertyForm(){setEditingId("");setPropertyType("website");setPropertyName("");setPropertyUrl("");setPropertyFormatsSelected([])}
+ function editProperty(p:Property){setEditingId(p.id);setPropertyType(p.property_type);setPropertyName(p.name);setPropertyUrl(p.url||"");setPropertyFormatsSelected(p.ad_formats||[]);setError("");setMessage("");window.scrollTo({top:0,behavior:"smooth"})}
  async function saveProperty(){
-  if(!supabase)return; const{data:{user}}=await supabase.auth.getUser();if(!user)return;
-  if(!propertyName.trim()||!propertyUrl.trim()){setError("Add a property name and valid URL.");return}
-  if(!selectedFormats.length){setError("Choose at least one compatible ad format before saving this property.");return}
-  try{const u=new URL(propertyUrl.trim());if(!["http:","https:"].includes(u.protocol))throw 0}catch{setError("Use a valid http or https URL.");return}
-  setSaving(true);setError("");
-  const{error:e}=await supabase.from("publisher_properties").insert({publisher_id:user.id,property_type:propertyType,name:propertyName.trim(),url:propertyUrl.trim(),platforms:[propertyType],ad_formats:selectedFormats});
-  if(e)setError("We couldn't save this publisher property.");else{setMessage("Publisher property saved.");setPropertyName("");setPropertyUrl("");await load()}
+  if(!supabase)return;const{data:{user}}=await supabase.auth.getUser();if(!user)return;
+  if(!propertyName.trim()||!propertyUrl.trim()){setError("Add a property name and URL.");return}
+  if(!propertyFormatsSelected.length){setError("Select the ad formats this property supports.");return}
+  try{const url=new URL(propertyUrl.trim());if(!["http:","https:"].includes(url.protocol))throw new Error()}catch{setError("Use a valid http or https URL.");return}
+  setSaving(true);setError("");setMessage("");
+  const payload={property_type:propertyType,name:propertyName.trim(),url:propertyUrl.trim(),platforms:[propertyType],ad_formats:propertyFormatsSelected};
+  const result=editingId?await supabase.from("publisher_properties").update(payload).eq("id",editingId).eq("publisher_id",user.id):await supabase.from("publisher_properties").insert({...payload,publisher_id:user.id});
+  if(result.error)setError("Property could not be saved. Please review the details and try again.");
+  else{setMessage(editingId?"Property details updated. Verification remains controlled by AdBridge.":"Property saved. It is now waiting for AdBridge ownership review.");clearPropertyForm();await load()}
   setSaving(false);
  }
-
  async function apply(){
   if(!supabase||!campaignId)return;
-  if(!selectedPlatforms.length||!selectedFormats.length){setError("Select at least one platform and one format.");return}
+  if(!selectedPlatforms.length||!selectedFormats.length){setError("Select at least one compatible platform and ad format.");return}
   setSaving(true);setError("");setMessage("");
-  const{data:{user}}=await supabase.auth.getUser();if(!user){location.href="/login";return}
-  const [{data:existing},{data:verifiedProperties,error:propertyError}] = await Promise.all([
+  const{data:{user}}=await supabase.auth.getUser();if(!user){window.location.href="/login";return}
+  const [existingRes,verifiedRes]=await Promise.all([
    supabase.from("publisher_campaigns").select("selected_platform,selected_format").eq("publisher_id",user.id).eq("campaign_id",campaignId),
    supabase.from("publisher_properties").select("platforms,ad_formats").eq("publisher_id",user.id).eq("verified",true)
   ]);
-  if(propertyError){setError("We couldn't check your verified publisher properties.");setSaving(false);return}
-  const seen=new Set((existing??[]).map(x=>x.selected_platform+"|"+x.selected_format));
-  const rows:string[]=[];
-  for(const platform of selectedPlatforms)for(const format of selectedFormats){
-   const supported=(verifiedProperties??[]).some(property=>(property.platforms??[]).includes(platform)&&(property.ad_formats??[]).includes(format));
-   if(supported&&!seen.has(platform+"|"+format))rows.push(platform+"|"+format);
+  if(verifiedRes.error||existingRes.error){setError("Could not check application history or verified properties.");setSaving(false);return}
+  const seen=new Set((existingRes.data||[]).map(x=>x.selected_platform+"|"+x.selected_format));
+  const combos:string[]=[];
+  for(const p of selectedPlatforms)for(const f of selectedFormats){
+   const propertyMatch=(verifiedRes.data||[]).some(prop=>(prop.platforms||[]).includes(p)&&(prop.ad_formats||[]).includes(f));
+   if(propertyMatch&&!seen.has(p+"|"+f))combos.push(p+"|"+f);
   }
-  if(!rows.length){
-   setError("No new applications can be submitted. You need an AdBridge-verified website or app property that supports each selected platform and ad format. Add your property below and wait for verification.");
-   setSaving(false);return;
-  }
-  const{error:e}=await supabase.from("publisher_campaigns").insert(rows.map(pair=>{const[platform,format]=pair.split("|");return{campaign_id:campaignId,publisher_id:user.id,selected_platform:platform,selected_format:format,status:"applied"}}));
-  if(e)setError(e.message||"We couldn't submit the publisher application.");
-  else setMessage(rows.length<(selectedPlatforms.length*selectedFormats.length)?"Application submitted for the combinations supported by your verified property. Other combinations need a matching verified property.":"Application submitted. AdBridge will show the matching delivery package when approved.");
+  if(!combos.length){setError("No new matching applications can be submitted. A verified property must support each selected platform and format. Register your property and wait for verification.");setSaving(false);return}
+  const{error:insertError}=await supabase.from("publisher_campaigns").insert(combos.map(pair=>{const[p,f]=pair.split("|");return{campaign_id:campaignId,publisher_id:user.id,selected_platform:p,selected_format:f,status:"applied"}}));
+  if(insertError)setError("Application submission failed. Please retry.");
+  else{setMessage(combos.length<selectedPlatforms.length*selectedFormats.length?"Application submitted for combinations supported by your verified inventory. Unsupported combinations were skipped.":"Your publisher application has been submitted for review.");await load()}
   setSaving(false);
  }
-
  return <main className="formPage publisherPage">
-  <div className="dashTop"><Link href="/" className="back">← AdBridge</Link><span className="testBadge">PUBLISHER DELIVERY CENTER</span><Link href="/creator" className="switch">Creator Dashboard →</Link></div>
+  <div className="dashTop"><Link href="/" className="back">← AdBridge</Link><span className="testBadge">PUBLISHER DELIVERY CENTER</span><Link href="/creator" className="switch">Creator dashboard →</Link></div>
   <div className="formCard wide">
-   <span className="eyebrow">PUBLISHERS · WEBSITES · APPS</span><h1>Apply for ads on <em>the property you actually own.</em></h1>
-   <div className="choiceRow"><Link className="secondary" href="/publisher/applications">My applications & property status →</Link><Link className="secondary" href="/publisher/integration">Server tracking integration →</Link><Link className="secondary" href="/creator/earnings">Earnings & payouts →</Link></div>
-   <p>AdBridge is not limited to social creators. Website owners, web apps, Android apps, iOS apps and social publishers can all apply for compatible campaigns.</p>
-   {loading?<div className="successBox">Loading publisher opportunities…</div>:<>
-    <label>1. Active campaign</label><select className="textInput" value={campaignId} onChange={e=>setCampaignId(e.target.value)}><option value="">Select a campaign</option>{campaigns.map(c=><option key={c.id} value={c.id}>{c.name} · {c.goal}</option>)}</select>
-    {campaign&&<div className="infoBox"><b>{campaign.name}</b><p>Advertiser targeting: {campaignTargets.some(t=>t.platform==="all")?"All platforms":label(campaignTargets.map(t=>t.platform),platforms)}</p><p>Available formats: {campaignFormats.length} compatible format(s).</p></div>}
-    <label>2. Platforms you can publish on</label><div className="formatChoiceGrid"><button type="button" className={"formatChoice all "+(allPlatformSelected?"selected":"")} onClick={toggleAllPlatforms}><strong>All compatible platforms</strong><small>Select every platform allowed by this campaign</small></button>{compatiblePlatforms.map(([id,title])=><button type="button" key={id} className={"formatChoice "+(selectedPlatforms.includes(id)?"selected":"")} onClick={()=>toggle(setSelectedPlatforms,id)}><strong>{title}</strong><small>Publisher inventory</small></button>)}</div>
-    <label>3. Ad formats you can accept</label><div className="formatChoiceGrid"><button type="button" className={"formatChoice all "+(allFormatSelected?"selected":"")} onClick={toggleAllFormats}><strong>All compatible formats</strong><small>Choose every format this property supports</small></button>{compatibleFormats.map(f=><button type="button" key={f.format} className={"formatChoice "+(selectedFormats.includes(f.format)?"selected":"")} onClick={()=>toggle(setSelectedFormats,f.format)}><strong>{formats.find(x=>x[0]===f.format)?.[1]||f.format}</strong><small>{f.requirements||"AdBridge delivery format"}</small></button>)}</div>
-    <label>4. Add your website or app property</label><div className="choices compact">{[["website","Website"],["web_app","Web App"],["android_app","Android App"],["ios_app","iOS App"]].map(([id,title])=><button type="button" key={id} className={propertyType===id?"selected":""} onClick={()=>setPropertyType(id)}>{title}</button>)}</div><input className="textInput" value={propertyName} onChange={e=>setPropertyName(e.target.value)} placeholder="Property name, e.g. My News Website"/><input className="textInput" value={propertyUrl} onChange={e=>setPropertyUrl(e.target.value)} placeholder="https://yourwebsite.com or app store URL"/>
-    {properties.length>0&&<div className="infoBox"><b>Your saved publisher properties</b>{properties.map(p=><p key={p.id}>✓ {p.name} · {p.property_type} {p.verified?"· Verified":""}</p>)}</div>}
-    {error&&<div className="successBox">{error}</div>}{message&&<div className="successBox">✓ {message}</div>}
-    <div className="choiceRow"><button className="secondary" disabled={saving} onClick={saveProperty}>Save property</button><button className="primary" disabled={saving||!campaignId} onClick={apply}>{saving?"Saving…":"Apply for selected platforms →"}</button></div>
+   <span className="eyebrow">PUBLISHER DASHBOARD · WEBSITES · APPS</span><h1>Monetize the inventory <em>you actually own.</em></h1>
+   <p>Register and manage your websites, web apps and mobile apps, apply for compatible ad campaigns, and track your approval status. Property verification and event quality are managed independently by AdBridge.</p>
+   <section className="statsGrid"><div><b>YOUR PROPERTIES</b><strong>{loading?"—":properties.length}</strong><small>Websites and apps registered</small></div><div><b>VERIFIED INVENTORY</b><strong>{loading?"—":stats.verified}</strong><small>{loading?"Loading":stats.waiting+" awaiting review"}</small></div><div><b>APPLICATIONS</b><strong>{loading?"—":applications.length}</strong><small>Submitted placements</small></div><div><b>APPROVED PLACEMENTS</b><strong>{loading?"—":stats.approved}</strong><small>{loading?"Loading":stats.pending+" awaiting review"}</small></div></section>
+   <div className="choiceRow"><Link className="secondary" href="/publisher/applications">Applications & decisions →</Link><Link className="secondary" href="/publisher/integration">Server tracking integration →</Link><Link className="secondary" href="/creator/earnings">Earnings & payouts →</Link></div>
+   {error&&<div className="successBox" role="alert">{error}</div>}{message&&<div className="successBox">✓ {message}</div>}
+   {loading?<div className="successBox">Loading publisher opportunities and inventory…</div>:<>
+    <section className="quick"><h2>1. Your publisher properties</h2><p>Add or edit your property details and select only the ad formats it can support. You cannot self-verify ownership.</p>
+     <div className="choices compact">{platforms.map(([id,title])=><button type="button" key={id} className={propertyType===id?"selected":""} onClick={()=>{setPropertyType(id);setPropertyFormatsSelected([])}}>{title}</button>)}</div>
+     <input className="textInput" value={propertyName} onChange={e=>setPropertyName(e.target.value)} placeholder="Property name, e.g. My News Website"/>
+     <input className="textInput" value={propertyUrl} onChange={e=>setPropertyUrl(e.target.value)} placeholder="https://yourwebsite.com or app-store listing"/>
+     <label>Formats your property supports</label><div className="formatChoiceGrid">{(propertyFormats[propertyType]||[]).map(id=><button type="button" key={id} className={"formatChoice "+(propertyFormatsSelected.includes(id)?"selected":"")} onClick={()=>toggle(setPropertyFormatsSelected,id)}><strong>{formats.find(x=>x[0]===id)?.[1]||pretty(id)}</strong><small>{pretty(propertyType)} inventory</small></button>)}</div>
+     <div className="choiceRow"><button type="button" className="primary" disabled={saving} onClick={()=>void saveProperty()}>{saving?"Saving…":editingId?"Update property":"Save property"}</button>{editingId&&<button type="button" className="secondary" onClick={clearPropertyForm}>Cancel edit</button>}</div>
+     {properties.length>0&&<div className="opps">{properties.map(p=><article key={p.id}><b>{p.verified?"VERIFIED PROPERTY":"PENDING VERIFICATION"}</b><h3>{p.name}</h3><p>{pretty(p.property_type)} · {label(p.ad_formats||[],formats)}</p>{p.url&&<a href={p.url} target="_blank" rel="noreferrer">Visit property ↗</a>}<button type="button" className="secondary" onClick={()=>editProperty(p)}>Edit details</button></article>)}</div>}
+    </section>
+    <section className="quick"><h2>2. Apply to compatible ad campaigns</h2><label>Campaign</label><select className="textInput" value={campaignId} onChange={e=>setCampaignId(e.target.value)}><option value="">Select campaign</option>{campaigns.map(c=><option key={c.id} value={c.id}>{c.name} · {c.goal}</option>)}</select>
+     {campaign&&<div className="infoBox"><b>{campaign.name}</b><p>Advertiser targeting: {campaignTargets.some(t=>t.platform==="all")?"All supported platforms":label(campaignTargets.map(t=>t.platform),platforms)}</p><p>Ready formats: {campaignFormats.filter(f=>f.status==="ready").length}</p></div>}
+     <label>Platforms for this application</label><div className="formatChoiceGrid"><button type="button" className={"formatChoice all "+(allPlatformSelected?"selected":"")} onClick={toggleAllPlatforms}><strong>All compatible</strong><small>Choose all platforms this campaign accepts</small></button>{compatiblePlatforms.map(([id,title])=><button type="button" key={id} className={"formatChoice "+(selectedPlatforms.includes(id)?"selected":"")} onClick={()=>toggle(setSelectedPlatforms,id)}><strong>{title}</strong><small>Publisher placement</small></button>)}</div>
+     <label>Available ad formats</label><div className="formatChoiceGrid"><button type="button" className={"formatChoice all "+(allFormatSelected?"selected":"")} onClick={toggleAllFormats}><strong>All ready formats</strong><small>Select every ready campaign format</small></button>{compatibleFormats.map(f=><button type="button" key={f.format} className={"formatChoice "+(selectedFormats.includes(f.format)?"selected":"")} onClick={()=>toggle(setSelectedFormats,f.format)}><strong>{formats.find(x=>x[0]===f.format)?.[1]||pretty(f.format)}</strong><small>{f.requirements||"AdBridge format requirements"}</small></button>)}</div>
+     <button type="button" className="primary fullButton" disabled={saving||!campaignId} onClick={()=>void apply()}>{saving?"Submitting…":"Apply for selected placements →"}</button>
+     <p>Applications are submitted only when a verified property you own matches the selected platform and format. Existing combinations are not duplicated.</p>
+    </section>
    </>}
-   <div className="infoBox"><b>Publisher earnings and payouts</b><p>Track released earnings and add the bank or mobile-money details AdBridge needs to process approved withdrawals.</p><Link href="/creator/earnings">Open earnings and payout settings →</Link></div>
-   <div className="conversionInfo"><span className="eyebrow">HOW ADBRIDGE WORKS</span><div className="conversionGrid"><div><b>Advertiser</b><p>Chooses the platforms and ad formats.</p></div><div><b>Publisher</b><p>Chooses every compatible platform and format they support.</p></div><div><b>AdBridge</b><p>Matches the application to the correct delivery package and tracks the result.</p></div></div></div>
+   <div className="infoBox"><b>Publisher delivery and payment rules</b><p>AdBridge tracks server-verified impressions, clicks, video views, installs and conversions. Tracking-link clicks alone are not verified views. Events must pass fraud checks before qualifying for payment.</p><Link href="/publisher/integration">Set up server-side event tracking →</Link><p><Link href="/creator/earnings">Manage earnings and payout methods →</Link></p></div>
   </div>
  </main>
 }
