@@ -162,7 +162,7 @@ export default function Advertiser() {
           <span className="eyebrow">CAMPAIGN CONTROL</span>
           <h3>{stats.awaitingReview} submissions awaiting review</h3>
           <p>Follow AdBridge review progress, inspect verified results and manage campaign status.</p>
-          <Link href="/advertiser/review">Review campaign activity →</Link>
+          <Link href="/advertiser/review">Review campaign activity →</Link>\n          <div className="asideDivider" />\n          <Link href="/advertiser/delivery">Delivery control centre →</Link>
           <div className="asideDivider" />
           <Link href="/advertiser/campaigns">Manage campaigns →</Link>
           <div className="asideDivider" />
@@ -175,7 +175,7 @@ export default function Advertiser() {
         <div className="quickGrid">
           <Link href="/rankings"><b>№</b><span>Global Rankings</span><small>See top advertisers and publishers</small></Link>
           <Link href="/advertiser/new"><b>＋</b><span>Create campaign</span><small>Set your brief, audience and budget</small></Link>
-          <Link href="/advertiser/campaigns"><b>▤</b><span>All campaigns</span><small>Edit drafts, pause or close campaigns</small></Link>
+          <Link href="/advertiser/campaigns"><b>▤</b><span>All campaigns</span><small>Edit drafts, pause or close campaigns</small></Link>\n          <Link href="/advertiser/delivery"><b>▶</b><span>Delivery control centre</span><small>Publisher placements, campaign delivery setup and readiness</small></Link>
           <Link href="/advertiser/review"><b>✓</b><span>Campaign review</span><small>See AdBridge's review progress</small></Link>
           <Link href="/advertiser/results"><b>↗</b><span>Campaign results</span><small>Track verified views, clicks and conversions</small></Link>
           <Link href="/advertiser/analytics"><b>▥</b><span>Analytics</span><small>Performance across your campaigns</small></Link>
