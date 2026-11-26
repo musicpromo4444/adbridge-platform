@@ -12,7 +12,7 @@ export default function Notifications(){
   if(e)setError("Notifications could not be loaded. Refresh to retry.");else setError("");
   setRows((data||[]) as Notice[]);setLoading(false);
  }
- useEffect(()=>{void load();if(!supabase)return;let channel:any;void supabase.auth.getUser().then(({data:{user}})=>{if(!user)return;channel=supabase.channel("notifications-inbox-"+user.id).on("postgres_changes",{event:"*",schema:"public",table:"notifications",filter:"user_id=eq."+user.id},()=>void load()).subscribe()});return()=>{if(channel)supabase.removeChannel(channel)}},[]);
+ useEffect(()=>{void load();const client=supabase;if(!client)return;let channel:any;void client.auth.getUser().then(({data:{user}})=>{if(!user)return;channel=client.channel("notifications-inbox-"+user.id).on("postgres_changes",{event:"*",schema:"public",table:"notifications",filter:"user_id=eq."+user.id},()=>void load()).subscribe()});return()=>{if(channel)client.removeChannel(channel)}},[]);
  const unread=rows.filter(x=>!x.is_read).length;const filtered=useMemo(()=>rows.filter(x=>filter==="all"||!x.is_read),[rows,filter]);
  async function markRead(id:string){if(!supabase)return;setBusy(id);const{error:e}=await supabase.from("notifications").update({is_read:true}).eq("id",id);if(e)setError(e.message);else setRows(old=>old.map(x=>x.id===id?{...x,is_read:true}:x));setBusy("")}
  async function markAll(){if(!supabase||!unread)return;setBusy("all");const{data:{user}}=await supabase.auth.getUser();if(!user){setBusy("");return}const{error:e}=await supabase.from("notifications").update({is_read:true}).eq("user_id",user.id).eq("is_read",false);if(e)setError(e.message);else setRows(old=>old.map(x=>({...x,is_read:true})));setBusy("")}
