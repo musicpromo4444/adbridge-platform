@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import AdPlacement from "@/components/AdPlacement";
+import NotificationBell from "@/components/NotificationBell";
 
 type Campaign = {
   id: string;
@@ -103,7 +104,7 @@ export default function Advertiser() {
       <div className="dashTop">
         <Link href="/" className="back">← AdBridge</Link>
         <span className="testBadge">ADVERTISER WORKSPACE</span>
-        <Link href="/creator" className="switch">Creator side →</Link>
+        <Link href="/creator" className="switch">Creator side →</Link><NotificationBell />
       </div>
 
       <section className="dashHero">
@@ -180,7 +181,7 @@ export default function Advertiser() {
           <Link href="/advertiser/results"><b>↗</b><span>Campaign results</span><small>Track verified views, clicks and conversions</small></Link>
           <Link href="/advertiser/analytics"><b>▥</b><span>Analytics</span><small>Performance across your campaigns</small></Link>
           <Link href="/advertiser/billing"><b>₦</b><span>Billing & payments</span><small>Confirmed funding and refunds</small></Link>
-          <Link href="/advertiser/budget"><b>↗</b><span>Budget control</span><small>Confirmed funds, committed payouts and remaining balance</small></Link>
+          <Link href="/advertiser/budget"><b>↗</b><span>Budget control</span><small>Confirmed funds, committed payouts and remaining balance</small></Link>\n          <Link href="/notifications"><b>◉</b><span>Notifications</span><small>Campaign funding, delivery and review updates</small></Link>\n          <Link href="/integrations"><b>↔</b><span>Integration hub</span><small>Tracking and publisher integrations</small></Link>
         </div>
       </section>
     </main>
