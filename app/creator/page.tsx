@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import NotificationBell from "@/components/NotificationBell";
 
 type Job = {
   id: string;
@@ -27,7 +28,7 @@ const links = [
   {href:"/creator/ai",title:"AI Post",desc:"Generate post drafts and captions",icon:"✦"},
   {href:"/creator/post",title:"Post Studio",desc:"Edit and save your social post",icon:"▣"},
   {href:"/rankings",title:"Global rankings",desc:"Worldwide top creators and advertisers",icon:"№"},
-  {href:"/notifications",title:"Notifications",desc:"Check reviews, updates and notices",icon:"◉"},
+  {href:"/notifications",title:"Notifications",desc:"Check reviews, updates and notices",icon:"◉"},\n  {href:"/integrations",title:"Integration hub",desc:"Connect accounts and setup tracking",icon:"↔"},
 ];
 
 export default function CreatorDashboard() {
@@ -70,7 +71,7 @@ export default function CreatorDashboard() {
   }),[jobs,applications,properties]);
   const statusLabel=(s:string)=>s.replaceAll("_"," ");
   return <main className="dashboard creatorDash">
-    <div className="dashTop"><Link href="/" className="back">← AdBridge</Link><span className="testBadge">CREATOR & PUBLISHER WORKSPACE</span><Link href="/advertiser" className="switch">Advertiser side →</Link></div>
+    <div className="dashTop"><Link href="/" className="back">← AdBridge</Link><span className="testBadge">CREATOR & PUBLISHER WORKSPACE</span><Link href="/advertiser" className="switch">Advertiser side →</Link><NotificationBell /></div>
     <section className="dashHero"><div><span className="eyebrow">YOUR ADBRIDGE WORKSPACE</span><h1>Find opportunities.<br/><em>Deliver. Earn.</em></h1><p>Manage social campaigns and website/app ad inventory from one place. Campaign results and earnings only count when AdBridge verifies them.</p></div><div className="choiceRow"><Link className="primary" href="/creator/campaigns">Browse creator campaigns ↗</Link><Link className="secondary" href="/publisher">Open publisher centre ↗</Link></div></section>
     {error&&<div className="successBox" role="alert">{error}</div>}
     <section className="statsGrid" aria-label="Dashboard overview">
