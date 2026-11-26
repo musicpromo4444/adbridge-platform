@@ -7,6 +7,7 @@ type Property = { id: string; publisher_id: string; property_type: string; name:
 
 type Application = {
   id: string;
+  selected_property_id: string | null;
   campaign_id: string;
   publisher_id: string;
   selected_platform: string | null;
