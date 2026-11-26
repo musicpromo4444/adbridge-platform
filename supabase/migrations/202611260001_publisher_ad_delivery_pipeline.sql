@@ -11,6 +11,9 @@ declare
   v_property public.publisher_properties%rowtype;
   v_campaign public.campaigns%rowtype;
   v_option public.campaign_delivery_options%rowtype;
+  v_created integer := 0;
+  v_asset_url text;
+  v_destination text;
 begin
   if new.status <> 'approved' or new.selected_property_id is null then return new; end if;
   select * into v_property from public.publisher_properties where id=new.selected_property_id and publisher_id=new.publisher_id and verified=true;
@@ -24,7 +27,16 @@ begin
     values(v_campaign.name || ' · ' || v_property.name,'abp_' || replace(gen_random_uuid()::text,'-',''),coalesce(v_option.requirements,'Approved publisher campaign placement'),true,v_option.format,'AdBridge Campaign',v_campaign.id,null,v_option.destination_url,0,array[]::text[],null,null,new.publisher_id,v_property.id,v_option.asset_url,new.id)
     on conflict (publisher_application_id,format) where publisher_application_id is not null do update
       set enabled=true,action_url=excluded.action_url,creative_asset_url=excluded.creative_asset_url,description=excluded.description,updated_at=now();
+    v_created:=v_created+1;
   end loop;
+  if v_created=0 then
+    select asset_url into v_asset_url from public.campaign_assets where campaign_id=new.campaign_id and asset_url is not null order by created_at asc limit 1;
+    select target_url into v_destination from public.campaign_destination_urls where campaign_id=new.campaign_id order by created_at asc limit 1;
+    insert into public.ad_placements(name,placement_key,description,enabled,format,provider,campaign_id,icon,action_url,frequency_cap,target_pages,starts_at,ends_at,publisher_id,publisher_property_id,creative_asset_url,publisher_application_id)
+    values(v_campaign.name || ' · ' || v_property.name,'abp_' || replace(gen_random_uuid()::text,'-',''),coalesce(v_campaign.instructions,'Approved publisher campaign placement'),true,new.selected_format,'AdBridge Campaign',v_campaign.id,null,v_destination,0,array[]::text[],null,null,new.publisher_id,v_property.id,v_asset_url,new.id)
+    on conflict (publisher_application_id,format) where publisher_application_id is not null do update
+      set enabled=true,action_url=excluded.action_url,creative_asset_url=excluded.creative_asset_url,description=excluded.description,updated_at=now();
+  end if;
   return new;
 end; $$;
 
