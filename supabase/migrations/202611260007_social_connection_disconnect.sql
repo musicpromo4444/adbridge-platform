@@ -13,3 +13,5 @@ begin
  get diagnostics v_rows=row_count;
  return jsonb_build_object('ok',true,'disconnected',v_rows>0,'platform',v_platform);
 end;$function$
+
+revoke update on public.creator_platform_connections from authenticated;
