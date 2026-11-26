@@ -38,8 +38,8 @@ export default function PublisherCenter(){
  const campaign=campaigns.find(c=>c.id===campaignId);\n const verifiedProperties=properties.filter(p=>p.verified);\n const selectedProperty=verifiedProperties.find(p=>p.id===selectedPropertyId)||null;
  const campaignTargets=useMemo(()=>targets.filter(t=>t.campaign_id===campaignId),[targets,campaignId]);
  const campaignFormats=useMemo(()=>allFormats.filter(f=>f.campaign_id===campaignId),[allFormats,campaignId]);
- const compatiblePlatforms=useMemo(()=>platforms.filter(p=>campaignTargets.some(t=>t.platform==="all"||t.platform===p[0])),[campaignTargets]);
- const compatibleFormats=campaignFormats.filter(f=>f.status==="ready");
+ const compatiblePlatforms=useMemo(()=>selectedProperty?platforms.filter(p=>(selectedProperty.platforms||[]).includes(p[0])&&campaignTargets.some(t=>t.platform==="all"||t.platform===p[0])):[],[campaignTargets,selectedProperty]);
+ const compatibleFormats=selectedProperty?campaignFormats.filter(f=>f.status==="ready"&&(selectedProperty.ad_formats||[]).includes(f.format)):[];
  const allPlatformSelected=compatiblePlatforms.length>0&&selectedPlatforms.length===compatiblePlatforms.length;
  const allFormatSelected=compatibleFormats.length>0&&selectedFormats.length===compatibleFormats.length;
  const stats={verified:properties.filter(p=>p.verified).length,waiting:properties.filter(p=>!p.verified).length,approved:applications.filter(a=>a.status==="approved").length,pending:applications.filter(a=>a.status==="applied").length};
