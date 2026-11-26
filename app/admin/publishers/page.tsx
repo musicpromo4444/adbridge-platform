@@ -38,7 +38,7 @@ export default function PublisherApplications() {
     if (profile?.role !== "admin") { setError("Administrator access required."); setLoading(false); return; }
     const [{ data, error: queryError }, { data: propertyRows, error: propertyError }] = await Promise.all([
       supabase.from("publisher_campaigns")
-        .select("id,campaign_id,publisher_id,selected_platform,selected_format,status,applied_at,campaigns(name),profiles(display_name,email)")
+        .select("id,selected_property_id,campaign_id,publisher_id,selected_platform,selected_format,status,applied_at,campaigns(name),profiles(display_name,email)")
         .order("applied_at", { ascending: false }),
       supabase.from("publisher_properties")
         .select("id,publisher_id,property_type,name,url,platforms,ad_formats,verified")
@@ -113,7 +113,7 @@ export default function PublisherApplications() {
               <b>{row.status.toUpperCase()}</b>
               <h3>{campaign?.name || "Campaign"}</h3>
               <p>Publisher: {publisher?.display_name || "Unnamed publisher"} · {publisher?.email || row.publisher_id}</p>
-              <p>Platform: {row.selected_platform || "Not specified"} · Format: {row.selected_format || "Not specified"}</p>
+              <p>Platform: {row.selected_platform || "Not specified"} · Format: {row.selected_format || "Not specified"}</p>\n              <p>Selected property: {properties.find(property => property.id === row.selected_property_id)?.name || "Legacy application — no property selected"}</p>\n              {properties.find(property => property.id === row.selected_property_id)?.url && <a href={properties.find(property => property.id === row.selected_property_id)?.url || "#"} target="_blank" rel="noreferrer">Review publisher property ↗</a>}
               <small>Applied {new Date(row.applied_at).toLocaleString()}</small>
               {row.status === "applied" && <div className="choiceRow">
                 <button className="primary" disabled={!!busy} onClick={() => void decide(row, "approved")}>{busy === row.id ? "Saving…" : "Approve publisher"}</button>
