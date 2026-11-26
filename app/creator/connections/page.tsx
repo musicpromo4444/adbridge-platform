@@ -1,138 +1,22 @@
 "use client";
-
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { supabase } from "@/lib/supabase";
-
-const platforms = [
-  { id: "tiktok", name: "TikTok", desc: "Connect your TikTok account so AdBridge can verify campaign video metrics." },
-  { id: "youtube", name: "YouTube", desc: "Connect your channel for verified video view tracking." },
-  { id: "instagram", name: "Instagram", desc: "Connect a professional Instagram account for eligible insights." },
-  { id: "facebook", name: "Facebook", desc: "Connect your Page/creator account for eligible video insights." },
-  { id: "x", name: "X", desc: "Connect X to verify eligible post view counts." },
-  { id: "snapchat", name: "Snapchat", desc: "Connect your Public Profile for eligible Spotlight/Story insights." },
+import {useEffect,useState} from "react";
+import {supabase} from "@/lib/supabase";
+const platforms=[
+ {id:"tiktok",name:"TikTok",desc:"Connect TikTok for eligible platform video metrics."},
+ {id:"youtube",name:"YouTube",desc:"Connect a YouTube channel for verified video view counts."},
+ {id:"instagram",name:"Instagram",desc:"Connect an eligible professional Instagram account for insights."},
+ {id:"facebook",name:"Facebook",desc:"Connect a Page or creator account for eligible video insights."},
+ {id:"x",name:"X",desc:"Connect X for eligible post view metrics."},
+ {id:"snapchat",name:"Snapchat",desc:"Connect a Public Profile for eligible Spotlight/Story metrics."},
 ];
-
-export default function Connections() {
-  const [connections, setConnections] = useState<any[]>([]);
-  const [busy, setBusy] = useState("");
-  const [message, setMessage] = useState("");
-
-  const load = async () => {
-    if (!supabase) return;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    const { data } = await supabase
-      .from("creator_platform_connections")
-      .select("platform,connected,updated_at")
-      .eq("creator_id", user.id);
-
-    setConnections(data || []);
-  };
-
-  useEffect(() => {
-    void load();
-  }, []);
-
-  async function connect(platform: string) {
-    if (!supabase) {
-      setMessage("AdBridge is not configured.");
-      return;
-    }
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      setMessage("Please sign in first.");
-      return;
-    }
-
-    setBusy(platform);
-    setMessage("");
-
-    const { data, error } = await supabase.functions.invoke("social-oauth-start", {
-      body: { platform, creator_id: user.id },
-    });
-
-    if (error || !data?.url) {
-      setMessage(error?.message || data?.error || "This connection is not configured yet.");
-      setBusy("");
-      return;
-    }
-
-    window.location.href = data.url;
-  }
-
-  async function disconnect(platform: string) {
-    if (!supabase) return;
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-
-    setBusy(platform);
-
-    await supabase
-      .from("creator_platform_connections")
-      .update({ connected: false, updated_at: new Date().toISOString() })
-      .eq("creator_id", user.id)
-      .eq("platform", platform);
-
-    await load();
-    setBusy("");
-  }
-
-  return (
-    <main className="formPage">
-      <Link href="/creator/profile" className="back">← Creator Profile</Link>
-      <div className="formCard wide">
-        <span className="eyebrow">SOCIAL CONNECTIONS</span>
-        <h1>Connect your <em>accounts.</em></h1>
-        <p>
-          Connected accounts let AdBridge verify campaign results directly from supported platforms
-          instead of relying on creator-entered numbers.
-        </p>
-
-        {message && <div className="successBox">{message}</div>}
-
-        <div className="statsGrid">
-          {platforms.map((platform) => {
-            const connected = connections.some(
-              (item) => item.platform === platform.id && item.connected
-            );
-
-            return (
-              <div key={platform.id} className="quick">
-                <h2>{platform.name}</h2>
-                <p>{platform.desc}</p>
-                <strong>{connected ? "Connected ✓" : "Not connected"}</strong>
-                <br />
-                {connected ? (
-                  <button
-                    className="secondary"
-                    disabled={busy === platform.id}
-                    onClick={() => void disconnect(platform.id)}
-                  >
-                    {busy === platform.id ? "Working…" : "Disconnect"}
-                  </button>
-                ) : (
-                  <button
-                    className="primary"
-                    disabled={busy === platform.id}
-                    onClick={() => void connect(platform.id)}
-                  >
-                    {busy === platform.id ? "Opening…" : "Connect " + platform.name}
-                  </button>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="successBox">
-          <b>Privacy:</b> AdBridge only uses connected platform access for the features you authorize.
-          Tokens are stored server-side and are not displayed to advertisers.
-        </div>
-      </div>
-    </main>
-  );
+type Connection={platform:string;connected:boolean;expires_at:string|null;updated_at:string|null};
+export default function Connections(){
+ const[connections,setConnections]=useState<Connection[]>([]),[busy,setBusy]=useState(""),[loading,setLoading]=useState(true),[message,setMessage]=useState(""),[error,setError]=useState("");
+ async function load(){if(!supabase){setError("AdBridge is not configured.");setLoading(false);return}const{data:{user},error:authError}=await supabase.auth.getUser();if(authError||!user){location.href="/login";return}const{data,error:e}=await supabase.from("creator_platform_connections").select("platform,connected,expires_at,updated_at").eq("creator_id",user.id);if(e)setError("Connected accounts could not be loaded.");setConnections((data||[]) as Connection[]);setLoading(false)}
+ useEffect(()=>{const q=new URLSearchParams(window.location.search);const connected=q.get("connected");if(connected)setMessage(connected+" connected successfully.");void load()},[]);
+ async function connect(platform:string){if(!supabase){setError("AdBridge is not configured.");return}const{data:{user}}=await supabase.auth.getUser();if(!user){setError("Please sign in first.");return}setBusy(platform);setError("");setMessage("");const{data,error:e}=await supabase.functions.invoke("social-oauth-start",{body:{platform,creator_id:user.id}});if(e||!data?.url){setError(e?.message||data?.error||"This platform connection is not configured yet.");setBusy("");return}window.location.href=data.url}
+ async function disconnect(platform:string){if(!supabase)return;setBusy(platform);setError("");setMessage("");const{data,error:e}=await supabase.rpc("disconnect_creator_platform",{p_platform:platform});if(e||data?.error){setError(e?.message||data?.error||"Disconnect failed.");setBusy("");return}setMessage(platform+" disconnected. AdBridge stored access and refresh tokens were cleared.");await load();setBusy("")}
+ function status(connection:Connection|undefined){if(!connection?.connected)return"Not connected";if(connection.expires_at&&new Date(connection.expires_at)<new Date())return"Connected · token expired";return"Connected ✓"}
+ return <main className="formPage"><Link href="/creator/profile" className="back">← Creator Profile</Link><div className="formCard wide"><span className="eyebrow">SOCIAL CONNECTIONS · VERIFIED METRICS</span><h1>Connect your <em>accounts.</em></h1><p>Authorized account connections let AdBridge check eligible platform metrics directly. Platform OAuth availability depends on the credentials and permissions configured for each provider.</p><div className="choiceRow"><Link className="secondary" href="/integrations">Integration hub →</Link><Link className="secondary" href="/creator/analytics">Verified analytics →</Link></div>{error&&<div className="successBox" role="alert">{error}</div>}{message&&<div className="successBox">{message}</div>}{loading?<div className="successBox">Loading connected accounts…</div>:<div className="statsGrid">{platforms.map(p=>{const connection=connections.find(x=>x.platform===p.id);const isConnected=!!connection?.connected;return <article className="quick" key={p.id}><h2>{p.name}</h2><p>{p.desc}</p><b>{status(connection)}</b>{connection?.updated_at&&<small style={{display:"block"}}>Last updated {new Date(connection.updated_at).toLocaleString()}</small>}<div className="choiceRow">{isConnected?<button className="secondary" disabled={busy===p.id} onClick={()=>void disconnect(p.id)}>{busy===p.id?"Clearing…":"Disconnect and clear stored tokens"}</button>:<button className="primary" disabled={busy===p.id} onClick={()=>void connect(p.id)}>{busy===p.id?"Opening provider…":"Connect "+p.name}</button>}</div></article>})}</div>}<div className="infoBox"><b>Privacy and disconnect</b><p>AdBridge stores OAuth tokens server-side and does not expose them to advertisers. Disconnect clears AdBridge's stored access and refresh tokens; if the provider still shows an authorization grant, revoke it in the provider's own account-security settings as well.</p></div></div></main>
 }
