@@ -28,7 +28,8 @@ const links = [
   {href:"/creator/ai",title:"AI Post",desc:"Generate post drafts and captions",icon:"✦"},
   {href:"/creator/post",title:"Post Studio",desc:"Edit and save your social post",icon:"▣"},
   {href:"/rankings",title:"Global rankings",desc:"Worldwide top creators and advertisers",icon:"№"},
-  {href:"/notifications",title:"Notifications",desc:"Check reviews, updates and notices",icon:"◉"},\n  {href:"/integrations",title:"Integration hub",desc:"Connect accounts and setup tracking",icon:"↔"},
+  {href:"/notifications",title:"Notifications",desc:"Check reviews, updates and notices",icon:"◉"},
+  {href:"/integrations",title:"Integration hub",desc:"Connect accounts and setup tracking",icon:"↔"},
 ];
 
 export default function CreatorDashboard() {
