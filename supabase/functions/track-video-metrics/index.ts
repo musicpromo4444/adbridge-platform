@@ -223,7 +223,7 @@ Deno.serve(async (req: Request) => {
   const reached = target > 0 && currentMetric >= target;
   const now = new Date().toISOString();
 
-  const { error: metricInsertError } = await db.from("submission_metrics").insert({
+  const { data: metricRow, error: metricInsertError } = await db.from("submission_metrics").insert({
     submission_id: submission.id,
     platform,
     external_video_id: videoId,
@@ -232,7 +232,18 @@ Deno.serve(async (req: Request) => {
     checked_at: now,
     source,
     raw_data: raw,
-  });
+  }).select("id").single();
+  if (metricInsertError || !metricRow?.id) {
+    return json({ error: "Metric history could not be saved.", details: metricInsertError?.message }, 500);
+  }
+
+  const { data: assessment } = await db.from("adbridge_event_assessments")
+    .select("risk_score,risk_status,verification_status,verified,risk_reasons")
+    .eq("source_table", "submission_metrics")
+    .eq("source_row_id", metricRow.id)
+    .maybeSingle();
+  const riskStatus = String(assessment?.risk_status || "review");
+  const riskVerified = assessment?.verified === true && riskStatus === "low";
 
   const update: Record<string, unknown> = {
     tracking_platform: platform,
@@ -241,7 +252,11 @@ Deno.serve(async (req: Request) => {
     last_metric_check_at: now,
     tracking_error: null,
   };
-  if (reached) {
+  if (!riskVerified) {
+    update.metric_status = "review";
+    update.metric_verified_at = null;
+    update.tracking_error = "Metric refresh is held for fraud review: " + (assessment?.risk_reasons || ["risk assessment unavailable"]).join(", ");
+  } else if (reached) {
     update.metric_status = "verified";
     update.metric_verified_at = now;
   } else {
@@ -267,5 +282,5 @@ Deno.serve(async (req: Request) => {
     payout = payoutResult;
   }
 
-  return json({ success: true, platform, video_id: videoId, views: currentMetric, target, reached, payout });
+  return json({ success: true, platform, video_id: videoId, views: currentMetric, target, reached, verified: riskVerified, risk_score: assessment?.risk_score ?? null, risk_status: riskStatus, risk_reasons: assessment?.risk_reasons ?? [], payout });
 });
