@@ -112,3 +112,9 @@ CREATE TRIGGER creator_submission_notify_status AFTER UPDATE OF status ON public
 CREATE TRIGGER creator_withdrawal_notify_status AFTER UPDATE OF status ON public.creator_withdrawals FOR EACH ROW EXECUTE FUNCTION notify_creator_withdrawal_status()
 
 CREATE TRIGGER publisher_application_notify_status AFTER UPDATE OF status ON public.publisher_campaigns FOR EACH ROW EXECUTE FUNCTION notify_publisher_application_decision()
+-- Enable private per-user notification realtime updates.
+do $$ begin
+ if not exists(select 1 from pg_publication_tables where pubname='supabase_realtime' and schemaname='public' and tablename='notifications') then
+  alter publication supabase_realtime add table public.notifications;
+ end if;
+end $$;
