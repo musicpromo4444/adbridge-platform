@@ -52,6 +52,21 @@ begin
     raise exception 'publisher install and conversion receipts must be globally deduplicated per publisher';
   end if;
 
+  if has_table_privilege('anon','public.campaigns','INSERT')
+     or has_table_privilege('authenticated','public.campaigns','UPDATE')
+     or has_table_privilege('anon','public.campaign_payments','INSERT')
+     or has_table_privilege('authenticated','public.campaign_payments','UPDATE')
+     or has_table_privilege('anon','public.creator_withdrawals','INSERT')
+     or has_table_privilege('authenticated','public.creator_withdrawals','UPDATE')
+     or has_table_privilege('anon','public.fraud_flags','INSERT')
+     or has_table_privilege('authenticated','public.fraud_flags','UPDATE')
+     or has_table_privilege('anon','public.ad_placement_events','INSERT')
+     or has_table_privilege('authenticated','public.ad_placement_events','UPDATE')
+     or has_table_privilege('anon','public.submission_metrics','INSERT')
+     or has_table_privilege('authenticated','public.submission_metrics','UPDATE') then
+    raise exception 'browser roles must not write financial ledgers or fraud/event evidence';
+  end if;
+
   if not exists(select 1 from pg_trigger where tgrelid='public.publisher_campaigns'::regclass and tgname='guard_publisher_campaign_application_status' and not tgisinternal)
      or has_function_privilege('anon','private.guard_publisher_campaign_application_status()','EXECUTE')
      or has_function_privilege('authenticated','private.guard_publisher_campaign_application_status()','EXECUTE') then
