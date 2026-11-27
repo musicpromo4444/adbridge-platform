@@ -43,6 +43,16 @@ begin
     raise exception 'campaign pause must remain fee-free';
   end if;
 
+  if to_regprocedure('public.accept_creator_campaign(uuid)') is null
+     or to_regprocedure('public.complete_campaign_test_acknowledgement(uuid,boolean)') is null
+     or to_regclass('public.creator_campaign_test_acknowledgements') is null
+     or has_function_privilege('anon','public.accept_creator_campaign(uuid)','EXECUTE')
+     or has_function_privilege('anon','public.complete_campaign_test_acknowledgement(uuid,boolean)','EXECUTE')
+     or has_table_privilege('authenticated','public.creator_campaigns','INSERT')
+     or has_table_privilege('authenticated','public.creator_campaign_test_acknowledgements','INSERT') then
+    raise exception 'creator campaign acceptance and test acknowledgement must use authenticated RPCs';
+  end if;
+
   if to_regprocedure('public.record_submission_metric_snapshot(uuid,text,text,bigint,jsonb)') is null
      or has_function_privilege('anon','public.record_submission_metric_snapshot(uuid,text,text,bigint,jsonb)','EXECUTE')
      or has_function_privilege('authenticated','public.record_submission_metric_snapshot(uuid,text,text,bigint,jsonb)','EXECUTE') then
