@@ -78,3 +78,14 @@ revoke all on function public.admin_set_campaign_stop_fee_policy(numeric,numeric
 grant execute on function public.get_campaign_stop_quote(uuid,text) to authenticated;
 grant execute on function public.confirm_campaign_stop(uuid,text) to authenticated;
 grant execute on function public.admin_set_campaign_stop_fee_policy(numeric,numeric) to authenticated;
+
+create or replace function public.admin_get_campaign_stop_fee_policy()
+returns jsonb language plpgsql security definer set search_path=public,private,pg_temp as $$
+declare v_pause numeric; v_close numeric;
+begin
+ if private.current_user_profile_role()<>'admin' then raise exception 'Administrator access required' using errcode='42501'; end if;
+ select pause_fee_percent,close_fee_percent into v_pause,v_close from public.campaign_stop_fee_policy where id=1;
+ return jsonb_build_object('ok',true,'pause_fee_percent',coalesce(v_pause,0),'close_fee_percent',coalesce(v_close,0));
+end; $$;
+revoke all on function public.admin_get_campaign_stop_fee_policy() from public,anon;
+grant execute on function public.admin_get_campaign_stop_fee_policy() to authenticated;
