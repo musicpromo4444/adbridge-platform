@@ -26,3 +26,10 @@ verify_jwt = false
 
 [functions.serve-ad]
 verify_jwt = false
+
+# Admin-only endpoints require a valid Supabase user JWT and enforce admin/owner role checks.
+[functions.admin-integration-readiness]
+verify_jwt = true
+
+[functions.admin-bootstrap]
+verify_jwt = true
