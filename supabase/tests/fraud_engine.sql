@@ -52,6 +52,15 @@ begin
     raise exception 'publisher install and conversion receipts must be globally deduplicated per publisher';
   end if;
 
+  if has_table_privilege('authenticated','public.campaigns','TRUNCATE')
+     or has_table_privilege('authenticated','public.publisher_properties','TRUNCATE')
+     or has_table_privilege('authenticated','public.publisher_channels','TRUNCATE')
+     or has_table_privilege('authenticated','public.creator_post_drafts','TRUNCATE')
+     or has_table_privilege('authenticated','public.profiles','INSERT')
+     or has_table_privilege('authenticated','public.profiles','DELETE') then
+    raise exception 'browser roles must not have table-wide or direct profile lifecycle privileges';
+  end if;
+
   if has_table_privilege('anon','public.campaigns','INSERT')
      or has_table_privilege('authenticated','public.campaigns','UPDATE')
      or has_table_privilege('anon','public.campaign_payments','INSERT')
