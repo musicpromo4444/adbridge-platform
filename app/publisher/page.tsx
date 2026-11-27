@@ -88,7 +88,7 @@ export default function PublisherCenter(){
    <span className="eyebrow">PUBLISHER DASHBOARD · WEBSITES · APPS</span><h1>Monetize the inventory <em>you actually own.</em></h1>
    <p>Register and manage your websites, web apps and mobile apps, apply for compatible ad campaigns, and track your approval status. Property verification and event quality are managed independently by AdBridge.</p>
    <section className="statsGrid"><div><b>YOUR PROPERTIES</b><strong>{loading?"—":properties.length}</strong><small>Websites and apps registered</small></div><div><b>VERIFIED INVENTORY</b><strong>{loading?"—":stats.verified}</strong><small>{loading?"Loading":stats.waiting+" awaiting review"}</small></div><div><b>APPLICATIONS</b><strong>{loading?"—":applications.length}</strong><small>Submitted placements</small></div><div><b>APPROVED PLACEMENTS</b><strong>{loading?"—":stats.approved}</strong><small>{loading?"Loading":stats.pending+" awaiting review"}</small></div></section>
-   <div className="choiceRow"><Link className="secondary" href="/publisher/applications">Applications & decisions →</Link><Link className="secondary" href="/publisher/integration">Server tracking integration →</Link><Link className="secondary" href="/creator/earnings">Earnings & payouts →</Link><Link className="secondary" href="/notifications">Notifications →</Link><Link className="secondary" href="/integrations">Integration hub →</Link></div>
+   <div className="choiceRow"><Link className="secondary" href="/publisher/applications">Applications & decisions →</Link><Link className="secondary" href="/publisher/integration">Server tracking integration →</Link><Link className="secondary" href="/publisher/earnings">Earnings & payouts →</Link><Link className="secondary" href="/notifications">Notifications →</Link><Link className="secondary" href="/integrations">Integration hub →</Link></div>
    {error&&<div className="successBox" role="alert">{error}</div>}{message&&<div className="successBox">✓ {message}</div>}
    {loading?<div className="successBox">Loading publisher opportunities and inventory…</div>:<>
     <section className="quick"><h2>1. Your publisher properties</h2><p>Add or edit your property details and select only the ad formats it can support. You cannot self-verify ownership.</p>
@@ -107,7 +107,7 @@ export default function PublisherCenter(){
      <p>Applications are submitted only when a verified property you own matches the selected platform and format. Existing combinations are not duplicated.</p>
     </section>
    </>}
-   <div className="infoBox"><b>Publisher delivery and payment rules</b><p>AdBridge tracks server-verified impressions, clicks, video views, installs and conversions. Tracking-link clicks alone are not verified views. Events must pass fraud checks before qualifying for payment.</p><Link href="/publisher/integration">Set up server-side event tracking →</Link><p><Link href="/creator/earnings">Manage earnings and payout methods →</Link></p></div>
+   <div className="infoBox"><b>Publisher delivery and payment rules</b><p>AdBridge tracks server-verified impressions, clicks, video views, installs and conversions. Tracking-link clicks alone are not verified views. Events must pass fraud checks before qualifying for payment.</p><Link href="/publisher/integration">Set up server-side event tracking →</Link><p><Link href="/publisher/earnings">Manage earnings and payout methods →</Link></p></div>
   </div>
  </main>
 }
