@@ -129,7 +129,7 @@ const { ads } = await response.json();
         {!loading && (
           <>
             <label htmlFor="publisher-property">Verified website or app</label>
-            <select id="publisher-property" className="textInput" value={propertyId} onChange={event => { const next = properties.find(p => p.id === event.target.value); setPropertyId(event.target.value); setServePlatform(next?.platforms?.[0] || ""); setServeFormat(next?.ad_formats?.[0] || ""); setSecret(""); setMessage(""); }} >
+            <select id="publisher-property" className="textInput" value={propertyId} onChange={event => { const id = event.target.value; const next = properties.find(p => p.id === id); setPropertyId(id); setServePlatform(next?.platforms?.[0] || ""); setServeFormat(next?.ad_formats?.[0] || ""); setSecret(""); setMessage(""); setError(""); setKeyStatus(null); if (id) void loadKeyStatus(id); else { setStatusReady(false); setStatusLoading(false); } }} >
               <option value="">Choose a verified property</option>
               {properties.filter(property => property.verified).map(property => (
                 <option value={property.id} key={property.id}>{property.name} · {property.property_type}</option>
@@ -141,13 +141,29 @@ const { ads } = await response.json();
                 <p>{selected.property_type} · {selected.url || "No public URL saved"}</p>
                 <p>Only the verified owner can issue a signing key for this property.</p>
               </div>
+            )}            {selected && (
+              <div className="infoBox">
+                <b>Server signing key</b>
+                {statusLoading ? <p>Checking key status…</p> : keyStatus?.has_key ? (
+                  <>
+                    <p><strong>{keyStatus.active ? "Active" : keyStatus.revoked_at ? "Revoked" : "Inactive — property not verified"}</strong> · Version {keyStatus.key_version ?? "—"}</p>
+                    {keyStatus.rotated_at && <p>Last issued or rotated: {new Date(keyStatus.rotated_at).toLocaleString()}</p>}
+                    {keyStatus.revoked_at && <p>Revoked: {new Date(keyStatus.revoked_at).toLocaleString()}</p>}
+                  </>
+                ) : <p>No signing key has been issued for this property.</p>}
+              </div>
             )}
             {!properties.some(property => property.verified) && (
               <div className="successBox">No verified properties yet. Add your website or app in the Publisher Delivery Center and wait for AdBridge review before requesting a key.</div>
             )}
-            <button className="primary" disabled={busy || !propertyId} onClick={() => void issueKey()}>
-              {busy ? "Issuing secure key…" : "Issue / rotate server signing key →"}
+            <button className="primary" disabled={busy || statusLoading || !statusReady || !propertyId || !selected?.verified} onClick={() => void issueKey()}>
+              {busy ? "Saving secure key…" : keyStatus?.active ? "Rotate server signing key →" : "Issue server signing key →"}
             </button>
+            {keyStatus?.has_key && !keyStatus.revoked_at && (
+              <button className="secondary" disabled={busy || statusLoading} onClick={() => void revokeKey()}>
+                Revoke active signing key
+              </button>
+            )}
           </>
         )}
 
