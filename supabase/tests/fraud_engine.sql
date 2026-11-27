@@ -52,6 +52,12 @@ begin
     raise exception 'publisher install and conversion receipts must be globally deduplicated per publisher';
   end if;
 
+  if not exists(select 1 from pg_trigger where tgrelid='public.publisher_campaigns'::regclass and tgname='guard_publisher_campaign_application_status' and not tgisinternal)
+     or has_function_privilege('anon','private.guard_publisher_campaign_application_status()','EXECUTE')
+     or has_function_privilege('authenticated','private.guard_publisher_campaign_application_status()','EXECUTE') then
+    raise exception 'publisher applications must not be self-approved by browser writes';
+  end if;
+
   if to_regprocedure('public.submit_creator_verification(text,text,text,text)') is null
      or has_function_privilege('anon','public.submit_creator_verification(text,text,text,text)','EXECUTE')
      or not has_function_privilege('authenticated','public.submit_creator_verification(text,text,text,text)','EXECUTE') then
