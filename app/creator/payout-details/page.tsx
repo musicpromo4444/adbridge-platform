@@ -6,8 +6,8 @@ import {supabase} from "@/lib/supabase";
 type Method="bank_transfer"|"mobile_money"|"wise"|"paypal";
 type Details={payout_method?:Method;country_code?:string;currency_code?:string;account_holder?:string;bank_name?:string;account_number?:string;routing_code?:string;swift_bic?:string;iban?:string;mobile_money_provider?:string;mobile_number?:string;wise_email?:string;paypal_email?:string};
 export default function PayoutDetails(){
- const[d,setD]=useState<Details>({payout_method:"bank_transfer",country_code:"NG",currency_code:"NGN"}),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[message,setMessage]=useState(""),[error,setError]=useState("");
- useEffect(()=>{async function load(){if(!supabase){setError("Database connection is not ready.");setLoading(false);return}const{data:{user}}=await supabase.auth.getUser();if(!user){location.href="/login";return}const{data,error:e}=await supabase.rpc("get_creator_payout_method");if(e)setError(e.message);else if(data&&Object.keys(data).length)setD(old=>({...old,...data}));setLoading(false)}void load()},[]);
+ const[d,setD]=useState<Details>({payout_method:"bank_transfer",country_code:"NG",currency_code:"NGN"}),[loading,setLoading]=useState(true),[saving,setSaving]=useState(false),[message,setMessage]=useState(""),[error,setError]=useState(""),[backHref,setBackHref]=useState("/creator/earnings");
+ useEffect(()=>{async function load(){if(!supabase){setError("Database connection is not ready.");setLoading(false);return}const{data:{user}}=await supabase.auth.getUser();if(!user){location.href="/login";return}const{data:profile}=await supabase.from("profiles").select("role").eq("id",user.id).maybeSingle();if(profile?.role==="publisher")setBackHref("/publisher/earnings");const{data,error:e}=await supabase.rpc("get_creator_payout_method");if(e)setError(e.message);else if(data&&Object.keys(data).length)setD(old=>({...old,...data}));setLoading(false)}void load()},[]);
  function set<K extends keyof Details>(key:K,value:Details[K]){setD(old=>({...old,[key]:value}))}
  async function save(){if(!supabase)return;setSaving(true);setError("");setMessage("");const{error:e}=await supabase.rpc("save_creator_payout_method",{
   p_payout_method:d.payout_method,p_country_code:d.country_code,p_currency_code:d.currency_code,
@@ -16,7 +16,7 @@ export default function PayoutDetails(){
   p_mobile_money_provider:d.mobile_money_provider||null,p_mobile_number:d.mobile_number||null,
   p_wise_email:d.wise_email||null,p_paypal_email:d.paypal_email||null
  });if(e)setError(e.message||"Could not save payout details.");else setMessage("Your payout details were saved. Only you and authorised AdBridge administrators can access them.");setSaving(false)}
- return <main className="formPage"><Link href="/creator/earnings" className="back">← Earnings</Link><div className="formCard wide"><span className="eyebrow">CREATOR & PUBLISHER · PAYOUT PROFILE</span><h1>Where should we <em>pay you?</em></h1><p>Choose a payout destination. International users can receive payments through SWIFT/IBAN bank transfer, Wise or PayPal. AdBridge will review and process approved withdrawals.</p>
+ return <main className="formPage"><Link href={backHref} className="back">← Earnings</Link><div className="formCard wide"><span className="eyebrow">CREATOR & PUBLISHER · PAYOUT PROFILE</span><h1>Where should we <em>pay you?</em></h1><p>Choose a payout destination. International users can receive payments through SWIFT/IBAN bank transfer, Wise or PayPal. AdBridge will review and process approved withdrawals.</p>
  {loading?<div className="successBox">Loading payout details…</div>:<>
  <label>Payout method</label><div className="choices compact">
  <button type="button" className={d.payout_method==="bank_transfer"?"selected":""} onClick={()=>set("payout_method","bank_transfer")}>Bank transfer · SWIFT / IBAN</button>
