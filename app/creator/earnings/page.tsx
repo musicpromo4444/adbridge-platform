@@ -3,7 +3,7 @@ import Link from "next/link";
 import{useCallback,useEffect,useState}from"react";
 import{supabase}from"@/lib/supabase";
 type Payment={id:string;amount:number|null;type:string|null;status:string|null;created_at:string;campaigns?:{name:string}[]|null};
-type Withdrawal={id:string;amount:number;status:string;created_at:string};
+type Withdrawal={id:string;amount:number;status:string;created_at:string;paid_at:string|null;payment_reference:string|null};
 type WithdrawalNotice={id:string;title:string;message:string;status:string;read_at:string|null;created_at:string};
 type Summary={currency:string;released_earnings:number;held_earnings:number;withdrawals_pending:number;withdrawals_approved:number;withdrawals_paid:number;withdrawals_rejected:number;available_balance:number;minimum_withdrawal_usd:number;minimum_withdrawal_ngn:number|null;usd_to_ngn_rate:number|null;withdrawal_fee_paid_by:string};
 export default function Earnings(){
@@ -14,7 +14,7 @@ export default function Earnings(){
   const{data:{user}}=await supabase.auth.getUser();if(!user){location.href="/login";return}
   const[p,w,s,n]=await Promise.all([
    supabase.from("campaign_payments").select("id,amount,type,status,created_at,campaigns(name)").eq("creator_id",user.id).order("created_at",{ascending:false}),
-   supabase.from("creator_withdrawals").select("id,amount,status,created_at").eq("creator_id",user.id).order("created_at",{ascending:false}),
+   supabase.from("creator_withdrawals").select("id,amount,status,created_at,paid_at,payment_reference").eq("creator_id",user.id).order("created_at",{ascending:false}),
    supabase.rpc("get_creator_earnings_summary"),
    supabase.from("creator_withdrawal_notifications").select("id,title,message,status,read_at,created_at").eq("user_id",user.id).order("created_at",{ascending:false}).limit(20)
   ]);
@@ -55,7 +55,7 @@ export default function Earnings(){
   {message&&<div className="successBox">{message}</div>}
   <h2>Withdrawal updates</h2>{notices.length?<div className="opps">{notices.map(n=><article key={n.id}><b>{n.title}</b><p>{n.message}</p><small>{new Date(n.created_at).toLocaleString()} · {n.read_at?"Read":"Unread"}</small>{!n.read_at&&<button className="secondary" onClick={()=>void markNoticeRead(n.id)}>Mark as read</button>}</article>)}</div>:<div className="successBox">You have no withdrawal updates yet.</div>}
   <h2>Payment history</h2>{loading?<div className="successBox">Loading payments…</div>:payments.length?<div className="opps">{payments.map(p=><article key={p.id}><b>{(p.status||"pending").toUpperCase()}</b><h3>{p.campaigns?.[0]?.name||"Creator payment"}</h3><p>{(p.type||"payment").replaceAll("_"," ")} · {new Date(p.created_at).toLocaleDateString()}</p><strong>{money(Number(p.amount||0))}</strong></article>)}</div>:<div className="successBox">No payments yet.</div>}
-  <h2>Withdrawal history</h2>{withdrawals.length?<div className="opps">{withdrawals.map(w=><article key={w.id}><b>{w.status.toUpperCase()}</b><h3>{money(w.amount)}</h3><small>{new Date(w.created_at).toLocaleString()}</small></article>)}</div>:<div className="successBox">No withdrawal requests yet.</div>}
+  <h2>Withdrawal history</h2>{withdrawals.length?<div className="opps">{withdrawals.map(w=><article key={w.id}><b>{w.status.toUpperCase()}</b><h3>{money(w.amount)}</h3><small>{new Date(w.created_at).toLocaleString()}</small>{w.status==="paid"&&<div className="infoBox"><b>TRANSFER RECORDED</b>{w.paid_at&&<p>Paid at: {new Date(w.paid_at).toLocaleString()}</p>}{w.payment_reference&&<p>Transfer reference: {w.payment_reference}</p>}<small>Recorded by AdBridge administration; this display is not independent bank verification.</small></div>}</article>)}</div>:<div className="successBox">No withdrawal requests yet.</div>}
   <p><small>First successful withdrawal minimum: $50. Later withdrawals: $20 minimum. The USD/NGN rate is captured with each request; AdBridge pays withdrawal charges. Requests are reviewed by AdBridge. A status of “paid” should only appear after the transfer has actually been completed.</small></p>
  </div></main>
 }
