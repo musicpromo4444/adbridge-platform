@@ -33,6 +33,15 @@ Deno.serve(async (request: Request) => {
     .from("profiles").select("role").eq("id", auth.user.id).maybeSingle();
   if (profileError || profile?.role !== "admin") return json({ error: "Administrator access required" }, 403);
 
+  const appUrl = Deno.env.get("APP_URL") || "";
+  let appUrlValid = false;
+  try {
+    const parsed = new URL(appUrl);
+    appUrlValid = parsed.protocol === "https:" && Boolean(parsed.hostname);
+  } catch {
+    appUrlValid = false;
+  }
+
   const social = {
     tiktok: configured("TIKTOK_CLIENT_ID") && configured("TIKTOK_CLIENT_SECRET"),
     youtube: configured("YOUTUBE_CLIENT_ID") && configured("YOUTUBE_CLIENT_SECRET"),
@@ -52,7 +61,7 @@ Deno.serve(async (request: Request) => {
       paystack: configured("PAYSTACK_SECRET_KEY"),
       paystack_webhook_url: url + "/functions/v1/paystack-webhook",
     },
-    application: { app_url: configured("APP_URL") },
+    application: { app_url: appUrlValid },
     ai: { creator_post_assistant: configured("AI_API_KEY"), video_placement_analysis: configured("AI_API_KEY") },
     social,
     tracking: {
