@@ -17,10 +17,7 @@ async function save(){if(!supabase||!c)return;setError("");setMessage("");if(!na
 const legacy=selectedPlatforms.length===platforms.length?"all":selectedPlatforms.length===1?selectedPlatforms[0]:"multiple";
 const{error:e}=await supabase.rpc("update_campaign_draft",{p_campaign_id:id,p_name:name.trim(),p_instructions:instructions.trim(),p_platform:legacy,p_payment_method:method,p_payment_rate:numericRate,p_max_budget:numericBudget,p_desired_results:numericResults});
 if(e){setError("We couldn't save the campaign.");setSaving(false);return}
-const{error:de}=await supabase.from("campaign_platforms").delete().eq("campaign_id",id);if(de){setError("Campaign saved, but platforms could not be refreshed.");setSaving(false);return}
-const{error:pe}=await supabase.from("campaign_platforms").insert(selectedPlatforms.map(platform=>({campaign_id:id,platform,enabled:true})));if(pe){setError("Campaign saved, but platforms could not be saved.");setSaving(false);return}
-const{error:fe}=await supabase.from("campaign_formats").delete().eq("campaign_id",id);if(fe){setError("Platforms saved, but formats could not be refreshed.");setSaving(false);return}
-const{error:fi}=await supabase.from("campaign_formats").insert(selectedFormats.map(format=>({campaign_id:id,format,status:"ready"})));if(fi){setError("Platforms saved, but formats could not be saved.");setSaving(false);return}
+const{error:deliveryError}=await supabase.rpc("replace_campaign_delivery_options",{p_campaign_id:id,p_platforms:selectedPlatforms,p_formats:selectedFormats});if(deliveryError){setError(deliveryError.message||"Campaign delivery options could not be saved.");setSaving(false);return}
 setMessage("Campaign updated successfully.");setSaving(false)}
 const canEdit=!!c&&c.status==="draft"&&Number(c.funded_amount||0)===0;
 if(loading)return <main className="formPage"><div className="formCard"><h1>Loading campaign…</h1></div></main>;
