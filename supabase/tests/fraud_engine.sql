@@ -43,6 +43,12 @@ begin
     raise exception 'campaign pause must remain fee-free';
   end if;
 
+  if to_regprocedure('public.record_submission_metric_snapshot(uuid,text,text,bigint,jsonb)') is null
+     or has_function_privilege('anon','public.record_submission_metric_snapshot(uuid,text,text,bigint,jsonb)','EXECUTE')
+     or has_function_privilege('authenticated','public.record_submission_metric_snapshot(uuid,text,text,bigint,jsonb)','EXECUTE') then
+    raise exception 'verified metric snapshots must be service-role-only';
+  end if;
+
   if to_regclass('public.adbridge_paystack_refund_attempts') is null
      or to_regprocedure('public.admin_prepare_paystack_campaign_refund(uuid)') is null
      or to_regprocedure('public.admin_update_paystack_refund_attempt(uuid,text,text,text)') is null
