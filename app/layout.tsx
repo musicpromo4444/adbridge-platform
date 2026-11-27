@@ -1,4 +1,5 @@
 import type { Metadata } from "next";import "./globals.css";import AdPlacement from "@/components/AdPlacement";
+import ConsentManager from "@/components/ConsentManager";
 export const metadata: Metadata={
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://adbridge-platform.vercel.app"),
   title: { default: "AdBridge — Where brands meet creators", template: "%s | AdBridge" },
