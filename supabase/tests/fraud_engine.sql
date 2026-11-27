@@ -48,7 +48,8 @@ begin
      or to_regprocedure('public.admin_update_paystack_refund_attempt(uuid,text,text,text)') is null
      or to_regprocedure('public.paystack_reconcile_refund_webhook(text,text,text)') is null
      or to_regprocedure('public.admin_resolve_paystack_refund_attempt(uuid,text)') is null
-     or to_regprocedure('public.admin_get_paystack_refund_attempts(uuid)') is null then
+     or to_regprocedure('public.admin_get_paystack_refund_attempts(uuid)') is null
+     or to_regprocedure('public.paystack_reconcile_refund_webhook_by_transaction(text,bigint,text,text)') is null then
     raise exception 'Paystack refund automation schema or RPCs are missing';
   end if;
   if has_table_privilege('anon','public.adbridge_paystack_refund_attempts','SELECT')
@@ -59,7 +60,8 @@ begin
      or has_function_privilege('anon','public.admin_update_paystack_refund_attempt(uuid,text,text,text)','EXECUTE')
      or has_function_privilege('anon','public.admin_resolve_paystack_refund_attempt(uuid,text)','EXECUTE')
      or has_function_privilege('anon','public.admin_get_paystack_refund_attempts(uuid)','EXECUTE')
-     or has_function_privilege('authenticated','public.paystack_reconcile_refund_webhook(text,text,text)','EXECUTE') then
+     or has_function_privilege('authenticated','public.paystack_reconcile_refund_webhook(text,text,text)','EXECUTE')
+     or has_function_privilege('authenticated','public.paystack_reconcile_refund_webhook_by_transaction(text,bigint,text,text)','EXECUTE') then
     raise exception 'unauthorized role can execute Paystack refund controls';
   end if;
 
