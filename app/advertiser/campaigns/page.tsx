@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { completionReasonLabel } from "@/lib/campaign-lifecycle";
 
 type Campaign = {
   id: string;
@@ -15,6 +16,8 @@ type Campaign = {
   payment_method: string | null;
   payment_rate: number | null;
   funded_amount: number | null;
+  completion_reason: string | null;
+  completed_at: string | null;
   created_at: string;
 };
 
@@ -63,7 +66,7 @@ export default function Campaigns() {
     }
     const { data, error: queryError } = await supabase
       .from("campaigns")
-      .select("id,name,goal,platform,status,max_budget,desired_results,payment_method,payment_rate,funded_amount,created_at")
+      .select("id,name,goal,platform,status,max_budget,desired_results,payment_method,payment_rate,funded_amount,completion_reason,completed_at,created_at")
       .eq("advertiser_id", user.id)
       .order("created_at", { ascending: false });
     if (queryError) setError("We couldn't load your campaigns right now. Please refresh and try again.");
@@ -211,6 +214,7 @@ export default function Campaigns() {
                     <small>{new Date(c.created_at).toLocaleDateString()}</small>
                   </div>
                   <h3>{c.name}</h3>
+                  {c.status === "completed" && <div className="infoBox"><b>Campaign delivery completed</b><p>{completionReasonLabel(c.completion_reason)}</p>{c.completed_at && <small>{new Date(c.completed_at).toLocaleString()}</small>}</div>}
                   <p>{pretty(c.goal)} · {c.platform || "Multiple platforms"}</p>
                   <p>{pretty(c.payment_method)} · {money(c.payment_rate)} per result</p>
                   <div className="statsGrid">
