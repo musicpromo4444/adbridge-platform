@@ -8,7 +8,8 @@ Deno.serve(async (req: Request) => {
  if(req.method!=="POST") return json({error:"POST required"},405);
  const token=(req.headers.get("Authorization")||"").match(/^Bearer\s+(.+)$/i)?.[1];
  const url=Deno.env.get("SUPABASE_URL")||"", anon=Deno.env.get("SUPABASE_ANON_KEY")||"", service=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")||"", secret=Deno.env.get("PAYSTACK_SECRET_KEY")||"";
- if(!token) return json({error:"Authentication required"},401);\n if(!url||!anon||!service||!secret) return json({error:"Refund service is not configured"},503);
+ if(!token) return json({error:"Authentication required"},401);
+ if(!url||!anon||!service||!secret) return json({error:"Refund service is not configured"},503);
  const userDb=createClient(url,anon,{global:{headers:{Authorization:"Bearer "+token}},auth:{persistSession:false,autoRefreshToken:false}});
  const {data:auth,error:authErr}=await userDb.auth.getUser(token);
  if(authErr||!auth.user) return json({error:"Authentication failed"},401);
