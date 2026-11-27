@@ -14,7 +14,10 @@ function base64url(bytes:Uint8Array){
 }
 Deno.serve(async req=>{
   if(req.method!=="POST")return json({error:"POST required"},405);
-  const raw=await req.text();\n  if(raw.length>4096)return json({error:"Payload too large"},413);\n  const parsed=(()=>{try{return JSON.parse(raw)}catch{return {}}})();\n  const property_id=parsed?.property_id;
+  const raw=await req.text();
+  if(raw.length>4096)return json({error:"Payload too large"},413);
+  const parsed=(()=>{try{return JSON.parse(raw)}catch{return {}}})();
+  const property_id=parsed?.property_id;
   if(typeof property_id!=="string"||!/^[0-9a-f-]{36}$/i.test(property_id))return json({error:"Valid property_id required"},400);
   const url=Deno.env.get("SUPABASE_URL"),serviceKey=Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const anonKey=Deno.env.get("SUPABASE_ANON_KEY")||Deno.env.get("SUPABASE_PUBLISHABLE_KEY");
