@@ -19,6 +19,20 @@ begin
   if has_function_privilege('anon','public.record_tracking_click(text,text,text,text,text)','EXECUTE') then raise exception 'anonymous clients can call click payout RPC'; end if;
   if has_function_privilege('authenticated','public.record_tracking_click(text,text,text,text,text)','EXECUTE') then raise exception 'signed-in clients can call click payout RPC'; end if;
   if not has_function_privilege('service_role','public.record_tracking_click(text,text,text,text,text)','EXECUTE') then raise exception 'server role cannot call click payout RPC'; end if;
+
+  if to_regprocedure('public.get_campaign_stop_quote(uuid,text)') is null
+     or to_regprocedure('public.confirm_campaign_stop(uuid,text)') is null
+     or to_regprocedure('public.admin_set_campaign_stop_fee_policy(numeric,numeric)') is null then
+    raise exception 'campaign stop quote/confirmation RPCs are missing';
+  end if;
+  if has_function_privilege('anon','public.get_campaign_stop_quote(uuid,text)','EXECUTE')
+     or has_function_privilege('anon','public.confirm_campaign_stop(uuid,text)','EXECUTE') then
+    raise exception 'anonymous clients can access campaign stop/refund RPCs';
+  end if;
+  if not exists(select 1 from public.campaign_stop_fee_policy where id=1 and pause_fee_percent=0) then
+    raise exception 'campaign pause must remain fee-free';
+  end if;
+
   r:=public.adbridge_score_event('video_view','client','{"playback_started":true,"watch_seconds":30,"heartbeat_count":10,"page_visible":true}'::jsonb,0,0);
   if (r->>'verified')::boolean or (r->>'payable')::boolean then raise exception 'client-only video view was accepted'; end if;
 
