@@ -49,7 +49,12 @@ Deno.serve(async (req: Request) => {
   const eventType = String(body.event_type || "").trim().toLowerCase();
   const visitorKey = String(body.visitor_key || "").trim().slice(0, 128);
   const sessionId = body.session_id ? String(body.session_id).slice(0, 128) : null;
-  const eventId = body.event_id ? String(body.event_id).slice(0, 128) : crypto.randomUUID();
+  const providedEventId = typeof body.event_id === "string" ? body.event_id.trim() : "";
+  const receiptId = typeof body.receipt_id === "string" ? body.receipt_id.trim().slice(0, 200) : "";
+  if (providedEventId && (providedEventId.length < 8 || providedEventId.length > 128 || /[\u0000-\u0020]/.test(providedEventId))) {
+    return json({ error: "event_id must be a unique 8–128 character value without whitespace" }, 400);
+  }
+  const eventId = providedEventId || crypto.randomUUID();
   if (!placementKey || !["impression", "click", "video_view", "install", "conversion"].includes(eventType) || visitorKey.length < 8) {
     return json({ error: "placement_key, supported event_type and visitor_key (8+ chars) are required" }, 400);
   }
@@ -98,6 +103,13 @@ Deno.serve(async (req: Request) => {
       const expected = await hmacSha256(String(signingKey.secret_value), timestamp + "." + raw);
       if (!constantTimeEqual(suppliedSignature, expected)) return json({ error: "Invalid publisher event signature" }, 401);
       signedPublisherEvent = true;
+      // A signed request without a publisher-generated ID can be replayed with a
+      // fresh server-generated UUID on every retry. Require the signed ID so the
+      // database's unique event_id index makes retries idempotent.
+      if (!providedEventId) return json({ error: "Signed publisher events require a unique event_id for replay protection" }, 400);
+      if ((eventType === "install" || eventType === "conversion") && !receiptId) {
+        return json({ error: "Signed install and conversion events require a stable receipt_id" }, 400);
+      }
     }
 
     if (["website", "web_app"].includes(property.property_type)) {
@@ -145,7 +157,7 @@ Deno.serve(async (req: Request) => {
     watch_seconds: safeNumber(body.watch_seconds, 86_400),
     heartbeat_count: Math.floor(safeNumber(body.heartbeat_count, 100_000)),
     page_visible: body.page_visible === true,
-    receipt_id: body.receipt_id ? String(body.receipt_id).slice(0, 200) : null,
+    receipt_id: receiptId || null,
   };
 
   const { error } = await db.from("ad_placement_events").insert({
