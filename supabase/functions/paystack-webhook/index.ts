@@ -19,9 +19,19 @@ Deno.serve(async(req:Request)=>{
    const transactionReference=String(d.transaction_reference||"").trim();
    const status=String(d.status||event.event.replace("refund.","")).toLowerCase();
    const mapped=status==="needs_attention"?"needs-attention":status;
-   if(!reference)return json({received:true,ignored:true,reason:"missing_refund_reference"});
-   const {data,error}=await db.rpc("paystack_reconcile_refund_webhook",{p_reference:reference,p_status:mapped,p_provider_refund_id:d.id?String(d.id):null});
-   if(error)return json({error:"Refund reconciliation failed"},500);
+   const providerRefundId=d.id?String(d.id):null;
+   if(reference){
+     const {data,error}=await db.rpc("paystack_reconcile_refund_webhook",{p_reference:reference,p_status:mapped,p_provider_refund_id:providerRefundId});
+     if(error)return json({error:"Refund reconciliation failed"},500);
+     return json({received:true,...data});
+   }
+   // Paystack's refund.pending example can contain a null refund_reference.
+   // Fall back to the original transaction reference plus exact amount; the
+   // database only reconciles when exactly one active allocation matches.
+   const amountKobo=Number(d.amount);
+   if(!transactionReference||!Number.isSafeInteger(amountKobo)||amountKobo<=0)return json({received:true,ignored:true,reason:"refund_reference_and_match_fields_missing"});
+   const {data,error}=await db.rpc("paystack_reconcile_refund_webhook_by_transaction",{p_transaction_reference:transactionReference,p_amount_kobo:amountKobo,p_status:mapped,p_provider_refund_id:providerRefundId});
+   if(error)return json({error:"Refund fallback reconciliation failed"},500);
    return json({received:true,...data});
  }
  if(event.event!=="charge.success")return json({received:true,ignored:true});
