@@ -38,6 +38,22 @@ Create test advertiser and creator accounts, fund a test campaign, connect an el
 - Live security advisor now reports 1 anonymous SECURITY DEFINER callable (the public ranking RPC, intentional) instead of the previously observed 15. Remaining authenticated SECURITY DEFINER warnings are role-guarded RPCs; seven RLS tables intentionally have no policies and are service/internal-only. Extension placement warning for pg_net remains for separate review.
 - Source migration files for verified measurement and notification triggers were corrected for SQL statement terminators/idempotency, and the permission migration was added to GitHub.
 
+## Fixed development checklist — 2026-11-27
+
+The nine work packages are fixed. Once development for a package is complete, it is not reopened unless a specific defect is discovered. Testing and secret/provider configuration are tracked separately.
+
+1. **Live backend synchronization — COMPLETE.** Outstanding Nov 26–27 migrations reconciled and applied; direct privileged function execution hardened. Live schema/function/trigger audit reports 18/18 structural checks.
+2. **Publisher system — DEVELOPMENT COMPLETE.** Website/app inventory, property verification, applications, ad delivery, event tracking, earnings, withdrawals, integration instructions, publisher admin. Publisher tracking-key, serve-ad and track-ad-event Edge Functions active; tracking-key source corrected.
+3. **Creator workflow — DEVELOPMENT COMPLETE.** Campaign marketplace, eligibility, required campaign understanding completion, acceptance, work tracking, atomic submission and advertiser-bound tracking link, review states, verification, social OAuth connections, analytics, earnings and payout destinations. Profile/work UX hardened; campaign test completion made retry-safe.
+4. **Advertiser workflow — DEVELOPMENT COMPLETE.** Campaign creation, formats/platforms, media uploads, payment model/budget/targets, funding, edit/status management, billing, analytics, delivery and review.
+5. **Fraud and verified measurement — DEVELOPMENT COMPLETE.** Fraud event assessments, triggers, scoring restrictions, holds, verified metric RPCs, click/view/conversion distinctions and admin review.
+6. **Financial system — DEVELOPMENT COMPLETE.** Campaign ledger, funding verification, creator/publisher earnings, withdrawal reservations and admin processing, financial reconciliation and payout readiness.
+7. **Admin dashboard — DEVELOPMENT COMPLETE.** Users, campaigns, creator submissions, publisher inventory/applications, verification, fraud, payments, withdrawals, reconciliation, settings and launch-readiness controls.
+8. **AI tools — CODE COMPLETE.** AI post assistant and creator post studio; AI Studio now captures actual video frames, analyzes an accepted campaign's logo/asset, provides a timed placement preview, and can render/download a WebM overlay. Placement analysis Edge Function source restored to repository and deployed version 3. AI provider secret is excluded from this build score.
+9. **Rankings, notifications and polish — DEVELOPMENT COMPLETE.** Public worldwide Top 20 rankings, notification events/triggers, Realtime notifications and user-facing status/navigation/empty-state polish.
+
+**Deployment/verification caveat:** The last confirmed Vercel production build (commit 31421bda) compiled successfully, passed TypeScript and generated 54/54 pages. Subsequent source commits (creator profile/work and AI Studio video export) are not confirmed built/deployed. A fresh Vercel deployment request hit the project's daily deployment API limit (100/day; retry in one day). This is not counted as development remaining, but latest code is awaiting build/deploy confirmation. End-to-end tests and provider secrets remain excluded as requested.
+
 ## Ordered feature hardening follow-up (2026-11-27)
 
 - **Task 2 — Atomic creator submission + tracking link: implemented in repository.** Added `submit_creator_campaign_work` RPC/migration: locks creator job and campaign, validates eligibility and URL/platform, creates submission and advertiser-bound tracking link together, and advances job status atomically. The creator submit page now calls this single RPC instead of issuing separate writes.
