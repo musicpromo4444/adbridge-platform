@@ -224,7 +224,7 @@ export default function Campaigns() {
                   </div>
                   <div className="choiceRow">
                     <Link className="secondary" href={"/advertiser/results?campaign=" + c.id}>Results</Link>
-                    <Link className="secondary" href={"/advertiser/review?campaign=" + c.id}>Review work</Link>
+                    <Link className="secondary" href={"/advertiser/review?campaign=" + c.id}>Review work</Link>{["cpa","cost_per_action"].includes((c.payment_method||"").toLowerCase()) && <Link className="secondary" href={"/advertiser/campaigns/" + c.id + "/postback"}>CPA postback settings</Link>}
                     <Link className="secondary" href="/advertiser/budget">Budget control</Link>
                     {c.status === "draft" && Number(c.funded_amount || 0) === 0 && <Link className="secondary" href={"/advertiser/campaigns/" + c.id + "/edit"}>Edit draft</Link>}
                     {c.status === "active" && <button className="secondary" disabled={busy === c.id} onClick={() => void openStopConfirmation(c, "paused")}>{busy === c.id ? "Calculating…" : "Pause campaign"}</button>}
