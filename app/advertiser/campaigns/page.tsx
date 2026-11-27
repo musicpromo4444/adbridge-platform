@@ -133,8 +133,10 @@ export default function Campaigns() {
           const refundStates = (refundResult?.attempts || []).map((attempt: { status?: string }) => attempt.status || "unknown");
           closeMessage = refundProcessError || !refundResult?.ok
             ? "Campaign closed. Your refund request is saved; automatic Paystack processing could not start, so it remains available for admin settlement."
-            : refundStates.length > 0 && refundStates.every((status: string) => status === "processed")
-              ? "Campaign closed. Paystack confirms the refund is processed. Your bank may take additional time to credit the funds."
+            : refundStates.length === 0
+              ? "Campaign closed. The refund request is saved, but no Paystack refund allocation was created. AdBridge administrators can review the payment method and settle it."
+              : refundStates.every((status: string) => status === "processed")
+                ? "Campaign closed. Paystack confirms the refund is processed. Your bank may take additional time to credit the funds."
               : refundStates.some((status: string) => ["failed", "manual_review", "needs-attention"].includes(status))
                 ? "Campaign closed. Paystack needs attention on this refund. The request is saved and AdBridge administrators can review the affected allocation."
                 : "Campaign closed. Your Paystack refund has been submitted and is awaiting provider processing.";
