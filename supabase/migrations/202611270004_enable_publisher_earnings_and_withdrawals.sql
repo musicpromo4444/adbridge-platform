@@ -24,6 +24,9 @@ begin
   if not exists(select 1 from public.profiles where id=uid and role in ('creator','publisher')) then
     raise exception 'Creator or publisher account required' using errcode='42501';
   end if;
+  if not exists(select 1 from public.creator_payout_methods where user_id=uid) then
+    raise exception 'Add your payout details before requesting a withdrawal' using errcode='22023';
+  end if;
   perform pg_advisory_xact_lock(hashtextextended(uid::text,0));
   select usd_to_ngn_rate into fx from public.platform_payout_settings where id=1;
   if fx is null or fx<=0 then
