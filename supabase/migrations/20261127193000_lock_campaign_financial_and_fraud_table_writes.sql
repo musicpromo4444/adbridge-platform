@@ -1,0 +1,12 @@
+revoke all on table public.campaigns from public,anon,authenticated;
+grant select on table public.campaigns to authenticated;
+revoke all on table public.campaign_payments from public,anon,authenticated;
+grant select on table public.campaign_payments to authenticated;
+revoke all on table public.creator_withdrawals from public,anon,authenticated;
+grant select on table public.creator_withdrawals to authenticated;
+revoke all on table public.fraud_flags from public,anon,authenticated;
+grant select on table public.fraud_flags to authenticated;
+revoke all on table public.ad_placement_events from public,anon,authenticated;
+grant select on table public.ad_placement_events to authenticated;
+revoke all on table public.submission_metrics from public,anon,authenticated;
+grant select on table public.submission_metrics to authenticated;
