@@ -20,7 +20,17 @@ export default function ConsentManager() {
   }, []);
 
   function choose(value: "measurement" | "essential") {
-    try { localStorage.setItem(STORAGE_KEY, value); } catch {}
+    try {
+      localStorage.setItem(STORAGE_KEY, value);
+      if (value === "essential") {
+        localStorage.removeItem("adbridge_visitor_id");
+        sessionStorage.removeItem("adbridge_session_id");
+        for (let i = sessionStorage.length - 1; i >= 0; i--) {
+          const key = sessionStorage.key(i);
+          if (key?.startsWith("adbridge_impression_")) sessionStorage.removeItem(key);
+        }
+      }
+    } catch {}
     setChoice(value);
     setOpen(false);
     window.dispatchEvent(new Event("adbridge-consent-change"));
