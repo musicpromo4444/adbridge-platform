@@ -30,6 +30,15 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Type check
         run: npx tsc --noEmit
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Type-check Supabase Edge Functions
+        run: |
+          for file in supabase/functions/*/index.ts; do
+            deno check "$file"
+          done
       - name: Production build
         run: npm run build
         env:
