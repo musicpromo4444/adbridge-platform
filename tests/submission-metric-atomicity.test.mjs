@@ -39,7 +39,7 @@ test("snapshot, submission summary and CPM payout are in one ordered transaction
 test("Edge Function validates provider counts and persists only through the atomic RPC", () => {
   assert.match(edgeFunction, /Number\.isSafeInteger\(views\)/);
   assert.match(edgeFunction, /db\.rpc\(\s*["']record_submission_metric_snapshot["']/);
-  assert.match(edgeFunction, /No CPM payout was processed/);
+  assert.match(edgeFunction, /snapshotError/);\n  assert.match(edgeFunction, /return json\(\{ success: true, \.\.\.snapshot \}\)/);
   assert.doesNotMatch(edgeFunction, /\.from\(["']submission_metrics["']\)\s*\.insert/);
   assert.doesNotMatch(edgeFunction, /\.from\(["']submissions["']\)\s*\.update/);
 });
