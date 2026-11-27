@@ -118,9 +118,19 @@ export default function Campaigns() {
     if (stopError || !data?.ok) {
       setError(stopError?.message || "We couldn't complete that action. Your campaign was not changed.");
     } else {
-      setMessage(data.status === "paused"
-        ? "Campaign paused. Its remaining funds stay reserved."
-        : "Campaign closed. Your refund request has been recorded and is awaiting payment processing.");
+      if (data.status === "paused") {
+        setMessage("Campaign paused. Its remaining funds stay reserved.");
+      } else {
+        let closeMessage = "Campaign closed. Your refund request has been recorded and is awaiting payment processing.";
+        const { data: refundId, error: refundLookupError } = await supabase.rpc("get_my_campaign_pending_refund", { p_campaign_id: id });
+        if (!refundLookupError && refundId) {
+          const { error: refundProcessError } = await supabase.functions.invoke("process-campaign-refund", { body: { refund_payment_id: refundId } });
+          closeMessage = refundProcessError
+            ? "Campaign closed. Your refund request is saved; automatic Paystack processing could not start, so it remains available for admin settlement."
+            : "Campaign closed. Your Paystack refund has been submitted and will remain pending until Paystack confirms it is processed.";
+        }
+        setMessage(closeMessage);
+      }
       setStopQuote(null);
       await load();
     }
