@@ -1,0 +1,21 @@
+-- Remove direct access to privileged admin/measurement and trigger-only SECURITY DEFINER functions.
+revoke all on function public.admin_launch_readiness() from public, anon;
+revoke all on function public.admin_review_creator_verification(uuid,text,text) from public, anon;
+revoke all on function public.get_campaign_measurement_summary(uuid) from public, anon;
+revoke all on function public.get_advertiser_measurement_summary() from public, anon;
+revoke all on function public.get_creator_measurement_summary() from public, anon;
+revoke all on function public.disconnect_creator_platform(text) from public, anon;
+revoke all on function public.assess_tracking_click_fraud() from public, anon, authenticated;
+revoke all on function public.notify_advertiser_campaign_status() from public, anon, authenticated;
+revoke all on function public.notify_advertiser_funding_status() from public, anon, authenticated;
+revoke all on function public.notify_creator_cpm_payment() from public, anon, authenticated;
+revoke all on function public.notify_creator_submission_review() from public, anon, authenticated;
+revoke all on function public.notify_creator_withdrawal_status() from public, anon, authenticated;
+revoke all on function public.notify_publisher_application_decision() from public, anon, authenticated;
+revoke all on function public.sync_approved_publisher_ad_placement() from public, anon, authenticated;
+grant execute on function public.admin_launch_readiness() to authenticated;
+grant execute on function public.admin_review_creator_verification(uuid,text,text) to authenticated;
+grant execute on function public.get_campaign_measurement_summary(uuid) to authenticated;
+grant execute on function public.get_advertiser_measurement_summary() to authenticated;
+grant execute on function public.get_creator_measurement_summary() to authenticated;
+grant execute on function public.disconnect_creator_platform(text) to authenticated;
