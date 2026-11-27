@@ -87,8 +87,8 @@ export default function Withdrawals(){
   <Link href="/admin" className="back">← Admin</Link>
   <div className="formCard wide">
    <span className="eyebrow">ADMIN · WITHDRAWAL CONTROL</span>
-   <h1>Creator <em>withdrawals.</em></h1>
-   <p>Review requests through protected admin actions. Approve or reject pending requests; mark an approved request paid only after the actual transfer is complete.</p>
+   <h1>Creator &amp; publisher <em>withdrawals.</em></h1>
+   <p>Review creator and publisher requests through protected admin actions. Approve or reject pending requests; mark an approved request paid only after the actual transfer is complete.</p>
    <div className="choiceRow">{(["pending","approved","paid","rejected","all"] as Filter[]).map(x=><button key={x} className={filter===x?"primary":"secondary"} onClick={()=>setFilter(x)}>{x[0].toUpperCase()+x.slice(1)}</button>)}</div>
    {error&&<div className="successBox">{error}</div>}{message&&<div className="successBox">✓ {message}</div>}
    {loading?<div className="successBox">Loading withdrawal requests…</div>:rows.length?<div className="opps">{rows.map(r=><article key={r.id}>
