@@ -134,7 +134,7 @@ export default function Studio() {
   const activePlacement = analysis?.placement && currentTime >= analysis.placement.start_seconds && currentTime <= analysis.placement.end_seconds;
 
   useEffect(() => {
-    let live=true; async function loadAssets(){setCampaignAssets([]);setAssetId("");setAnalysis(null);if(!supabase||!campaignId)return;const {data,error:e}=await supabase.from("campaign_assets").select("id,asset_type,asset_url").eq("campaign_id",campaignId).order("created_at",{ascending:true});if(!live)return;if(e){setAnalysisError("Campaign logo assets could not be loaded.");return;}const images=(data||[]).filter(a=>a.asset_url&&/\\.(png|jpe?g|webp)(\\?|$)/i.test(a.asset_url));setCampaignAssets(images as CampaignAsset[]);setAssetId(images[0]?.id||"");}
+    let live=true; async function loadAssets(){setCampaignAssets([]);setAssetId("");setAnalysis(null);if(!supabase||!campaignId)return;const {data,error:e}=await supabase.from("campaign_assets").select("id,asset_type,asset_url").eq("campaign_id",campaignId).order("created_at",{ascending:true});if(!live)return;if(e){setAnalysisError("Campaign logo assets could not be loaded.");return;}const images=(data||[]).filter(a=>a.asset_url&&/\.(png|jpe?g|webp)(\?|$)/i.test(a.asset_url));setCampaignAssets(images as CampaignAsset[]);setAssetId(images[0]?.id||"");}
     void loadAssets();return()=>{live=false};
   },[campaignId]);
 
@@ -217,7 +217,7 @@ export default function Studio() {
             {campaigns.map(item => <option key={item.id} value={item.id}>{item.name}{item.platform ? " · " + item.platform : ""}</option>)}
           </select>
 
-          <label>Advertiser placement</label>
+          <label>Campaign logo / brand image</label>\n          <select value={assetId} onChange={e=>setAssetId(e.target.value)}><option value="">Choose image asset</option>{campaignAssets.map(a=><option key={a.id} value={a.id}>{a.asset_type.replaceAll("_"," ")}</option>)}</select>\n          {campaignId&&!campaignAssets.length&&<div className="successBox">This campaign has no image logo assets. Ask the advertiser to upload a PNG, JPG or WebP image.</div>}\n          <label>Advertiser placement</label>
           <div className="placementChoices">
             {placements.map(item =>
               <button
@@ -232,7 +232,7 @@ export default function Studio() {
             )}
           </div>
 
-          <button className="primary fullButton" onClick={analyze} disabled={analyzing}>
+          <button className="primary fullButton" onClick={()=>void analyze()} disabled={analyzing||!videoFile||!campaignId||!assetId}>
             {analyzing ? "Analyzing video frames…" : "Analyze actual video & placement →"}
           </button>
         </section>
@@ -245,7 +245,7 @@ export default function Studio() {
 
           <div className={"aiPreview " + (selected.ratio === "16:9 / source" ? "widePreview" : "")}>
             {videoUrl
-              ? <video src={videoUrl} controls muted playsInline/>
+              ? <video src={videoUrl} controls muted playsInline onTimeUpdate={e=>setCurrentTime(e.currentTarget.currentTime)}/>
               : <div className="previewPlaceholder"><span>▶</span><b>Upload your content</b><small>AI will choose the placement automatically.</small></div>
             }
 
