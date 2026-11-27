@@ -40,6 +40,12 @@ export default function Campaigns() {
   const [error, setError] = useState("");
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
+  const [stopQuote, setStopQuote] = useState<{
+    campaignId: string; campaignName: string; action: "paused" | "closed";
+    funded_amount: number; committed_or_spent: number; previous_refunds: number;
+    unspent_balance: number; fee_percent: number; fee_amount: number; refund_amount: number;
+    pause_explanation?: string; refund_explanation?: string;
+  } | null>(null);
 
   const load = useCallback(async (initial = false) => {
     if (!supabase) {
@@ -85,19 +91,53 @@ export default function Campaigns() {
       .join(" ").toLowerCase().includes(search.toLowerCase().trim())
   ), [campaigns, tab, search]);
 
+  async function openStopConfirmation(c: Campaign, action: "paused" | "closed") {
+    if (!supabase) return;
+    setBusy(c.id);
+    setError("");
+    setMessage("");
+    const { data, error: quoteError } = await supabase.rpc("get_campaign_stop_quote", {
+      p_campaign_id: c.id, p_action: action
+    });
+    if (quoteError || !data?.ok) {
+      setError(quoteError?.message || "We couldn't calculate the campaign balance. Nothing has been changed.");
+    } else {
+      setStopQuote({ campaignId: c.id, campaignName: c.name, action, ...data });
+    }
+    setBusy("");
+  }
+
+  async function confirmStop() {
+    if (!supabase || !stopQuote) return;
+    const id = stopQuote.campaignId;
+    setBusy(id);
+    setError("");
+    const { data, error: stopError } = await supabase.rpc("confirm_campaign_stop", {
+      p_campaign_id: id, p_action: stopQuote.action
+    });
+    if (stopError || !data?.ok) {
+      setError(stopError?.message || "We couldn't complete that action. Your campaign was not changed.");
+    } else {
+      setMessage(data.status === "paused"
+        ? "Campaign paused. Its remaining funds stay reserved."
+        : "Campaign closed. Your refund request has been recorded and is awaiting payment processing.");
+      setStopQuote(null);
+      await load();
+    }
+    setBusy("");
+  }
+
   async function changeStatus(id: string, status: string) {
     if (!supabase) return;
     setBusy(id);
     setError("");
     setMessage("");
     const { error: rpcError } = await supabase.rpc("set_campaign_status", {
-      p_campaign_id: id,
-      p_status: status
+      p_campaign_id: id, p_status: status
     });
-    if (rpcError) {
-      setError(rpcError.message || "We couldn't update this campaign. Check its funding and status, then try again.");
-    } else {
-      setMessage(status === "paused" ? "Campaign paused." : status === "closed" ? "Campaign closed." : status === "active" ? "Campaign activated." : "Campaign status updated.");
+    if (rpcError) setError(rpcError.message || "We couldn't update this campaign. Please try again.");
+    else {
+      setMessage("Campaign activated.");
       await load();
     }
     setBusy("");
@@ -161,9 +201,9 @@ export default function Campaigns() {
                     <Link className="secondary" href={"/advertiser/review?campaign=" + c.id}>Review work</Link>
                     <Link className="secondary" href="/advertiser/budget">Budget control</Link>
                     {c.status === "draft" && Number(c.funded_amount || 0) === 0 && <Link className="secondary" href={"/advertiser/campaigns/" + c.id + "/edit"}>Edit draft</Link>}
-                    {c.status === "active" && <button className="secondary" disabled={busy === c.id} onClick={() => void changeStatus(c.id, "paused")}>{busy === c.id ? "Saving…" : "Pause campaign"}</button>}
+                    {c.status === "active" && <button className="secondary" disabled={busy === c.id} onClick={() => void openStopConfirmation(c, "paused")}>{busy === c.id ? "Calculating…" : "Pause campaign"}</button>}
                     {canActivate && <button className="primary" disabled={busy === c.id} onClick={() => void changeStatus(c.id, "active")}>{busy === c.id ? "Saving…" : c.status === "funded" ? "Activate campaign" : "Resume campaign"}</button>}
-                    {!isTerminal && <button className="secondary" disabled={busy === c.id} onClick={() => void changeStatus(c.id, "closed")}>{busy === c.id ? "Saving…" : "Close campaign"}</button>}
+                    {!isTerminal && <button className="secondary" disabled={busy === c.id} onClick={() => void openStopConfirmation(c, "closed")}>{busy === c.id ? "Calculating…" : "Close campaign"}</button>}
                   </div>
                   {c.status === "funded" && <small>Funding is confirmed. Activation is permitted only when the full campaign budget has been received.</small>}
                   {isTerminal && <small>This campaign is in a terminal state. Create a new campaign to launch different work.</small>}
@@ -181,6 +221,48 @@ export default function Campaigns() {
           </div>
         )}
       </div>
+      {stopQuote && (
+        <div role="presentation" onMouseDown={e => { if (e.target === e.currentTarget && !busy) setStopQuote(null); }}
+          style={{ position: "fixed", inset: 0, zIndex: 1000, background: "rgba(12,18,32,.62)", display: "grid", placeItems: "center", padding: 18 }}>
+          <section role="dialog" aria-modal="true" aria-labelledby="stop-title"
+            style={{ width: "min(100%, 540px)", maxHeight: "90vh", overflowY: "auto", background: "#fff", color: "#172033", borderRadius: 18, padding: 24, boxShadow: "0 24px 80px rgba(0,0,0,.25)" }}>
+            <span className="eyebrow">PLEASE REVIEW BEFORE CONFIRMING</span>
+            <h2 id="stop-title">{stopQuote.action === "paused" ? "Pause this campaign?" : "Close this campaign?"}</h2>
+            <p><b>{stopQuote.campaignName}</b></p>
+            {stopQuote.action === "paused" ? (
+              <>
+                <p>{stopQuote.pause_explanation}</p>
+                <div className="statsGrid">
+                  <div><b>FUNDS COMMITTED / SPENT</b><strong>{money(stopQuote.committed_or_spent)}</strong></div>
+                  <div><b>UNSPENT BALANCE</b><strong>{money(stopQuote.unspent_balance)}</strong></div>
+                  <div><b>PAUSE FEE</b><strong>{stopQuote.fee_percent}% · {money(stopQuote.fee_amount)}</strong></div>
+                  <div><b>REFUND NOW</b><strong>{money(0)}</strong></div>
+                </div>
+                <p><b>Important:</b> Pausing is temporary. Your unspent funds remain reserved in this campaign. No refund is sent, and you can resume delivery later.</p>
+              </>
+            ) : (
+              <>
+                <p>{stopQuote.refund_explanation}</p>
+                <div className="statsGrid">
+                  <div><b>ORIGINAL CONFIRMED FUNDING</b><strong>{money(stopQuote.funded_amount)}</strong></div>
+                  <div><b>COMMITTED / SPENT</b><strong>{money(stopQuote.committed_or_spent)}</strong></div>
+                  <div><b>PREVIOUS REFUNDS</b><strong>{money(stopQuote.previous_refunds)}</strong></div>
+                  <div><b>ELIGIBLE UNSPENT BALANCE</b><strong>{money(stopQuote.unspent_balance)}</strong></div>
+                  <div><b>ADBRIDGE CLOSURE FEE ({stopQuote.fee_percent}%)</b><strong>{money(stopQuote.fee_amount)}</strong></div>
+                  <div><b>ESTIMATED REFUND</b><strong>{money(stopQuote.refund_amount)}</strong></div>
+                </div>
+                <p><b>Closing is permanent.</b> Ad delivery will stop. Confirming records the refund request; the amount is not marked as paid until the payment provider confirms the refund. Any pending creator delivery or fraud review can affect final settlement.</p>
+              </>
+            )}
+            <div className="choiceRow" style={{ marginTop: 20 }}>
+              <button className="primary" type="button" disabled={!!busy} onClick={() => void confirmStop()}>
+                {busy ? "Processing…" : stopQuote.action === "paused" ? "Yes, pause campaign" : "Yes, close and request refund"}
+              </button>
+              <button className="secondary" type="button" disabled={!!busy} onClick={() => setStopQuote(null)}>No, keep campaign running</button>
+            </div>
+          </section>
+        </div>
+      )}
     </main>
   );
 }
