@@ -43,6 +43,23 @@ begin
     raise exception 'campaign pause must remain fee-free';
   end if;
 
+  if has_function_privilege('authenticated','public.mark_creator_campaign_submitted(uuid)','EXECUTE') then
+    raise exception 'obsolete creator submission state RPC must remain disabled';
+  end if;
+
+  if exists(
+    select 1 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
+    where n.nspname='public' and p.prosecdef
+      and has_function_privilege('authenticated',p.oid,'EXECUTE')
+      and p.proname<>'get_adbridge_global_rankings'
+      and position('auth.uid' in lower(pg_get_functiondef(p.oid)))=0
+      and position('current_user_profile_role' in lower(pg_get_functiondef(p.oid)))=0
+      and position('auth.role' in lower(pg_get_functiondef(p.oid)))=0
+      and position('is_admin' in lower(pg_get_functiondef(p.oid)))=0
+  ) then
+    raise exception 'authenticated security-definer RPCs must perform caller authorization checks';
+  end if;
+
   if to_regprocedure('public.admin_get_fraud_flag_evidence(uuid)') is null
      or has_function_privilege('anon','public.admin_get_fraud_flag_evidence(uuid)','EXECUTE') then
     raise exception 'fraud evidence drilldown must be admin-only';
