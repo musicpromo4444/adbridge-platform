@@ -9,7 +9,7 @@ test("admin records an external transfer reference only after confirmation",()=>
   assert.match(admin,/admin_update_creator_withdrawal/);
   assert.match(admin,/p_payment_reference/);
   assert.match(admin,/status==="paid"/);
-  assert.match(admin,/actual transfer is complete/i);
+  assert.match(admin,/external transfer has actually been completed/i);
   assert.doesNotMatch(admin,/from\("creator_withdrawals"\)\s*\.update/);
 });
 
