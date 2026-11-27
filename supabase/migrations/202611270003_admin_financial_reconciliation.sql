@@ -9,6 +9,7 @@ as $$
 declare
   v_campaigns jsonb;
   v_issues jsonb;
+  v_withdrawal_issues jsonb;
   v_totals jsonb;
   v_result jsonb;
 begin
@@ -69,6 +70,38 @@ begin
   into v_campaigns,v_issues
   from evaluated e;
 
+  -- Check user-level withdrawal reservations against released earnings.
+  with earnings as (
+    select creator_id,
+      coalesce(sum(amount) filter(where status='released'),0)::numeric(18,2) as released_earnings
+    from public.campaign_payments
+    where type='creator_payment'
+    group by creator_id
+  ),
+  reservations as (
+    select creator_id,
+      coalesce(sum(amount) filter(where status in ('pending','approved','paid')),0)::numeric(18,2) as reserved_withdrawals,
+      count(*) filter(where status in ('pending','approved','paid'))::bigint as withdrawal_count
+    from public.creator_withdrawals
+    group by creator_id
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'user_id',coalesce(e.creator_id,r.creator_id),
+    'display_name',p.display_name,
+    'account_role',p.role,
+    'released_earnings',coalesce(e.released_earnings,0),
+    'reserved_withdrawals',coalesce(r.reserved_withdrawals,0),
+    'over_reserved_amount',round(coalesce(r.reserved_withdrawals,0)-coalesce(e.released_earnings,0),2),
+    'withdrawal_count',coalesce(r.withdrawal_count,0)
+  ) order by p.display_name) filter (
+    where coalesce(r.reserved_withdrawals,0)>coalesce(e.released_earnings,0)+0.01
+       or p.id is null
+  ),'[]'::jsonb)
+  into v_withdrawal_issues
+  from earnings e
+  full join reservations r on r.creator_id=e.creator_id
+  left join public.profiles p on p.id=coalesce(e.creator_id,r.creator_id);
+
   select jsonb_build_object(
     'campaign_count',(select count(*) from public.campaigns),
     'funding_ledger_total',coalesce(sum(amount) filter(where type='funding' and status in ('held','released')),0),
@@ -91,7 +124,8 @@ begin
     'totals',coalesce(v_totals,'{}'::jsonb),
     'campaigns',coalesce(v_campaigns,'[]'::jsonb),
     'issues',coalesce(v_issues,'[]'::jsonb),
-    'issue_count',jsonb_array_length(coalesce(v_issues,'[]'::jsonb))
+    'withdrawal_issues',coalesce(v_withdrawal_issues,'[]'::jsonb),
+    'issue_count',jsonb_array_length(coalesce(v_issues,'[]'::jsonb))+jsonb_array_length(coalesce(v_withdrawal_issues,'[]'::jsonb))
   );
   return v_result;
 end;
