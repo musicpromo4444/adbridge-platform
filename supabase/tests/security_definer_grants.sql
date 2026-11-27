@@ -2,6 +2,23 @@
 do $$
 declare
   v_signature text;
+  v_privileged_functions text[] := array[
+    'public.get_adbridge_global_rankings()',
+    'public.admin_launch_readiness()',
+    'public.admin_review_creator_verification(uuid,text,text)',
+    'public.disconnect_creator_platform(text)',
+    'public.get_advertiser_measurement_summary()',
+    'public.get_campaign_measurement_summary(uuid)',
+    'public.get_creator_measurement_summary()',
+    'public.assess_tracking_click_fraud()',
+    'public.notify_advertiser_campaign_status()',
+    'public.notify_advertiser_funding_status()',
+    'public.notify_creator_cpm_payment()',
+    'public.notify_creator_submission_review()',
+    'public.notify_creator_withdrawal_status()',
+    'public.notify_publisher_application_decision()',
+    'public.sync_approved_publisher_ad_placement()'
+  ];
   v_trigger_functions text[] := array[
     'public.assess_tracking_click_fraud()',
     'public.notify_advertiser_campaign_status()',
@@ -51,9 +68,19 @@ begin
     end if;
   end loop;
 
-  -- Public worldwide rankings are intentionally retained as a read-only public surface.
+  -- The global ranking function stays public by design; the others must not.
   if not has_function_privilege('anon', 'public.get_adbridge_global_rankings()', 'EXECUTE') then
     raise exception 'public global rankings access was unintentionally removed';
   end if;
+
+  foreach v_signature in array v_privileged_functions loop
+    if not exists (
+      select 1 from pg_proc p
+      where p.oid = v_signature::regprocedure
+        and coalesce(p.proconfig, array[]::text[]) @> array['search_path=""']
+    ) then
+      raise exception 'function does not have an empty search_path: %', v_signature;
+    end if;
+  end loop;
 end;
 $$;
