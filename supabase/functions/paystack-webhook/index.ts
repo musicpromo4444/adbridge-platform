@@ -15,6 +15,7 @@ Deno.serve(async(req:Request)=>{
  const db=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
  if(["refund.pending","refund.processing","refund.needs-attention","refund.failed","refund.processed"].includes(event.event)){
    const d=event.data||{};
+   if(String(d.currency||"").toUpperCase()!=="NGN")return json({received:true,ignored:true,reason:"unsupported_refund_currency"});
    const reference=String(d.reference||d.refund_reference||"").trim();
    const transactionReference=String(d.transaction_reference||"").trim();
    const status=String(d.status||event.event.replace("refund.","")).toLowerCase();
