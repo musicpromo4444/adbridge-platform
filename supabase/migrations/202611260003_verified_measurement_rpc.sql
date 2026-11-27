@@ -48,7 +48,7 @@ begin
  'events_assessed_24h',(select count(*) from public.adbridge_event_assessments a where a.campaign_id=c.id and a.created_at>=now()-interval '24 hours')
  ) into v_result from public.campaigns c where c.id=p_campaign_id;
  return v_result;
-end;$function$
+end;$function$;
 
 
 CREATE OR REPLACE FUNCTION public.get_advertiser_measurement_summary()
@@ -63,7 +63,7 @@ begin
  if private.current_user_profile_role() not in ('advertiser','admin') then raise exception 'advertiser access required' using errcode='42501';end if;
  select coalesce(jsonb_agg(public.get_campaign_measurement_summary(c.id) order by c.created_at desc),'[]'::jsonb) into v_result from public.campaigns c where private.current_user_profile_role()='admin' or c.advertiser_id=auth.uid();
  return v_result;
-end;$function$
+end;$function$;
 
 
 CREATE OR REPLACE FUNCTION public.get_creator_measurement_summary()
@@ -91,4 +91,4 @@ begin
  select count(*) into v_open_flags from public.fraud_flags where creator_id=v_user and status in ('open','reviewing');
  select count(*) into v_metric_review from public.submissions where creator_id=v_user and metric_status='review';
  return jsonb_build_object('campaigns_joined',v_jobs,'verified_views',v_views,'clicks_raw',v_clicks_raw,'unique_clicks_raw',v_unique_raw,'clicks_verified',v_clicks_verified,'clicks_review',v_clicks_review,'clicks_blocked',v_clicks_blocked,'conversions_raw',v_conversions_raw,'conversions_verified',v_conversions_verified,'conversions_review',v_conversions_review,'conversions_blocked',v_conversions_blocked,'publisher_events_raw',v_publisher_events_raw,'publisher_events_verified',v_publisher_events_verified,'publisher_events_review',v_publisher_events_review,'publisher_events_blocked',v_publisher_events_blocked,'released_earnings',v_released,'held_earnings',v_held,'open_fraud_flags',v_open_flags,'metric_review',v_metric_review);
-end;$function$
+end;$function$;
