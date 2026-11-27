@@ -22,7 +22,7 @@ Deno.serve(async(req:Request)=>{
 
  // Filter the delivery window in Postgres before applying the result limit so
  // expired/future placements cannot crowd valid inventory out of the response.
- const now=new Date(),nowIso=now.toISOString(),nowMs=now.getTime();
+ const nowIso=new Date().toISOString();
  const {data:placements,error}=await db.from("ad_placements")
   .select("id,placement_key,name,format,campaign_id,action_url,creative_asset_url,description,frequency_cap,publisher_application_id,starts_at,ends_at")
   .eq("enabled",true).eq("publisher_id",property.publisher_id).eq("publisher_property_id",propertyId).eq("format",format)
@@ -33,10 +33,11 @@ Deno.serve(async(req:Request)=>{
  if(error)return json({error:"Placement query failed"},500);
  const ads=[];
  for(const p of placements||[]){
-  // Recheck the window immediately before serving in case the query took time.
+  // Recheck against the current clock immediately before serving the creative.
+  const currentTime=Date.now();
   const startsAt=p.starts_at?Date.parse(p.starts_at):null;
   const endsAt=p.ends_at?Date.parse(p.ends_at):null;
-  if((startsAt!==null&&(!Number.isFinite(startsAt)||startsAt>nowMs))||(endsAt!==null&&(!Number.isFinite(endsAt)||endsAt<nowMs)))continue;
+  if((startsAt!==null&&(!Number.isFinite(startsAt)||startsAt>currentTime))||(endsAt!==null&&(!Number.isFinite(endsAt)||endsAt<currentTime)))continue;
   const {data:application}=await db.from("publisher_campaigns").select("id,status,selected_platform,selected_format").eq("id",p.publisher_application_id).eq("publisher_id",property.publisher_id).eq("campaign_id",p.campaign_id).eq("selected_property_id",propertyId).eq("status","approved").maybeSingle();
   if(!application||application.selected_platform!==platform||application.selected_format!==format)continue;
   const {data:campaign}=await db.from("campaigns").select("id,status").eq("id",p.campaign_id).in("status",["funded","active"]).maybeSingle();
