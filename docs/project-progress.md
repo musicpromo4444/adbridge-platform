@@ -67,3 +67,13 @@ The nine work packages are fixed. Once development for a package is complete, it
 - The smoke test validates HTTP success and expected content types, checks that `/api/health` confirms Supabase reachability, and verifies the embed loader response.
 - Added a GitHub Actions workflow that runs these checks after a successful `AdBridge CI` run on `main`, with a deployment propagation wait and bounded retries.
 - These public-surface checks do not replace authenticated end-to-end tests. Funding, OAuth, creator/publisher submissions, admin review, fraud holds and payout settlement still require dedicated test accounts and provider test credentials.
+
+
+## Scheduled metric refresh security repair (2026-11-27)
+
+- Repaired the legacy `adbridge-video-metric-refresh` cron job, which previously invoked `track-video-metrics` without the authentication header required by the Edge Function. Scheduled refreshes would therefore be rejected.
+- Added a dedicated constant-time-checked scheduler-secret authentication path to `track-video-metrics`. It reads the random secret from the server-only service-secret table and does not expose or send the Supabase service-role key through pg_cron.
+- Applied migration `20261127160000_secure_video_metric_cron_auth.sql` to the connected Supabase production project and updated the active 15-minute cron job to send the private scheduler header.
+- Deployed `track-video-metrics` Edge Function version 16 with JWT verification disabled only because the function enforces its own user-session or private scheduler-secret authentication.
+- Verified the production cron job is active, runs every 15 minutes, includes the private scheduler-secret header, and contains no service-role key reference.
+- Replaced the admin Integrations page's misleading manual “mark configured” toggles with read-only live checks against server-side credential presence. Credential values are never returned to the browser.
