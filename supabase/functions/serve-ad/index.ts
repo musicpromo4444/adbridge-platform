@@ -2,7 +2,11 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Headers":"authorization,apikey,content-type","Access-Control-Allow-Methods":"GET,OPTIONS","Content-Type":"application/json"};
-const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:cors});
+const json=(body:unknown,status=200)=>new Response(JSON.stringify(body),{status,headers:{...cors,"Cache-Control":"no-store"}});
+function safeHttpUrl(value:unknown){
+ if(typeof value!=="string"||!value.trim())return null;
+ try{const u=new URL(value);return ["https:","http:"].includes(u.protocol)&&!u.username&&!u.password?u.toString():null}catch{return null}
+}
 Deno.serve(async(req:Request)=>{
  if(req.method==="OPTIONS")return new Response("ok",{headers:cors});
  if(req.method!=="GET")return json({error:"GET required"},405);
@@ -15,7 +19,7 @@ Deno.serve(async(req:Request)=>{
  if(propertyError)return json({error:"Property lookup failed"},500);
  if(!property||!property.verified)return json({ads:[],reason:"property_not_verified"});
  if(!(property.platforms||[]).includes(platform)||!(property.ad_formats||[]).includes(format))return json({ads:[],reason:"format_not_registered"});
- const {data:placements,error}=await db.from("ad_placements").select("id,placement_key,name,format,campaign_id,action_url,creative_asset_url,description,frequency_cap,publisher_application_id").eq("enabled",true).eq("publisher_id",property.publisher_id).eq("publisher_property_id",propertyId).eq("format",format).not("publisher_application_id","is",null).limit(10);
+ const {data:placements,error}=await db.from("ad_placements").select("id,placement_key,name,format,campaign_id,action_url,creative_asset_url,description,frequency_cap,publisher_application_id,starts_at,ends_at").eq("enabled",true).eq("publisher_id",property.publisher_id).eq("publisher_property_id",propertyId).eq("format",format).not("publisher_application_id","is",null).limit(10);
  if(error)return json({error:"Placement query failed"},500);
  const ads=[];
  for(const p of placements||[]){
@@ -23,7 +27,7 @@ Deno.serve(async(req:Request)=>{
   if(!application||application.selected_platform!==platform||application.selected_format!==format)continue;
   const {data:campaign}=await db.from("campaigns").select("id,status").eq("id",p.campaign_id).in("status",["funded","active"]).maybeSingle();
   if(!campaign)continue;
-  ads.push({placement_id:p.id,placement_key:p.placement_key,campaign_id:p.campaign_id,name:p.name,format:p.format,creative_url:p.creative_asset_url,destination_url:p.action_url,description:p.description,frequency_cap:p.frequency_cap});
+  ads.push({placement_id:p.id,placement_key:p.placement_key,campaign_id:p.campaign_id,name:p.name,format:p.format,creative_url:safeHttpUrl(p.creative_asset_url),destination_url:safeHttpUrl(p.action_url),description:p.description,frequency_cap:p.frequency_cap});
  }
  return json({ads,property_id:propertyId,platform,format});
 });
