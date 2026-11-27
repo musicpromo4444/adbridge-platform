@@ -22,10 +22,7 @@ begin
     raise exception 'fraud flag id is required' using errcode = '22023';
   end if;
 
-  select * into v_flag
-  from public.fraud_flags
-  where id = p_flag_id;
-
+  select * into v_flag from public.fraud_flags where id = p_flag_id;
   if not found then
     raise exception 'fraud flag not found' using errcode = 'P0002';
   end if;
@@ -44,8 +41,10 @@ begin
       a.ip_hash, a.visitor_hash, a.session_hash, a.user_agent_hash,
       a.evidence, a.created_at
     from public.adbridge_event_assessments a
-    where a.campaign_id is not distinct from v_flag.campaign_id
-      and a.publisher_id is not distinct from v_flag.creator_id
+    where v_flag.campaign_id is not null
+      and v_flag.creator_id is not null
+      and a.campaign_id = v_flag.campaign_id
+      and a.publisher_id = v_flag.creator_id
       and a.created_at >= v_flag.created_at - interval '1 hour'
       and a.created_at <= v_flag.created_at + interval '5 minutes'
       and (
@@ -61,11 +60,12 @@ begin
   select coalesce(jsonb_agg(to_jsonb(p) order by p.created_at desc), '[]'::jsonb)
   into v_payments
   from (
-    select
-      cp.id, cp.amount, cp.status, cp.created_at,
+    select cp.id, cp.amount, cp.status, cp.created_at,
       cp.source_click_id, cp.source_event_id, cp.source_ad_placement_event_id
     from public.campaign_payments cp
-    where cp.campaign_id = v_flag.campaign_id
+    where v_flag.campaign_id is not null
+      and v_flag.creator_id is not null
+      and cp.campaign_id = v_flag.campaign_id
       and cp.creator_id = v_flag.creator_id
       and cp.type = 'creator_payment'
       and cp.created_at >= v_flag.created_at - interval '1 hour'
