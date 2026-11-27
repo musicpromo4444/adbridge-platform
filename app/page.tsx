@@ -18,6 +18,6 @@ export default function Home() {
     <section className="ticker"><div>CREATORS <b>✦</b> PRODUCTS <b>✦</b> STORIES <b>✦</b> CAMPAIGNS <b>✦</b> AUDIENCES <b>✦</b> CREATORS <b>✦</b> PRODUCTS <b>✦</b> STORIES <b>✦</b></div></section>
     <section id="how" className="how"><div><span className="eyebrow">ONE PLACE. TWO SIDES.</span><h2>From product idea<br/>to <em>real attention.</em></h2></div><div className="steps"><article><span>01</span><h3>Brands start a campaign</h3><p>Tell creators exactly what you want shown, said, linked or made.</p></article><article><span>02</span><h3>Creators make it real</h3><p>Choose campaigns that fit your audience and create the content.</p></article><article><span>03</span><h3>Work gets approved</h3><p>When the work is approved, the creator gets paid.</p></article></div></section>
     <section id="brands" className="bottom"><div><span className="eyebrow">FOR ADVERTISERS</span><h2>Put your product<br/><em>inside the story.</em></h2></div><Link className="primary" href="/advertiser">Open Advertiser Dashboard ↗</Link></section>
-    <footer><div className="logo"><span className="logoMark">A</span><span>AD<span>BRIDGE</span></span></div><p>Where brands meet creators.</p><span>© 2026 AdBridge</span></footer>
+    <footer><div className="logo"><span className="logoMark">A</span><span>AD<span>BRIDGE</span></span></div><p>Where brands meet creators.</p><nav aria-label="Legal"><Link href="/privacy">Privacy</Link><Link href="/terms">Terms</Link><Link href="/login">Account</Link></nav><span>© 2026 AdBridge</span></footer>
   </main>;
 }
