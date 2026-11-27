@@ -77,3 +77,15 @@ The nine work packages are fixed. Once development for a package is complete, it
 - Deployed `track-video-metrics` Edge Function version 16 with JWT verification disabled only because the function enforces its own user-session or private scheduler-secret authentication.
 - Verified the production cron job is active, runs every 15 minutes, includes the private scheduler-secret header, and contains no service-role key reference.
 - Replaced the admin Integrations page's misleading manual “mark configured” toggles with read-only live checks against server-side credential presence. Credential values are never returned to the browser.
+
+
+## Advertiser action warnings and campaign refunds (2026-11-27)
+
+- Advertiser pause/close actions now open a confirmation dialog before changing campaign state. The dialog explains the effect and displays the live server-calculated campaign funding, committed/spent amount, prior refunds, eligible unspent balance, closure fee and estimated refund.
+- Pausing is explicitly free (0% fee) and keeps remaining funds reserved so the advertiser can resume later.
+- Permanent closure is a separate action. Its fee is configurable by an administrator and defaults to 0%. The fee is calculated only against eligible unspent balance after committed creator/publisher payments, platform fees and previous refunds.
+- The quote is recomputed under a row lock when the advertiser confirms; the UI cannot submit its own refund or fee amount. A successful closure creates a pending refund ledger entry and permanently closes delivery.
+- Added admin settings for the closure-fee percentage and an admin-only refund settlement confirmation that requires the actual provider/transfer reference before the ledger can be marked refunded.
+- Live Supabase migration applied; quote/confirmation RPCs exist, anonymous execution is revoked, and the default pause fee is 0%.
+- **Provider settlement caveat:** this workflow records and audits the refund request, but the actual Paystack/external transfer execution is not yet automated. The refund remains pending until an administrator verifies the real provider refund and records its reference. Do not present a pending refund as already paid.
+- CI also now declares the OpenAI SDK dependency used by an Edge Function so Deno type checks can resolve it.
