@@ -43,6 +43,10 @@ begin
     raise exception 'campaign pause must remain fee-free';
   end if;
 
+  if to_regclass('public.ad_placement_events_publisher_receipt_once') is null then
+    raise exception 'publisher install and conversion receipts must be globally deduplicated per publisher';
+  end if;
+
   if to_regprocedure('public.submit_creator_verification(text,text,text,text)') is null
      or has_function_privilege('anon','public.submit_creator_verification(text,text,text,text)','EXECUTE')
      or not has_function_privilege('authenticated','public.submit_creator_verification(text,text,text,text)','EXECUTE') then
