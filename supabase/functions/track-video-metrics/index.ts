@@ -280,56 +280,29 @@ Deno.serve(async (req: Request) => {
     return json({ error: "Automatic tracking for this platform is not connected yet.", platform }, 409);
   }
 
-  // Platform counters are cumulative. A stale API response must never
-  // reduce an already-recorded verified count.
-  const currentMetric = Math.max(Number(submission.current_metric || 0), views);
-  const target = Number(submission.target_metric || 0);
-  const reached = target > 0 && currentMetric >= target;
-  const now = new Date().toISOString();
-
-  await db.from("submission_metrics").insert({
-    submission_id: submission.id,
-    platform,
-    external_video_id: videoId,
-    metric_name: "views",
-    metric_value: currentMetric,
-    checked_at: now,
-    source,
-    raw_data: raw,
-  });
-
-  const update: Record<string, unknown> = {
-    tracking_platform: platform,
-    external_video_id: videoId,
-    current_metric: currentMetric,
-    last_metric_check_at: now,
-    tracking_error: null,
-  };
-  if (reached) {
-    update.metric_status = "target_reached";
-    update.metric_verified_at = now;
-  } else {
-    update.metric_status = "tracking";
-  }
-  const { error: submissionUpdateError } = await db.from("submissions")
-    .update(update).eq("id", submission.id);
-  if (submissionUpdateError) {
-    return json({ error: "Verified metrics could not be saved.", details: submissionUpdateError.message }, 500);
+  // The database locks the submission and campaign, stores the provider snapshot,
+  // preserves monotonic verified counts, and releases any eligible CPM payment
+  // in the same transaction. Browser and scheduler callers cannot write metrics directly.
+  if (!Number.isSafeInteger(views) || views < 0) {
+    return json({ error: "The platform returned an invalid view count." }, 502);
   }
 
-  let payout: unknown = null;
-  if (reached) {
-    // The database function locks the campaign, enforces the funded budget,
-    // and uses the submission's unique payment constraint to prevent races.
-    const { data: payoutResult, error: payoutError } = await db.rpc(
-      "release_cpm_submission_payment",
-      { p_submission_id: submission.id },
-    );
-    if (payoutError) {
-      return json({ error: "Metrics were saved, but creator payout could not be processed.", details: payoutError.message }, 500);
-    }
-    payout = payoutResult;
+  const { data: snapshot, error: snapshotError } = await db.rpc(
+    "record_submission_metric_snapshot",
+    {
+      p_submission_id: submission.id,
+      p_platform: platform,
+      p_external_video_id: videoId,
+      p_metric_value: views,
+      p_raw_data: { ...raw, metric_source: source },
+    },
+  );
+  if (snapshotError || !snapshot?.success) {
+    return json({
+      error: "Verified metrics could not be saved atomically.",
+      details: snapshotError?.message || "Metric snapshot was not accepted.",
+    }, 500);
   }
 
-  return json({ success: true, platform, video_id: videoId, views: currentMetric, target, reached, payout });
+  return json({ success: true, ...snapshot });
 });
