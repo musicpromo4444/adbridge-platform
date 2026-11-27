@@ -28,7 +28,7 @@ begin
     raise exception 'URL guard trigger function must remain SECURITY INVOKER';
   end if;
 
-  if not coalesce(v_config @> array['search_path='], false) then
+  if not coalesce(v_config @> array['search_path=""'], false) then
     raise exception 'URL guard trigger function must pin an empty search_path';
   end if;
 
