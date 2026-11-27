@@ -103,3 +103,28 @@ For native apps, add `x-adbridge-app-id` with the exact verified app identifier.
 - IP and visitor velocity are scored; high-volume IP traffic is rate-limited.
 - Client-only telemetry remains unverified and cannot become payable.
 - Suspicious events create fraud flags and hold related publisher earnings.
+
+
+## Key lifecycle status and revocation
+
+Use the authenticated publisher tracking-key Edge Function with the selected verified property.
+
+Status request:
+
+```json
+{"action":"status","property_id":"YOUR_PROPERTY_UUID"}
+```
+
+Rotate request:
+
+```json
+{"action":"rotate","property_id":"YOUR_PROPERTY_UUID"}
+```
+
+Revoke request:
+
+```json
+{"action":"revoke","property_id":"YOUR_PROPERTY_UUID"}
+```
+
+A rotation returns the new `tracking_secret` once with `shown_once: true`. Store it in the publisher's server-side secret manager immediately. Status and revoke responses never return `secret_value`. Every issue, rotation, and revocation creates a private audit record; revoked keys are rejected by the event receiver.
