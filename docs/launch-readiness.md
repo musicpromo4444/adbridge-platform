@@ -31,5 +31,5 @@ Do not consider launch-ready solely from structural checks. The admin Launch Rea
 - Live Supabase migration history now includes the synchronized publisher delivery, fraud hardening, measurement, notification, creator submission, financial reconciliation, earnings/withdrawal, ranking and payout-readiness migrations.
 - Permission hardening applied: public/anonymous direct execution removed from guarded admin/measurement/social RPCs and trigger-only functions; global ranking remains intentionally public.
 - Production route sweep: 12 core routes returned HTTP 200.
-- Runtime error logs: no errors found in the checked deployment window.
+- Runtime error logs: no errors found in the checked deployment window.\n- Latest source validation in an isolated Vercel sandbox: TypeScript passed, Next.js production build succeeded, 54/54 routes generated, and `npm audit` reports 0 vulnerabilities with Next.js 16.4.6.\n- Production deployment of this newer source is blocked by the Vercel daily deployment API quota (100/day); CLI is unavailable in the sandbox.
 - End-to-end tests with authenticated accounts remain pending.
