@@ -14,13 +14,16 @@ Deno.serve(async (req: Request) => {
  const {data:auth,error:authErr}=await userDb.auth.getUser(token);
  if(authErr||!auth.user) return json({error:"Authentication failed"},401);
  const {data:profile}=await createClient(url,service).from("profiles").select("role").eq("id",auth.user.id).maybeSingle();
- if(profile?.role!=="admin") return json({error:"Administrator access required"},403);
+ if(!["admin","advertiser"].includes(profile?.role||"")) return json({error:"Administrator or campaign owner access required"},403);
  let body: any; try{body=await req.json()}catch{return json({error:"Invalid JSON"},400)}
  const refundId=String(body.refund_payment_id||"");
  if(!/^[0-9a-f-]{36}$/i.test(refundId)) return json({error:"Valid refund_payment_id required"},400);
+ const db=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
+ const {data:refund}=await db.from("campaign_payments").select("campaign_id,campaigns(advertiser_id)").eq("id",refundId).maybeSingle();
+ if(!refund) return json({error:"Refund request not found"},404);
+ if(profile.role!=="admin"&&refund.campaigns?.advertiser_id!==auth.user.id) return json({error:"You do not own this campaign refund"},403);
  const {data:attempts,error}=await userDb.rpc("admin_prepare_paystack_campaign_refund",{p_refund_payment_id:refundId});
  if(error) return json({error:error.message},400);
- const db=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
  const outcomes=[];
  for(const a of attempts||[]){
    if(["processed","failed"].includes(a.status)) {outcomes.push({id:a.id,status:a.status});continue;}
@@ -28,7 +31,7 @@ Deno.serve(async (req: Request) => {
      try{
        const sync=await fetch("https://api.paystack.co/refund?reference="+encodeURIComponent(a.paystack_reference),{headers:{"Authorization":"Bearer "+secret,"Cache-Control":"no-cache"}});
        const payload=await sync.json(); const current=Array.isArray(payload.data)?payload.data[0]:null;
-       if(sync.ok&&payload.status&&current){const state=String(current.status||a.status).toLowerCase();const safe=["pending","processing","needs-attention","processed","failed"].includes(state)?state:a.status;await userDb.rpc("admin_update_paystack_refund_attempt",{p_attempt_id:a.id,p_status:safe,p_provider_refund_id:current.id?String(current.id):null});outcomes.push({id:a.id,status:safe,reconciled:true});continue;}
+       if(sync.ok&&payload.status&&current){const state=String(current.status||a.status).toLowerCase();const safe=["pending","processing","needs-attention","processed","failed"].includes(state)?state:a.status;await db.rpc("paystack_update_refund_attempt_internal",{p_attempt_id:a.id,p_status:safe,p_provider_refund_id:current.id?String(current.id):null});outcomes.push({id:a.id,status:safe,reconciled:true});continue;}
      }catch{/* keep the last verified provider state; never create a second refund */}
      outcomes.push({id:a.id,status:a.status});continue;
    }
