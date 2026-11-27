@@ -130,7 +130,7 @@ export default function Studio() {
 
   const selectedCampaign = campaigns.find(c => c.id === campaignId);
 
-  const selectedCampaignAsset = campaignAssets.find(a => a.id === assetId);
+  const selectedCampaignAsset = campaignAssets.find(a => a.id === assetId);\n  useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl); }, [videoUrl]);
   const activePlacement = analysis?.placement && currentTime >= analysis.placement.start_seconds && currentTime <= analysis.placement.end_seconds;
 
   useEffect(() => {
@@ -257,7 +257,7 @@ export default function Studio() {
             <span className="formatBadge">{selected.ratio}</span>
           </div>
 
-          <div className={"aiPreview " + (selected.ratio === "16:9 / source" ? "widePreview" : "")}>
+          <div className={"aiPreview " + (selected.ratio === "16:9 / source" ? "widePreview" : "")} style={{position:"relative"}}>
             {videoUrl
               ? <video src={videoUrl} controls muted playsInline onTimeUpdate={e=>setCurrentTime(e.currentTarget.currentTime)}/>
               : <div className="previewPlaceholder"><span>▶</span><b>Upload your content</b><small>AI will choose the placement automatically.</small></div>
