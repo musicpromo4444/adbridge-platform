@@ -261,7 +261,7 @@ export default function Campaigns() {
                   <div><b>ADBRIDGE CLOSURE FEE ({stopQuote.fee_percent}%)</b><strong>{money(stopQuote.fee_amount)}</strong></div>
                   <div><b>ESTIMATED REFUND</b><strong>{money(stopQuote.refund_amount)}</strong></div>
                 </div>
-                <p><b>Closing is permanent.</b> Ad delivery will stop. Confirming records the refund request; the amount is not marked as paid until the payment provider confirms the refund. Any pending creator delivery or fraud review can affect final settlement.</p>
+                <p><b>Closing is permanent.</b> Ad delivery will stop. Confirming closes the campaign and automatically starts Paystack refund processing for eligible Paystack-funded campaigns. Other payment methods remain in the admin settlement queue. The amount is not marked as refunded until Paystack confirms it is processed. Any pending creator delivery or fraud review can affect final settlement.</p>
               </>
             )}
             <div className="choiceRow" style={{ marginTop: 20 }}>
