@@ -43,6 +43,25 @@ begin
     raise exception 'campaign pause must remain fee-free';
   end if;
 
+  if has_table_privilege('anon','public.creator_campaigns','INSERT')
+     or has_table_privilege('authenticated','public.creator_campaigns','INSERT')
+     or has_table_privilege('anon','public.creator_campaigns','UPDATE')
+     or has_table_privilege('authenticated','public.creator_campaigns','UPDATE')
+     or has_table_privilege('anon','public.submissions','INSERT')
+     or has_table_privilege('authenticated','public.submissions','INSERT')
+     or has_table_privilege('anon','public.submissions','UPDATE')
+     or has_table_privilege('authenticated','public.submissions','UPDATE')
+     or has_table_privilege('anon','public.tracking_links','INSERT')
+     or has_table_privilege('authenticated','public.tracking_links','INSERT')
+     or has_table_privilege('anon','public.tracking_links','UPDATE')
+     or has_table_privilege('authenticated','public.tracking_links','UPDATE')
+     or has_table_privilege('anon','public.creator_verification_submissions','INSERT')
+     or has_table_privilege('authenticated','public.creator_verification_submissions','INSERT')
+     or has_table_privilege('anon','public.creator_verification_submissions','UPDATE')
+     or has_table_privilege('authenticated','public.creator_verification_submissions','UPDATE') then
+    raise exception 'browser roles must not write campaign acceptance, submissions, tracking links or verification states directly';
+  end if;
+
   if to_regprocedure('public.accept_creator_campaign(uuid)') is null
      or to_regprocedure('public.complete_campaign_test_acknowledgement(uuid,boolean)') is null
      or to_regclass('public.creator_campaign_test_acknowledgements') is null
