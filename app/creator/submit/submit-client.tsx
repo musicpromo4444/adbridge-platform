@@ -10,6 +10,8 @@ import { normalizeSocialPostUrl } from "@/lib/social-post-url.mjs";
 
 
 
+const platforms = ["TikTok", "Instagram Reels", "Instagram", "YouTube", "YouTube Shorts", "Facebook", "Facebook Reels", "X", "Snapchat"];
+
 const first = <T,>(value: T | T[] | null | undefined): T | null =>
   Array.isArray(value) ? value[0] ?? null : value ?? null;
 
@@ -311,7 +313,7 @@ export default function Submit() {
 
             <label>Platform</label>
             <select className="textInput" value={platform} onChange={event => setPlatform(event.target.value)} disabled={sent}>
-              {Object.keys(hosts).map(value => <option key={value}>{value}</option>)}
+              {platforms.map(value => <option key={value}>{value}</option>)}
             </select>
 
             <label>Published work link</label>
