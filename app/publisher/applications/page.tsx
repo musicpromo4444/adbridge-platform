@@ -154,7 +154,7 @@ export default function PublisherApplications() {
         <div className="infoBox">
           <b>Need your earnings or payout details?</b>
           <p>Creator and publisher earnings use the same protected payout profile and withdrawal workflow.</p>
-          <Link href="/creator/earnings">Open earnings and payouts →</Link>
+          <Link href="/publisher/earnings">Open earnings and payouts →</Link>
         </div>
       </div>
     </main>
