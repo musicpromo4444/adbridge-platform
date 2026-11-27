@@ -26,7 +26,7 @@ export default function Earnings(){
  useEffect(()=>{void load()},[load]);
  async function markNoticeRead(id:string){
   if(!supabase)return;
-  const{error}=await supabase.from("creator_withdrawal_notifications").update({read_at:new Date().toISOString()}).eq("id",id);
+  const{error}=await supabase.rpc("mark_creator_withdrawal_notification_read",{p_notification_id:id});
   if(!error)setNotices(items=>items.map(item=>item.id===id?{...item,read_at:new Date().toISOString()}:item));
  }
  async function requestWithdrawal(){
