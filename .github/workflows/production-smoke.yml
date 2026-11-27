@@ -28,6 +28,7 @@ jobs:
       - name: Probe production routes and dependencies
         env:
           ADBRIDGE_BASE_URL: https://adbridge-platform.vercel.app
+          EXPECTED_COMMIT_SHA: ${{ github.event.workflow_run.head_sha }}
         run: |
           for attempt in 1 2 3; do
             npm run smoke:production && exit 0
