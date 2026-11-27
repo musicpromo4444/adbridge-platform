@@ -50,6 +50,51 @@ For a video-view event, include `playback_started`, `watch_seconds`, `heartbeat_
 
 The signature must be generated on the publisher's server. AdBridge never trusts a client-supplied `server_verified` field. It sets the trusted flag only after validating the per-property HMAC, a five-minute timestamp window, the verified property/placement association, and event evidence.
 
+### Node.js server example
+
+Keep `ADBRIDGE_TRACKING_SECRET` in the publisher server's private environment. Serialize the event once and sign that exact string; do not parse and re-serialize it between signing and sending.
+
+```js
+import { createHmac, randomUUID } from "node:crypto";
+
+const payload = {
+  placement_key: process.env.ADBRIDGE_PLACEMENT_KEY,
+  event_id: randomUUID(),
+  event_type: "impression",
+  visitor_key: "pseudonymous-visitor-id",
+  session_id: "session-id",
+  rendered: true,
+  viewable_ratio: 0.75,
+  visible_ms: 1400,
+};
+
+const body = JSON.stringify(payload);
+const timestamp = Math.floor(Date.now() / 1000).toString();
+const signature = createHmac("sha256", process.env.ADBRIDGE_TRACKING_SECRET)
+  .update(timestamp + "." + body, "utf8")
+  .digest("hex");
+
+const response = await fetch(
+  process.env.ADBRIDGE_SUPABASE_URL + "/functions/v1/track-ad-event",
+  {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "apikey": process.env.ADBRIDGE_SUPABASE_PUBLISHABLE_KEY,
+      "x-adbridge-timestamp": timestamp,
+      "x-adbridge-signature": signature,
+    },
+    body,
+  },
+);
+
+if (!response.ok) {
+  throw new Error("AdBridge event rejected: " + response.status);
+}
+```
+
+For native apps, add `x-adbridge-app-id` with the exact verified app identifier. Use a new event ID for each distinct event, and send the event from a trusted server—not directly from browser code.
+
 ## 3. What AdBridge enforces
 
 - Duplicate event IDs are rejected.
