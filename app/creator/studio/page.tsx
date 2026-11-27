@@ -130,7 +130,8 @@ export default function Studio() {
 
   const selectedCampaign = campaigns.find(c => c.id === campaignId);
 
-  const selectedCampaignAsset = campaignAssets.find(a => a.id === assetId);\n  useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl); }, [videoUrl]);
+  const selectedCampaignAsset = campaignAssets.find(a => a.id === assetId);
+  useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl); }, [videoUrl]);
   const activePlacement = analysis?.placement && currentTime >= analysis.placement.start_seconds && currentTime <= analysis.placement.end_seconds;
 
   useEffect(() => {
