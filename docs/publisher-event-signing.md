@@ -18,6 +18,8 @@ The function returns a per-property `tracking_secret` once. Store it only in the
 
 ## 2. Sign each event on the publisher server
 
+Every signed publisher event must include its own unique `event_id` (8–128 characters, no whitespace). Generate the ID once when the event is created and persist it with the event so retries reuse the same ID.
+
 Build the exact JSON body, then sign the timestamp and exact raw body:
 
 ```text
@@ -36,7 +38,7 @@ Example event body:
 ```json
 {
   "placement_key": "YOUR_PLACEMENT_KEY",
-  "event_id": "unique-event-id",
+  "event_id": "unique-event-id-0001",
   "event_type": "impression",
   "visitor_key": "pseudonymous-visitor-id",
   "session_id": "session-id",
@@ -50,7 +52,14 @@ For a video-view event, include `playback_started`, `watch_seconds`, `heartbeat_
 
 The signature must be generated on the publisher's server. AdBridge never trusts a client-supplied `server_verified` field. It sets the trusted flag only after validating the per-property HMAC, a five-minute timestamp window, the verified property/placement association, and event evidence.
 
-## 3. What AdBridge enforces
+## 3. Retries and replay protection
+
+- Reuse the same `event_id` and exact event body when retrying a delivery. Re-sign the body with a fresh timestamp.
+- The database's unique event-ID index makes accepted event IDs idempotent. A repeated event ID returns `duplicate: true` and does not create a second payable event.
+- Signed events without an explicit unique `event_id` are rejected. AdBridge does not generate a new ID for a signed request, because doing so would allow a replay to be counted again.
+- Unsigned browser telemetry may still be recorded for diagnostics, but it is not trusted or payable.
+
+## 4. What AdBridge enforces
 
 - Duplicate event IDs are rejected.
 - Publisher properties must be verified and belong to the placement owner.
