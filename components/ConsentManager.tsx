@@ -23,6 +23,7 @@ export default function ConsentManager() {
     try { localStorage.setItem(STORAGE_KEY, value); } catch {}
     setChoice(value);
     setOpen(false);
+    window.dispatchEvent(new Event("adbridge-consent-change"));
   }
 
   return (
