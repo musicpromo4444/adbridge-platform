@@ -79,7 +79,7 @@ test("frontend exposes completion reason and uses the shared notification inbox"
   assert.match(creatorPage, /campaign\?\.status === "completed" \?/);
   assert.match(notificationPage, /from\("notifications"\)/);
   assert.match(publisherPage, /href="\/notifications"/);
-  assert.match(notificationPage, /update\(\{ is_read: true \}\)/);
+  assert.match(notificationPage, /update\(\{\s*is_read:\s*true\s*\}\)/);
   assert.match(lifecycleTypes, /budget_exhausted/);
   assert.match(lifecycleTypes, /target_reached/);
 });
