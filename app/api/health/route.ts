@@ -28,7 +28,7 @@ export async function GET() {
       cache: "no-store",
     });
     // PostgREST root responds with its OpenAPI document when the API is reachable.
-    databaseStatus = response.status < 500 ? "reachable" : "unreachable";
+    databaseStatus = response.ok ? "reachable" : "unreachable";
   } catch {
     databaseStatus = "unreachable";
   }
