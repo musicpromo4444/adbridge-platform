@@ -11,6 +11,7 @@ export async function GET() {
     return NextResponse.json(
       {
         service: "adbridge-platform",
+        commit_sha: process.env.VERCEL_GIT_COMMIT_SHA || null,
         status: "degraded",
         timestamp: new Date().toISOString(),
         dependencies: { supabase: "not_configured" },
@@ -37,6 +38,7 @@ export async function GET() {
   return NextResponse.json(
     {
       service: "adbridge-platform",
+      commit_sha: process.env.VERCEL_GIT_COMMIT_SHA || null,
       status: healthy ? "ok" : "degraded",
       timestamp: new Date().toISOString(),
       dependencies: { supabase: databaseStatus },
