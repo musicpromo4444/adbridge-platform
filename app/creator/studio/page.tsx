@@ -135,7 +135,7 @@ export default function Studio() {
   const selectedCampaign = campaigns.find(c => c.id === campaignId);
 
   const selectedCampaignAsset = campaignAssets.find(a => a.id === assetId);
-  useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl); if (exportUrl) URL.revokeObjectURL(exportUrl); }, [videoUrl, exportUrl]);
+  useEffect(() => () => { if (videoUrl) URL.revokeObjectURL(videoUrl); }, [videoUrl]);\n  useEffect(() => () => { if (exportUrl) URL.revokeObjectURL(exportUrl); }, [exportUrl]);
   const activePlacement = analysis?.placement && currentTime >= analysis.placement.start_seconds && currentTime <= analysis.placement.end_seconds;
 
   useEffect(() => {
