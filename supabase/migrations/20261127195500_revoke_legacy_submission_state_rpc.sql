@@ -1,0 +1,1 @@
+revoke all on function public.mark_creator_campaign_submitted(uuid) from public,anon,authenticated;
