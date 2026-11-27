@@ -66,7 +66,7 @@ test("publisher integration UI exposes real status, rotation, and revocation act
   assert.match(page, /action: "rotate"/);
   assert.match(page, /action: "revoke"/);
   assert.match(page, /Revoke active signing key/);
-  assert.match(page, /properties\.map\(property =>/);
+  assert.match(page, /properties\.map\(p =>/);
   assert.match(page, /!selected\?\.verified/);
   assert.match(page, /keyStatus\?\.active/);
 });
