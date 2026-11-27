@@ -59,3 +59,11 @@ The nine work packages are fixed. Once development for a package is complete, it
 - **Task 2 — Atomic creator submission + tracking link: implemented in repository.** Added `submit_creator_campaign_work` RPC/migration: locks creator job and campaign, validates eligibility and URL/platform, creates submission and advertiser-bound tracking link together, and advances job status atomically. The creator submit page now calls this single RPC instead of issuing separate writes.
 - Tracking slug generation is server-side; destination is taken from the advertiser campaign destination table, not client input. Any failure rolls back the submission/link/job-state changes together.
 - **Rollout status:** the atomic submission/tracking migration is applied to live Supabase and recorded. Authenticated scenario testing remains pending.
+
+
+## Production smoke automation (2026-11-27)
+
+- Added `npm run smoke:production` to probe the public home, authentication, legal/help, rankings, health and publisher embed endpoints against the deployed origin.
+- The smoke test validates HTTP success and expected content types, checks that `/api/health` confirms Supabase reachability, and verifies the embed loader response.
+- Added a GitHub Actions workflow that runs these checks after a successful `AdBridge CI` run on `main`, with a deployment propagation wait and bounded retries.
+- These public-surface checks do not replace authenticated end-to-end tests. Funding, OAuth, creator/publisher submissions, admin review, fraud holds and payout settlement still require dedicated test accounts and provider test credentials.
