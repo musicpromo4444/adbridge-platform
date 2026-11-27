@@ -52,6 +52,14 @@ begin
     raise exception 'publisher install and conversion receipts must be globally deduplicated per publisher';
   end if;
 
+  if exists(
+    select 1 from information_schema.table_privileges
+    where table_schema='public' and grantee in ('anon','PUBLIC')
+      and privilege_type in ('INSERT','UPDATE','DELETE','TRUNCATE','TRIGGER','REFERENCES')
+  ) then
+    raise exception 'anonymous and PUBLIC roles must not have direct write or table-control privileges';
+  end if;
+
   if has_table_privilege('authenticated','public.campaigns','TRUNCATE')
      or has_table_privilege('authenticated','public.publisher_properties','TRUNCATE')
      or has_table_privilege('authenticated','public.publisher_channels','TRUNCATE')
