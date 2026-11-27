@@ -43,3 +43,6 @@ verify_jwt = true
 # Refund processing accepts only authenticated admins or the owning advertiser.
 [functions.process-campaign-refund]
 verify_jwt = true
+# AI placement analysis requires an authenticated creator session.
+[functions.analyze-creator-placement]
+verify_jwt = true
