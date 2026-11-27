@@ -36,6 +36,8 @@ for (const check of checks) {
       const body = await response.json();
       if (body.service !== "adbridge-platform" || body.status !== "ok" || body.dependencies?.supabase !== "reachable") {
         reason = "health dependency check did not report healthy Supabase";
+      } else if (expectedCommit && body.commit_sha !== expectedCommit) {
+        reason = "production is still serving commit " + String(body.commit_sha || "unknown") + "; expected " + expectedCommit;
       }
     }
     if (!reason && check.path === "/api/adbridge/embed") {
