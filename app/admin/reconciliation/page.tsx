@@ -19,6 +19,11 @@ type Reconciliation={
     campaign_id:string;campaign_name:string;issue:string;
     funding_difference:number;payout_overrun:number;
   }>;
+  withdrawal_issues:Array<{
+    user_id:string;display_name:string|null;account_role:string|null;
+    released_earnings:number;reserved_withdrawals:number;
+    over_reserved_amount:number;withdrawal_count:number;
+  }>;
 };
 
 const money=(n:number)=>"₦"+Number(n||0).toLocaleString("en-NG",{maximumFractionDigits:2});
@@ -74,6 +79,15 @@ export default function FinancialReconciliation(){
           <small>Campaign ID: {issue.campaign_id}</small>
           <div><Link href={"/admin/campaigns"}>Review campaigns →</Link></div>
         </article>)}</div>:<div className="successBox">No funding or payout-budget discrepancies were found in the current ledger snapshot.</div>}
+        <h2>Withdrawal balance discrepancies · {data.withdrawal_issues?.length||0}</h2>
+        {data.withdrawal_issues?.length?<div className="opps">{data.withdrawal_issues.map((issue)=><article key={issue.user_id}>
+          <b>{(issue.account_role||"Unknown account").toUpperCase()}</b>
+          <h3>{issue.display_name||"Unresolved account"}</h3>
+          <p>Released earnings: {money(issue.released_earnings)} · Reserved withdrawals: {money(issue.reserved_withdrawals)}</p>
+          <p>Over-reserved amount: {money(issue.over_reserved_amount)} · Active/paid withdrawal records: {issue.withdrawal_count}</p>
+          <small>Account ID: {issue.user_id}</small>
+          <div><Link href="/admin/withdrawals">Review withdrawals →</Link></div>
+        </article>)}</div>:<div className="successBox">No withdrawal reservations exceed released earnings, and no orphaned withdrawal accounts were found.</div>}
         <h2>Campaign ledger detail</h2>
         {data.campaigns.length?<div className="opps">{data.campaigns.map(c=><article key={c.campaign_id}>
           <b>{c.campaign_status.toUpperCase()}</b>
