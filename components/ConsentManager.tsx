@@ -45,7 +45,7 @@ export default function ConsentManager() {
       )}
       {!open && choice && (
         <button type="button" onClick={() => setOpen(true)} aria-label="Manage privacy choices" style={{
-          position:"fixed",left:12,bottom:12,zIndex:900,border:"1px solid #ffffff30",
+          position:"fixed",right:12,bottom:12,zIndex:900,border:"1px solid #ffffff30",
           borderRadius:999,padding:"8px 12px",background:"#071713",color:"#dffefa",
           fontSize:11,cursor:"pointer",boxShadow:"0 4px 18px #0006"
         }}>Privacy choices</button>
