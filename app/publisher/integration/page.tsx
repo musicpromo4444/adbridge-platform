@@ -73,13 +73,13 @@ export default function PublisherIntegration() {
   }, []);
 
   async function issueKey() {
-    if (!supabase || !propertyId) return;
+    if (!supabase || !propertyId || !selected?.verified || !statusReady) return;
     setBusy(true);
     setError("");
     setMessage("");
     setSecret("");
     const { data, error: invokeError } = await supabase.functions.invoke("publisher-tracking-key", {
-      body: { property_id: propertyId },
+      body: { action: "rotate", property_id: propertyId },
     });
     if (invokeError || !data?.tracking_secret) {
       setError(data?.error || invokeError?.message || "A tracking key could not be issued.");
@@ -87,7 +87,24 @@ export default function PublisherIntegration() {
       return;
     }
     setSecret(String(data.tracking_secret));
-    setMessage("A new property signing key was issued. This is the only time this key will be shown.");
+    if (data.status) { setKeyStatus(data.status as KeyStatus); setStatusReady(true); }
+    setMessage("A new property signing key was issued or rotated. This is the only time this key will be shown.");
+    setBusy(false);
+  }
+
+  async function revokeKey() {
+    if (!supabase || !propertyId || !keyStatus?.has_key || keyStatus.revoked_at) return;
+    if (!window.confirm("Revoke this property's signing key now? Signed server events using it will be rejected.")) return;
+    setBusy(true); setError(""); setMessage(""); setSecret("");
+    const { data, error: invokeError } = await supabase.functions.invoke("publisher-tracking-key", {
+      body: { action: "revoke", property_id: propertyId },
+    });
+    if (invokeError || !data?.success || !data?.status) {
+      setError(data?.error || invokeError?.message || "The signing key could not be revoked.");
+      setBusy(false); return;
+    }
+    setKeyStatus(data.status as KeyStatus); setStatusReady(true);
+    setMessage("The property signing key has been revoked. Signed events using that key will no longer be accepted.");
     setBusy(false);
   }
 
