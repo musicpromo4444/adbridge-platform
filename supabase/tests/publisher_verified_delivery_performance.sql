@@ -19,7 +19,11 @@ begin
     raise exception 'Publisher performance RPC must not expose visitor identifiers';
   end if;
   if has_function_privilege('anon', v_oid, 'EXECUTE')
-     or has_function_privilege('public', v_oid, 'EXECUTE') then
+     or exists (
+       select 1 from pg_proc p,
+         lateral aclexplode(coalesce(p.proacl, acldefault('f', p.proowner))) acl
+       where p.oid = v_oid and acl.grantee = 0 and acl.privilege_type = 'EXECUTE'
+     ) then
     raise exception 'Anonymous execution must be revoked';
   end if;
   if not has_function_privilege('authenticated', v_oid, 'EXECUTE') then
