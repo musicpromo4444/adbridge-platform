@@ -19,10 +19,24 @@ Deno.serve(async(req:Request)=>{
  if(propertyError)return json({error:"Property lookup failed"},500);
  if(!property||!property.verified)return json({ads:[],reason:"property_not_verified"});
  if(!(property.platforms||[]).includes(platform)||!(property.ad_formats||[]).includes(format))return json({ads:[],reason:"format_not_registered"});
- const {data:placements,error}=await db.from("ad_placements").select("id,placement_key,name,format,campaign_id,action_url,creative_asset_url,description,frequency_cap,publisher_application_id,starts_at,ends_at").eq("enabled",true).eq("publisher_id",property.publisher_id).eq("publisher_property_id",propertyId).eq("format",format).not("publisher_application_id","is",null).limit(10);
+
+ // Filter the delivery window in Postgres before applying the result limit so
+ // expired/future placements cannot crowd valid inventory out of the response.
+ const now=new Date(),nowIso=now.toISOString(),nowMs=now.getTime();
+ const {data:placements,error}=await db.from("ad_placements")
+  .select("id,placement_key,name,format,campaign_id,action_url,creative_asset_url,description,frequency_cap,publisher_application_id,starts_at,ends_at")
+  .eq("enabled",true).eq("publisher_id",property.publisher_id).eq("publisher_property_id",propertyId).eq("format",format)
+  .not("publisher_application_id","is",null)
+  .or(`starts_at.is.null,starts_at.lte.${nowIso}`)
+  .or(`ends_at.is.null,ends_at.gte.${nowIso}`)
+  .limit(10);
  if(error)return json({error:"Placement query failed"},500);
  const ads=[];
  for(const p of placements||[]){
+  // Recheck the window immediately before serving in case the query took time.
+  const startsAt=p.starts_at?Date.parse(p.starts_at):null;
+  const endsAt=p.ends_at?Date.parse(p.ends_at):null;
+  if((startsAt!==null&&(!Number.isFinite(startsAt)||startsAt>nowMs))||(endsAt!==null&&(!Number.isFinite(endsAt)||endsAt<nowMs)))continue;
   const {data:application}=await db.from("publisher_campaigns").select("id,status,selected_platform,selected_format").eq("id",p.publisher_application_id).eq("publisher_id",property.publisher_id).eq("campaign_id",p.campaign_id).eq("selected_property_id",propertyId).eq("status","approved").maybeSingle();
   if(!application||application.selected_platform!==platform||application.selected_format!==format)continue;
   const {data:campaign}=await db.from("campaigns").select("id,status").eq("id",p.campaign_id).in("status",["funded","active"]).maybeSingle();
