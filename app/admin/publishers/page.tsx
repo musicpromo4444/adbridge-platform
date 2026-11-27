@@ -114,7 +114,9 @@ export default function PublisherApplications() {
               <b>{row.status.toUpperCase()}</b>
               <h3>{campaign?.name || "Campaign"}</h3>
               <p>Publisher: {publisher?.display_name || "Unnamed publisher"} · {publisher?.email || row.publisher_id}</p>
-              <p>Platform: {row.selected_platform || "Not specified"} · Format: {row.selected_format || "Not specified"}</p>\n              <p>Selected property: {properties.find(property => property.id === row.selected_property_id)?.name || "Legacy application — no property selected"}</p>\n              {properties.find(property => property.id === row.selected_property_id)?.url && <a href={properties.find(property => property.id === row.selected_property_id)?.url || "#"} target="_blank" rel="noreferrer">Review publisher property ↗</a>}
+              <p>Platform: {row.selected_platform || "Not specified"} · Format: {row.selected_format || "Not specified"}</p>
+              <p>Selected property: {properties.find(property => property.id === row.selected_property_id)?.name || "Legacy application — no property selected"}</p>
+              {properties.find(property => property.id === row.selected_property_id)?.url && <a href={properties.find(property => property.id === row.selected_property_id)?.url || "#"} target="_blank" rel="noreferrer">Review publisher property ↗</a>}
               <small>Applied {new Date(row.applied_at).toLocaleString()}</small>
               {row.status === "applied" && <div className="choiceRow">
                 <button className="primary" disabled={!!busy} onClick={() => void decide(row, "approved")}>{busy === row.id ? "Saving…" : "Approve publisher"}</button>
