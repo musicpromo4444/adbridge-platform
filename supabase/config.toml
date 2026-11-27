@@ -47,3 +47,7 @@ verify_jwt = true
 [functions.analyze-creator-placement]
 verify_jwt = true
 import_map = "./functions/analyze-creator-placement/deno.json"
+
+# Postback secret rotation is authenticated and campaign-owner checked.
+[functions.manage-campaign-postback-secret]
+verify_jwt = true
