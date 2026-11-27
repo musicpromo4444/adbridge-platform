@@ -23,7 +23,15 @@ Deno.serve(async (req: Request) => {
  const db=createClient(url,service,{auth:{persistSession:false,autoRefreshToken:false}});
  const outcomes=[];
  for(const a of attempts||[]){
-   if(["processed","failed","pending","processing","needs-attention"].includes(a.status)) {outcomes.push({id:a.id,status:a.status});continue;}
+   if(["processed","failed"].includes(a.status)) {outcomes.push({id:a.id,status:a.status});continue;}
+   if(["pending","processing","needs-attention"].includes(a.status)){
+     try{
+       const sync=await fetch("https://api.paystack.co/refund?reference="+encodeURIComponent(a.paystack_reference),{headers:{"Authorization":"Bearer "+secret,"Cache-Control":"no-cache"}});
+       const payload=await sync.json(); const current=Array.isArray(payload.data)?payload.data[0]:null;
+       if(sync.ok&&payload.status&&current){const state=String(current.status||a.status).toLowerCase();const safe=["pending","processing","needs-attention","processed","failed"].includes(state)?state:a.status;await userDb.rpc("admin_update_paystack_refund_attempt",{p_attempt_id:a.id,p_status:safe,p_provider_refund_id:current.id?String(current.id):null});outcomes.push({id:a.id,status:safe,reconciled:true});continue;}
+     }catch{/* keep the last verified provider state; never create a second refund */}
+     outcomes.push({id:a.id,status:a.status});continue;
+   }
    const {data:funding}=await db.from("campaign_payments").select("provider_reference").eq("id",a.funding_payment_id).maybeSingle();
    if(!funding?.provider_reference){await userDb.rpc("admin_update_paystack_refund_attempt",{p_attempt_id:a.id,p_status:"manual_review",p_error:"Original Paystack transaction reference missing"});outcomes.push({id:a.id,status:"manual_review"});continue;}
    // A previous invocation may have timed out after Paystack accepted the refund.
