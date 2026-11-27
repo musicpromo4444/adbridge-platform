@@ -33,7 +33,7 @@ export default function Admin(){
   setStats({
    users:us.length,creators:us.filter((x:any)=>x.role==="creator").length,verifiedCreators:us.filter((x:any)=>x.role==="creator"&&x.verified).length,advertisers:us.filter((x:any)=>x.role==="advertiser").length,publishers:us.filter((x:any)=>x.role==="publisher").length,
    campaigns:cs.length,active:cs.filter((x:any)=>x.status==="active").length,fundedCampaigns:cs.filter((x:any)=>x.status==="funded").length,paused:cs.filter((x:any)=>x.status==="paused").length,closed:cs.filter((x:any)=>x.status==="closed").length,
-   submissions:ss.length,pendingReviews:ss.filter((x:any)=>x.status==="submitted").length,payments:ps.length,
+   submissions:ss.length,pendingReviews:ss.filter((x:any)=>x.status==="waiting"||x.status==="submitted").length,payments:ps.length,
    confirmedFunding:ps.filter((x:any)=>x.type==="funding"&&["held","released"].includes(x.status)).reduce((a:number,x:any)=>a+Number(x.amount||0),0),
    pendingFunding:ps.filter((x:any)=>x.type==="funding"&&x.status==="pending").reduce((a:number,x:any)=>a+Number(x.amount||0),0),
    released:ps.filter((x:any)=>x.type==="creator_payment"&&x.status==="released").reduce((a:number,x:any)=>a+Number(x.amount||0),0),
