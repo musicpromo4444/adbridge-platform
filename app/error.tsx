@@ -12,7 +12,7 @@ export default function Error({
 }) {
   useEffect(() => {
     // Keep details in server/runtime logs; never expose stack traces to visitors.
-    console.error("AdBridge route error", error.digest || error.message);
+    console.error("AdBridge route error", error.digest || "unidentified");
   }, [error]);
 
   return (
