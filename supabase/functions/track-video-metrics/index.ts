@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { refreshPlatformCredential } from "../_shared/platform-token-refresh.ts";
+import { refreshPlatformCredential } from "./platform-token-refresh.ts";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
