@@ -5,3 +5,24 @@ project_id = "wilfmtzxxnkdcyiozamq"
 # short-lived, one-time state value for the provider callback.
 [functions.social-oauth-start]
 verify_jwt = false
+# Public endpoints perform their own request authentication/signature validation.
+[functions.paystack-webhook]
+verify_jwt = false
+
+[functions.track-ad-event]
+verify_jwt = false
+
+[functions.track-click]
+verify_jwt = false
+
+[functions.track-conversion]
+verify_jwt = false
+
+[functions.track-all-metrics]
+verify_jwt = false
+
+[functions.track-video-metrics]
+verify_jwt = false
+
+[functions.serve-ad]
+verify_jwt = false
