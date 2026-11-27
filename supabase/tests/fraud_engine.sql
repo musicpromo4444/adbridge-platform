@@ -43,6 +43,11 @@ begin
     raise exception 'campaign pause must remain fee-free';
   end if;
 
+  if to_regprocedure('public.admin_get_fraud_flag_evidence(uuid)') is null
+     or has_function_privilege('anon','public.admin_get_fraud_flag_evidence(uuid)','EXECUTE') then
+    raise exception 'fraud evidence drilldown must be admin-only';
+  end if;
+
   if to_regclass('public.ad_placement_events_publisher_receipt_once') is null then
     raise exception 'publisher install and conversion receipts must be globally deduplicated per publisher';
   end if;
