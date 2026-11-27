@@ -258,7 +258,7 @@ export default function Campaigns() {
               <button className="primary" type="button" disabled={!!busy} onClick={() => void confirmStop()}>
                 {busy ? "Processing…" : stopQuote.action === "paused" ? "Yes, pause campaign" : "Yes, close and request refund"}
               </button>
-              <button className="secondary" type="button" disabled={!!busy} onClick={() => setStopQuote(null)}>No, keep campaign running</button>
+              <button className="secondary" type="button" disabled={!!busy} onClick={() => setStopQuote(null)}>No, keep the current campaign status</button>
             </div>
           </section>
         </div>
