@@ -1,5 +1,5 @@
 export type PublisherEventMetric = {
-  event_type: "impression" | "view" | "click" | "install" | "conversion";
+  event_type: "impression" | "click" | "video_view" | "install" | "conversion";
   total: number;
   verified: number;
   payable: number;
