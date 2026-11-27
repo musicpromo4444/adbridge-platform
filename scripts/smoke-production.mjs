@@ -4,6 +4,7 @@
  * Usage: ADBRIDGE_BASE_URL=https://adbridge-platform.vercel.app npm run smoke:production
  */
 const base = (process.env.ADBRIDGE_BASE_URL || "").replace(/\/+$/, "");
+const expectedCommit = (process.env.EXPECTED_COMMIT_SHA || "").trim();
 if (!base) {
   console.error("Set ADBRIDGE_BASE_URL to the deployed AdBridge origin.");
   process.exit(2);
