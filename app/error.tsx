@@ -11,7 +11,7 @@ export default function Error({
   reset: () => void;
 }) {
   useEffect(() => {
-    // Keep details in server/runtime logs; never expose stack traces to visitors.
+    // Log only the opaque digest; never write exception details or user data to the browser console.
     console.error("AdBridge route error", error.digest || "unidentified");
   }, [error]);
 
