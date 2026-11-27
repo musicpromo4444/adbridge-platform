@@ -36,7 +36,7 @@ Deno.serve(async (req: Request) => {
      outcomes.push({id:a.id,status:a.status});continue;
    }
    const {data:funding}=await db.from("campaign_payments").select("provider_reference").eq("id",a.funding_payment_id).maybeSingle();
-   if(!funding?.provider_reference){await userDb.rpc("admin_update_paystack_refund_attempt",{p_attempt_id:a.id,p_status:"manual_review",p_error:"Original Paystack transaction reference missing"});outcomes.push({id:a.id,status:"manual_review"});continue;}
+   if(!funding?.provider_reference){await db.rpc("paystack_update_refund_attempt_internal",{p_attempt_id:a.id,p_status:"manual_review",p_error:"Original Paystack transaction reference missing"});outcomes.push({id:a.id,status:"manual_review"});continue;}
    // A previous invocation may have timed out after Paystack accepted the refund.
    // Reconcile the stable reference before any retry to avoid duplicate submissions.
    if(a.status==="manual_review"||a.status==="submitting"){
@@ -47,33 +47,33 @@ Deno.serve(async (req: Request) => {
        if(lookup.ok&&found.status&&existing){
          const state=String(existing.status||"pending").toLowerCase();
          const safe=["pending","processing","needs-attention","processed","failed"].includes(state)?state:"pending";
-         await userDb.rpc("admin_update_paystack_refund_attempt",{p_attempt_id:a.id,p_status:safe,p_provider_refund_id:existing.id?String(existing.id):null});
+         await db.rpc("paystack_update_refund_attempt_internal",{p_attempt_id:a.id,p_status:safe,p_provider_refund_id:existing.id?String(existing.id):null});
          outcomes.push({id:a.id,status:safe,reconciled:true});continue;
        }
      }catch{
-       await userDb.rpc("admin_update_paystack_refund_attempt",{p_attempt_id:a.id,p_status:"manual_review",p_error:"Could not reconcile existing Paystack reference; retry is blocked"});
+       await db.rpc("paystack_update_refund_attempt_internal",{p_attempt_id:a.id,p_status:"manual_review",p_error:"Could not reconcile existing Paystack reference; retry is blocked"});
        outcomes.push({id:a.id,status:"manual_review"});continue;
      }
    }
-   await userDb.rpc("admin_update_paystack_refund_attempt",{p_attempt_id:a.id,p_status:"submitting"});
+   await db.rpc("paystack_update_refund_attempt_internal",{p_attempt_id:a.id,p_status:"submitting"});
    let response: Response;
    try{
      response=await fetch("https://api.paystack.co/refund",{method:"POST",headers:{"Authorization":"Bearer "+secret,"Content-Type":"application/json","Cache-Control":"no-cache"},body:JSON.stringify({transaction:funding.provider_reference,amount:Math.round(Number(a.amount)*100),currency:"NGN",reference:a.paystack_reference,merchant_note:"AdBridge campaign closure refund"})});
    }catch(e){
      // Keep the same Paystack refund reference on retry: Paystack enforces uniqueness.
-     await userDb.rpc("admin_update_paystack_refund_attempt",{p_attempt_id:a.id,p_status:"manual_review",p_error:"Network result uncertain; reconcile this exact refund reference before retrying"});
+     await db.rpc("paystack_update_refund_attempt_internal",{p_attempt_id:a.id,p_status:"manual_review",p_error:"Network result uncertain; reconcile this exact refund reference before retrying"});
      outcomes.push({id:a.id,status:"manual_review"});continue;
    }
    let result:any; try{result=await response.json()}catch{result={}}
    if(!response.ok||!result.status){
      const msg=String(result.message||"Paystack rejected refund request");
      const duplicate=/reference.*(used|exist|unique)/i.test(msg);
-     await userDb.rpc("admin_update_paystack_refund_attempt",{p_attempt_id:a.id,p_status:duplicate?"manual_review":"failed",p_error:msg});
+     await db.rpc("paystack_update_refund_attempt_internal",{p_attempt_id:a.id,p_status:duplicate?"manual_review":"failed",p_error:msg});
      outcomes.push({id:a.id,status:duplicate?"manual_review":"failed",message:msg});continue;
    }
    const providerStatus=String(result.data?.status||"pending").toLowerCase();
    const allowed=["pending","processing","needs-attention","processed","failed"].includes(providerStatus)?providerStatus:"pending";
-   await userDb.rpc("admin_update_paystack_refund_attempt",{p_attempt_id:a.id,p_status:allowed,p_provider_refund_id:result.data?.id?String(result.data.id):null});
+   await db.rpc("paystack_update_refund_attempt_internal",{p_attempt_id:a.id,p_status:allowed,p_provider_refund_id:result.data?.id?String(result.data.id):null});
    outcomes.push({id:a.id,status:allowed});
  }
  return json({ok:true,attempts:outcomes});
