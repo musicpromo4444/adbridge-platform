@@ -31,11 +31,13 @@ export default function PrivacyPolicy() {
         </ul>
         <h2>4. Sharing</h2>
         <p>Advertisers receive campaign performance and work-submission information needed to assess delivery. Creators and publishers receive the campaign instructions and operational information needed to participate. We do not provide an in-platform advertiser-to-creator private chat or expose private payout credentials to other marketplace participants. We do not sell personal information.</p>
-        <h2>5. Retention and security</h2>
+        <h2>5. Cookies and local storage</h2>
+        <p>AdBridge may use browser local storage and session storage to maintain basic visitor and session identifiers for advertising measurement, frequency controls, fraud prevention and duplicate-event detection. These identifiers are not intended to identify you by name. You can clear browser storage or use browser privacy controls, although some tracking and service features may then work differently. Where required by local law, additional consent controls will be provided before non-essential tracking is enabled.</p>
+        <h2>6. Retention and security</h2>
         <p>We retain information for as long as needed to operate accounts, preserve campaign and financial records, resolve disputes, investigate fraud and comply with law. We apply access controls and security measures, but no internet service can guarantee absolute security. Do not place private signing keys or passwords in public repositories or client-side code.</p>
-        <h2>6. Your choices and rights</h2>
+        <h2>7. Your choices and rights</h2>
         <p>Depending on your location, you may have rights to access, correct, delete, export or object to certain processing of your personal information. You can update profile details, disconnect supported social accounts and contact AdBridge through the support channel published in the service. Some financial, fraud-prevention or legal records may need to be retained.</p>
-        <h2>7. Children and changes</h2>
+        <h2>8. Children and changes</h2>
         <p>AdBridge is intended for people legally able to enter the applicable marketplace agreements and is not designed for children. We may update this notice as the service changes. The latest version will be published on this page.</p>
         <p><b>Contact:</b> Use the support contact published in your AdBridge account or on the official AdBridge website.</p>
         <Link className="secondary" href="/">← Back to AdBridge</Link>
