@@ -52,7 +52,7 @@ The nine work packages are fixed. Once development for a package is complete, it
 8. **AI tools — CODE COMPLETE.** AI post assistant and creator post studio; AI Studio now captures actual video frames, analyzes an accepted campaign's logo/asset, provides a timed placement preview, and can render/download a WebM overlay. Placement analysis Edge Function source restored to repository and deployed version 3. AI provider secret is excluded from this build score.
 9. **Rankings, notifications and polish — DEVELOPMENT COMPLETE.** Public worldwide Top 20 rankings, notification events/triggers, Realtime notifications and user-facing status/navigation/empty-state polish.
 
-**Deployment/verification caveat:** The latest main source was pulled into an isolated Vercel sandbox and validated: TypeScript passed, production build compiled, all 54 pages generated, and `npm audit` reported 0 vulnerabilities after upgrading Next.js to 16.4.6. The latest automatic Git-linked production deployment for commit 11f2e2ef is READY. The manual deployment API quota was reached, but automatic Git deployment succeeded. This is not counted as development remaining. End-to-end tests and provider secrets remain excluded as requested.
+**Deployment/verification caveat:** GitHub build verification has passed for the current main source at commit `faae251a3ffe101546f81967028b031492a53164` (TypeScript and production build). The latest confirmed READY production deployment is still commit `a625277fbd82aedc480d903230918591e04284cd`; it does not contain the latest main changes. Vercel previously rejected new deployment creation after its daily deployment quota was reached. The production smoke workflow now compares the deployed health-endpoint commit SHA with the exact source SHA it is testing, so stale deployments cannot be mistaken for a successful rollout. End-to-end tests and provider secrets remain unverified until real test accounts and provider test credentials are available.
 
 ## Ordered feature hardening follow-up (2026-11-27)
 
@@ -65,8 +65,8 @@ The nine work packages are fixed. Once development for a package is complete, it
 
 - Added `npm run smoke:production` to probe the public home, authentication, legal/help, rankings, health and publisher embed endpoints against the deployed origin.
 - The smoke test validates HTTP success and expected content types, checks that `/api/health` confirms Supabase reachability, and verifies the embed loader response.
-- Added a GitHub Actions workflow that runs these checks after a successful `AdBridge CI` run on `main`, with a deployment propagation wait and bounded retries.
-- These public-surface checks do not replace authenticated end-to-end tests. Funding, OAuth, creator/publisher submissions, admin review, fraud holds and payout settlement still require dedicated test accounts and provider test credentials.
+- Added a GitHub Actions workflow that runs these checks after a successful `AdBridge build verification` run on `main`, with a deployment propagation wait and bounded retries.
+- The smoke workflow also requires `/api/health` to report the exact Git commit SHA being validated, preventing an older production deployment from passing as current. These public-surface checks do not replace authenticated end-to-end tests. Funding, OAuth, creator/publisher submissions, admin review, fraud holds and payout settlement still require dedicated test accounts and provider test credentials.
 
 
 ## Scheduled metric refresh security repair (2026-11-27)
