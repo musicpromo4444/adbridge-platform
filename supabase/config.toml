@@ -51,3 +51,11 @@ import_map = "./functions/analyze-creator-placement/deno.json"
 # Postback secret rotation is authenticated and campaign-owner checked.
 [functions.manage-campaign-postback-secret]
 verify_jwt = true
+
+# Campaign funding initialization is authenticated by Supabase JWT and owner checks.
+[functions.start-campaign-payment]
+verify_jwt = true
+
+# Funding verification requires an authenticated advertiser session.
+[functions.verify-campaign-payment]
+verify_jwt = true
