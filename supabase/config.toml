@@ -33,3 +33,6 @@ verify_jwt = true
 
 [functions.admin-bootstrap]
 verify_jwt = true
+# Manual metric decisions are administrator-only and revalidated inside the Edge Function.
+[functions.review-manual-metric]
+verify_jwt = true
