@@ -33,6 +33,8 @@ jobs:
         run: deno check --no-lock --config supabase/functions/review-manual-metric/deno.json supabase/functions/review-manual-metric/index.ts
       - name: Type-check social OAuth and token refresh Edge Functions
         run: deno check --no-lock --config deno.json supabase/functions/social-oauth-start/index.ts supabase/functions/track-video-metrics/index.ts supabase/functions/refresh-social-credentials/index.ts
+      - name: Type-check AI placement analysis Edge Function
+        run: deno check --no-lock --config supabase/functions/analyze-creator-placement/deno.json supabase/functions/analyze-creator-placement/index.ts
       - name: Type-check application
         run: npx tsc --noEmit
       - name: Build production application
