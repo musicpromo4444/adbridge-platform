@@ -11,7 +11,14 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: cors });
 }
 
-function safeEqual(a: string, b: string) {\n  if (!a || a.length !== b.length) return false;\n  let mismatch = 0;\n  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);\n  return mismatch === 0;\n}\n\nfunction youtubeId(url: string) {
+function safeEqual(a: string, b: string) {
+  if (!a || a.length !== b.length) return false;
+  let mismatch = 0;
+  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return mismatch === 0;
+}
+
+function youtubeId(url: string) {
   try {
     const u = new URL(url);
     const host = u.hostname.toLowerCase();
