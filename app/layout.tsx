@@ -17,4 +17,4 @@ export const metadata: Metadata={
   },
   robots: { index: true, follow: true },
 };
-export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}<div style={{position:"fixed",left:12,bottom:12,zIndex:50,maxWidth:360,width:"calc(100% - 24px)"}}><AdPlacement/></div></body></html>}
+export default function RootLayout({children}:{children:React.ReactNode}){return <html lang="en"><body>{children}<ConsentManager/><div style={{position:"fixed",left:12,bottom:12,zIndex:50,maxWidth:360,width:"calc(100% - 24px)"}}><AdPlacement/></div></body></html>}
