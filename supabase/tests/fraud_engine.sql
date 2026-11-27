@@ -2,6 +2,17 @@ do $$
 declare r jsonb;
 begin
 
+  if not exists (
+    select 1 from public.adbridge_service_secrets
+    where key_name='metrics_scheduler' and length(secret_value)>=32
+  ) then raise exception 'private metrics scheduler secret is missing or too short'; end if;
+  if not exists (
+    select 1 from cron.job
+    where jobname='adbridge-video-metric-refresh'
+      and active
+      and position('x-adbridge-cron-secret' in command)>0
+  ) then raise exception 'video metric refresh cron job is inactive or missing its private scheduler authentication header'; end if;
+
   if has_function_privilege('anon','public.resolve_tracking_destination(text)','EXECUTE') then raise exception 'anonymous clients can call destination resolver directly'; end if;
   if has_function_privilege('authenticated','public.resolve_tracking_destination(text)','EXECUTE') then raise exception 'signed-in clients can call destination resolver directly'; end if;
   if not has_function_privilege('service_role','public.resolve_tracking_destination(text)','EXECUTE') then raise exception 'server role cannot call destination resolver'; end if;
