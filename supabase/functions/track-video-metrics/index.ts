@@ -3,7 +3,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-adbridge-cron-secret",
   "Content-Type": "application/json",
 };
 
@@ -11,7 +11,7 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: cors });
 }
 
-function youtubeId(url: string) {
+function safeEqual(a: string, b: string) {\n  if (!a || a.length !== b.length) return false;\n  let mismatch = 0;\n  for (let i = 0; i < a.length; i++) mismatch |= a.charCodeAt(i) ^ b.charCodeAt(i);\n  return mismatch === 0;\n}\n\nfunction youtubeId(url: string) {
   try {
     const u = new URL(url);
     const host = u.hostname.toLowerCase();
@@ -49,17 +49,36 @@ Deno.serve(async (req: Request) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const authorization = req.headers.get("Authorization") || "";
-  const bearer = authorization.match(/^Bearer\s+(.+)$/i)?.[1];
+  const bearer = authorization.match(/^Bearer\\s+(.+)$/i)?.[1] || "";
   if (!supabaseUrl || !serviceKey || !anonKey) {
     return json({ error: "Server tracking credentials are not configured." }, 503);
   }
-  if (!bearer) return json({ error: "Sign in before requesting metric verification." }, 401);
 
-  // The scheduled aggregator may call this function with the server-only
-  // service key. Browser callers must present a real Supabase user session.
-  const internalServiceCall = bearer === serviceKey;
+  const db = createClient(supabaseUrl, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+
+  // Scheduled metric refresh uses a dedicated random secret stored only in
+  // Supabase. It never needs to expose the service-role key to pg_cron.
+  const suppliedCronSecret = req.headers.get("x-adbridge-cron-secret") || "";
+  let schedulerCall = false;
+  if (suppliedCronSecret) {
+    const { data: schedulerSecret, error: schedulerError } = await db
+      .from("adbridge_service_secrets")
+      .select("secret_value")
+      .eq("key_name", "metrics_scheduler")
+      .maybeSingle();
+    schedulerCall = !schedulerError && !!schedulerSecret?.secret_value &&
+      safeEqual(suppliedCronSecret, String(schedulerSecret.secret_value));
+  }
+
+  if (!bearer && !schedulerCall) return json({ error: "Authentication required." }, 401);
+
+  // A server-only service key or the dedicated scheduler secret may perform
+  // scheduled refreshes. Browser callers must present a real user session.
+  const internalServiceCall = bearer === serviceKey || schedulerCall;
   let callerId: string | null = null;
-  if (!internalServiceCall) {
+  if (bearer && bearer !== serviceKey && !schedulerCall) {
     const authClient = createClient(supabaseUrl, anonKey, {
       global: { headers: { Authorization: `Bearer ${bearer}` } },
       auth: { persistSession: false, autoRefreshToken: false },
@@ -68,10 +87,6 @@ Deno.serve(async (req: Request) => {
     if (authError || !authData.user) return json({ error: "Your session is invalid or expired." }, 401);
     callerId = authData.user.id;
   }
-
-  const db = createClient(supabaseUrl, serviceKey, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
 
   const { data: submission, error: se } = await db
     .from("submissions")
