@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
 type Property = { id: string; name: string; property_type: string; url: string | null; verified: boolean; platforms: string[]; ad_formats: string[] };
+type KeyStatus = { has_key: boolean; active: boolean; key_version: number | null; rotated_at: string | null; revoked_at: string | null; property_verified: boolean };
 
 export default function PublisherIntegration() {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -16,6 +17,24 @@ export default function PublisherIntegration() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [keyStatus, setKeyStatus] = useState<KeyStatus | null>(null);
+  const [statusLoading, setStatusLoading] = useState(false);
+  const [statusReady, setStatusReady] = useState(false);
+
+  async function loadKeyStatus(id: string) {
+    if (!supabase || !id) { setKeyStatus(null); setStatusReady(false); setStatusLoading(false); return; }
+    setStatusReady(false);
+    setStatusLoading(true);
+    const { data, error: statusError } = await supabase.functions.invoke("publisher-tracking-key", { body: { action: "status", property_id: id } });
+    if (statusError || !data?.success || !data?.status) {
+      setKeyStatus(null);
+      setError("Signing-key status could not be loaded. Retry before rotating or revoking a key.");
+    } else {
+      setKeyStatus(data.status as KeyStatus);
+      setStatusReady(true);
+    }
+    setStatusLoading(false);
+  }
 
   useEffect(() => {
     let live = true;
@@ -40,10 +59,12 @@ export default function PublisherIntegration() {
       else {
         const list = (data || []) as Property[];
         setProperties(list);
-        setPropertyId(list.find(item => item.verified)?.id || "");
-        const firstVerified=list.find(item=>item.verified);
-        setServePlatform(firstVerified?.platforms?.[0]||"");
-        setServeFormat(firstVerified?.ad_formats?.[0]||"");
+        const firstVerified = list.find(item => item.verified);
+        setPropertyId(firstVerified?.id || "");
+        setServePlatform(firstVerified?.platforms?.[0] || "");
+        setServeFormat(firstVerified?.ad_formats?.[0] || "");
+        if (firstVerified?.id) void loadKeyStatus(firstVerified.id);
+        else { setKeyStatus(null); setStatusReady(false); }
       }
       setLoading(false);
     }
