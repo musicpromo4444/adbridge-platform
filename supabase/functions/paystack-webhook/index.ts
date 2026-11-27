@@ -24,7 +24,7 @@ Deno.serve(async(req:Request)=>{
    if(reference){
      const {data,error}=await db.rpc("paystack_reconcile_refund_webhook",{p_reference:reference,p_status:mapped,p_provider_refund_id:providerRefundId});
      if(error)return json({error:"Refund reconciliation failed"},500);
-     return json({received:true,...data});
+     if(data?.matched)return json({received:true,...data});
    }
    // Paystack's refund.pending example can contain a null refund_reference.
    // Fall back to the original transaction reference plus exact amount; the
