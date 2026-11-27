@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 
-type Platform = {
+type CampaignAsset = { id: string; asset_type: string; asset_url: string | null };\ntype PlacementResult = { placement: { x:number; y:number; width:number; height:number; start_seconds:number; end_seconds:number; confidence:number; anchor:string } | null; reasoning:string; confidence:number; safe_areas:any[]; blocked_areas:any[]; warnings:string[] };\n\nasync function captureFrames(file:File) {\n  const url=URL.createObjectURL(file), video=document.createElement("video"); video.preload="auto"; video.muted=true; video.playsInline=true; video.src=url;\n  try { await new Promise<void>((resolve,reject)=>{video.onloadedmetadata=()=>resolve();video.onerror=()=>reject(new Error("Could not read the video file."));});\n    const duration=Number(video.duration),width=video.videoWidth,height=video.videoHeight;\n    if(!Number.isFinite(duration)||duration<1||duration>600)throw new Error("Video must be between 1 second and 10 minutes.");\n    if(!width||!height||width>7680||height>7680)throw new Error("Unsupported video dimensions.");\n    const times=[0.05,0.25,0.5,0.75,0.95].map(x=>Math.min(duration-0.02,Math.max(0,duration*x)));const canvas=document.createElement("canvas");const scale=Math.min(1,640/Math.max(width,height));canvas.width=Math.max(1,Math.round(width*scale));canvas.height=Math.max(1,Math.round(height*scale));const ctx=canvas.getContext("2d");if(!ctx)throw new Error("Frame capture unavailable.");const frames=[];\n    for(const t of times){await new Promise<void>((resolve,reject)=>{video.onseeked=()=>resolve();video.onerror=()=>reject(new Error("Video frame could not be read."));video.currentTime=t;});ctx.drawImage(video,0,0,canvas.width,canvas.height);const image=canvas.toDataURL("image/jpeg",0.65);frames.push({timestamp_seconds:Number(t.toFixed(2)),image_data_url:image});}\n    if(frames.some(f=>f.image_data_url.length>1100000)||frames.reduce((sum,f)=>sum+f.image_data_url.length,0)>4800000)throw new Error("Video frames are too large. Try a lower-resolution video.");return {duration,width,height,frames};\n  } finally { video.removeAttribute("src");video.load();URL.revokeObjectURL(url); }\n}\n\ntype Platform = {
   id: string;
   name: string;
   format: string;
@@ -84,7 +84,7 @@ const placements = [
 export default function Studio() {
   const [platform, setPlatform] = useState("tiktok");
   const [placement, setPlacement] = useState("floating");
-  const [videoUrl, setVideoUrl] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");\n  const [videoFile, setVideoFile] = useState<File | null>(null);\n  const [campaignAssets, setCampaignAssets] = useState<CampaignAsset[]>([]);\n  const [assetId, setAssetId] = useState("");\n  const [analysis, setAnalysis] = useState<PlacementResult | null>(null);\n  const [modelName, setModelName] = useState("");\n  const [analysisError, setAnalysisError] = useState("");\n  const [currentTime, setCurrentTime] = useState(0);
   const [fileName, setFileName] = useState("");
   const [analyzing, setAnalyzing] = useState(false);
   const [done, setDone] = useState(false);
@@ -108,7 +108,7 @@ export default function Studio() {
 
   const selectedCampaign = campaigns.find(c => c.id === campaignId);
 
-  const selected = useMemo(
+  const selectedCampaignAsset = campaignAssets.find(a => a.id === assetId);\n  const activePlacement = analysis?.placement && currentTime >= analysis.placement.start_seconds && currentTime <= analysis.placement.end_seconds;\n\n  useEffect(() => {\n    let live=true; async function loadAssets(){setCampaignAssets([]);setAssetId("");setAnalysis(null);if(!supabase||!campaignId)return;const {data,error:e}=await supabase.from("campaign_assets").select("id,asset_type,asset_url").eq("campaign_id",campaignId).order("created_at",{ascending:true});if(!live)return;if(e){setAnalysisError("Campaign logo assets could not be loaded.");return;}const images=(data||[]).filter(a=>a.asset_url&&/\\.(png|jpe?g|webp)(\\?|$)/i.test(a.asset_url));setCampaignAssets(images as CampaignAsset[]);setAssetId(images[0]?.id||"");}\n    void loadAssets();return()=>{live=false};\n  },[campaignId]);\n\n  const selected = useMemo(
     () => platforms.find(item => item.id === platform) ?? platforms[0],
     [platform]
   );
@@ -178,10 +178,10 @@ export default function Studio() {
       <div className="studioWorkspace">
         <section className="studioPanel">
           <label>Your content</label>
-          <input type="file" accept="video/*,image/*" onChange={event => chooseVideo(event.target.files?.[0])}/>
+          <input type="file" accept="video/mp4,video/webm,video/quicktime" onChange={event => chooseVideo(event.target.files?.[0])}/>
           {fileName && <div className="filePicked">✓ {fileName}</div>}
 
-          <label>Campaign</label>
+          <label>Accepted campaign</label>
           <select value={campaignId} onChange={event => setCampaignId(event.target.value)}>
             <option value="">Choose an accepted campaign</option>
             {campaigns.map(item => <option key={item.id} value={item.id}>{item.name}{item.platform ? " · " + item.platform : ""}</option>)}
@@ -203,7 +203,7 @@ export default function Studio() {
           </div>
 
           <button className="primary fullButton" onClick={analyze} disabled={analyzing}>
-            {analyzing ? "Preparing placement preview…" : "Prepare placement preview →"}
+            {analyzing ? "Analyzing video frames…" : "Analyze actual video & placement →"}
           </button>
         </section>
 
