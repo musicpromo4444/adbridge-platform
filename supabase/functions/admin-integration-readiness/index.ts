@@ -69,5 +69,6 @@ Deno.serve(async (request: Request) => {
       cpa_postback_secret: configured("CPA_POSTBACK_SECRET"),
       metrics_scheduler_secret: Boolean(metricsSecret?.secret_value),
     },
+    security: { bootstrap_secret_present: configured("ADMIN_BOOTSTRAP_SECRET") },
   });
 });
