@@ -11,6 +11,16 @@ AdBridge is a performance advertising marketplace connecting advertisers with so
 - The public rankings show the worldwide top 20 creators/publishers and top 20 advertisers/marketers.
 - AdBridge does not provide private advertiser-to-creator chat.
 
+## First administrator setup
+
+1. Set a strong, one-time `ADMIN_BOOTSTRAP_SECRET` in Supabase Edge Function Secrets.
+2. Register the owner account through AdBridge and confirm its email address.
+3. Sign in, open `/bootstrap-admin`, and submit the bootstrap credential.
+4. The database atomically grants administrator role only if no administrator exists.
+5. Immediately remove `ADMIN_BOOTSTRAP_SECRET` from Edge Function Secrets. The bootstrap RPC cannot promote another account after the first admin exists.
+
+Do not enable a public first-user-is-admin shortcut. The bootstrap credential must remain private.
+
 ## Local development
 
 Requirements: Node.js 22+ and npm.
