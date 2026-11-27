@@ -8,17 +8,7 @@ import { submitManualMetricEvidence } from "@/lib/manual-metric-review-client";
 import { CreatorMetricReviewHistory } from "./metric-review-history";
 import { normalizeSocialPostUrl } from "@/lib/social-post-url.mjs";
 
-const hosts: { [key: string]: string[] } = {
-  TikTok: ["tiktok.com"],
-  "Instagram Reels": ["instagram.com"],
-  Instagram: ["instagram.com"],
-  YouTube: ["youtube.com", "youtu.be"],
-  "YouTube Shorts": ["youtube.com", "youtu.be"],
-  Facebook: ["facebook.com"],
-  "Facebook Reels": ["facebook.com"],
-  X: ["x.com", "twitter.com"],
-  Snapchat: ["snapchat.com"],
-};
+
 
 const first = <T,>(value: T | T[] | null | undefined): T | null =>
   Array.isArray(value) ? value[0] ?? null : value ?? null;
