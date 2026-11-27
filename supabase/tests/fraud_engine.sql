@@ -43,6 +43,13 @@ begin
     raise exception 'campaign pause must remain fee-free';
   end if;
 
+  if to_regprocedure('public.mark_creator_withdrawal_notification_read(uuid)') is null
+     or has_function_privilege('anon','public.mark_creator_withdrawal_notification_read(uuid)','EXECUTE')
+     or not has_function_privilege('authenticated','public.mark_creator_withdrawal_notification_read(uuid)','EXECUTE')
+     or has_table_privilege('authenticated','public.creator_withdrawal_notifications','UPDATE') then
+    raise exception 'withdrawal notification reads must be owner-scoped through RPC';
+  end if;
+
   if has_function_privilege('authenticated','public.mark_creator_campaign_submitted(uuid)','EXECUTE') then
     raise exception 'obsolete creator submission state RPC must remain disabled';
   end if;
