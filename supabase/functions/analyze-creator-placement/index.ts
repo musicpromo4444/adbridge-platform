@@ -1,5 +1,5 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { validateFrames, validatePlacementResult } from "./_shared/placement-analysis.mjs";
+import { validateFrames, validatePlacementResult } from "../_shared/placement-analysis.mjs";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
