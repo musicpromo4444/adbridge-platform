@@ -46,3 +46,4 @@ verify_jwt = true
 # AI placement analysis requires an authenticated creator session.
 [functions.analyze-creator-placement]
 verify_jwt = true
+import_map = "./functions/analyze-creator-placement/deno.json"
