@@ -121,8 +121,13 @@ export default function Campaigns() {
       if (data.status === "paused") {
         setMessage("Campaign paused. Its remaining funds stay reserved.");
       } else {
-        let closeMessage = "Campaign closed. Your refund request has been recorded and is awaiting payment processing.";
-        const { data: refundId, error: refundLookupError } = await supabase.rpc("get_my_campaign_pending_refund", { p_campaign_id: id });
+        const expectedRefund = Number(data.refund_amount || 0);
+        let closeMessage = expectedRefund > 0
+          ? "Campaign closed. Your refund request has been recorded and is awaiting payment processing."
+          : "Campaign closed. There is no eligible unspent balance to refund.";
+        const { data: refundId, error: refundLookupError } = expectedRefund > 0
+          ? await supabase.rpc("get_my_campaign_pending_refund", { p_campaign_id: id })
+          : { data: null, error: null };
         if (!refundLookupError && refundId) {
           const { data: refundResult, error: refundProcessError } = await supabase.functions.invoke("process-campaign-refund", { body: { refund_payment_id: refundId } });
           const refundStates = (refundResult?.attempts || []).map((attempt: { status?: string }) => attempt.status || "unknown");
