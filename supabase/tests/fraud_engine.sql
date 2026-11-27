@@ -43,6 +43,12 @@ begin
     raise exception 'campaign pause must remain fee-free';
   end if;
 
+  if to_regprocedure('public.submit_creator_verification(text,text,text,text)') is null
+     or has_function_privilege('anon','public.submit_creator_verification(text,text,text,text)','EXECUTE')
+     or not has_function_privilege('authenticated','public.submit_creator_verification(text,text,text,text)','EXECUTE') then
+    raise exception 'creator verification must use the authenticated server-validated submission RPC';
+  end if;
+
   if has_table_privilege('anon','public.creator_campaigns','INSERT')
      or has_table_privilege('authenticated','public.creator_campaigns','INSERT')
      or has_table_privilege('anon','public.creator_campaigns','UPDATE')
