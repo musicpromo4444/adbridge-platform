@@ -85,8 +85,11 @@ test("all campaign payout paths use the atomic ledger RPC", async () => {
     readFile(new URL("../supabase/functions/track-conversion/index.ts", import.meta.url), "utf8"),
   ]);
   assert.match(videoMetrics, /record_submission_metric_snapshot/);
-  assert.match(videoMetrics, /auth\.getUser\(token\)/);\n  assert.doesNotMatch(videoMetrics, /from\("submission_metrics"\)\.insert/);\n  assert.doesNotMatch(videoMetrics, /from\("submissions"\)\.update/);
-  assert.match(review, /release_manual_submission_payment/);\n  assert.match(review, /requires verified results before payment is released/);
+  assert.match(videoMetrics, /auth\.getUser\(token\)/);
+  assert.doesNotMatch(videoMetrics, /from\("submission_metrics"\)\.insert/);
+  assert.doesNotMatch(videoMetrics, /from\("submissions"\)\.update/);
+  assert.match(review, /release_manual_submission_payment/);
+  assert.match(review, /requires verified results before payment is released/);
   assert.match(conversion, /rpc\("record_cpa_conversion"/);
   assert.doesNotMatch(conversion, /\.from\("campaign_payments"\)\.insert/);
 });
