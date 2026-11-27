@@ -29,6 +29,16 @@ begin
      or has_function_privilege('anon','public.confirm_campaign_stop(uuid,text)','EXECUTE') then
     raise exception 'anonymous clients can access campaign stop/refund RPCs';
   end if;
+
+  if to_regprocedure('public.admin_confirm_campaign_refund(uuid,text)') is null
+     or to_regprocedure('public.admin_get_campaign_stop_fee_policy()') is null then
+    raise exception 'admin refund settlement or campaign fee policy RPC is missing';
+  end if;
+  if has_function_privilege('anon','public.admin_confirm_campaign_refund(uuid,text)','EXECUTE')
+     or has_function_privilege('anon','public.admin_get_campaign_stop_fee_policy()','EXECUTE') then
+    raise exception 'anonymous clients can access admin campaign refund controls';
+  end if;
+
   if not exists(select 1 from public.campaign_stop_fee_policy where id=1 and pause_fee_percent=0) then
     raise exception 'campaign pause must remain fee-free';
   end if;
