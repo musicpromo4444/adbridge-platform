@@ -1,0 +1,36 @@
+name: AdBridge production smoke test
+
+on:
+  workflow_run:
+    workflows: ["AdBridge CI"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out deployed source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Wait for Git-linked production deployment
+        run: sleep 90
+      - name: Probe production routes and dependencies
+        env:
+          ADBRIDGE_BASE_URL: https://adbridge-platform.vercel.app
+        run: |
+          for attempt in 1 2 3; do
+            npm run smoke:production && exit 0
+            if [ "$attempt" -lt 3 ]; then sleep 45; fi
+          done
+          exit 1
