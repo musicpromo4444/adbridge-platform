@@ -36,3 +36,10 @@ verify_jwt = true
 # Manual metric decisions are administrator-only and revalidated inside the Edge Function.
 [functions.review-manual-metric]
 verify_jwt = true
+# Creator-triggered token refresh requires a valid Supabase session.
+[functions.refresh-social-credentials]
+verify_jwt = true
+
+# Refund processing accepts only authenticated admins or the owning advertiser.
+[functions.process-campaign-refund]
+verify_jwt = true
