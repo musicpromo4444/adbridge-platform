@@ -58,9 +58,9 @@ export default function PublisherEarnings(){
    </div>}
    <div className="infoBox"><b>Payout destination</b><p>Save or update the bank, mobile-money or supported international payout destination for approved withdrawals.</p><Link href="/creator/payout-details">Manage payout details →</Link></div>
    <label>Withdrawal amount</label>
-   <p className="muted">First successful withdrawal minimum: $50. Later withdrawals: $20 minimum. AdBridge pays withdrawal charges. Your saved payout destination and configured exchange rate are required before requesting a withdrawal.</p>
-   <input className="textInput" type="number" min="1" step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="₦ 0" inputMode="decimal"/>
-   <button className="primary" disabled={busy||loading||!summary?.available_balance} onClick={()=>void requestWithdrawal()}>{busy?"Submitting…":"Request withdrawal →"}</button>
+   <p className="muted">Minimum: ${summary?.minimum_withdrawal_usd||50} {summary?.minimum_withdrawal_ngn?`(about ${money(summary.minimum_withdrawal_ngn)})`:"· FX rate awaiting administrator setup"}. First successful withdrawal: $50; later withdrawals: $20. AdBridge pays withdrawal charges.</p>
+   <input className="textInput" type="number" min={summary?.minimum_withdrawal_ngn||1} step="0.01" value={amount} onChange={e=>setAmount(e.target.value)} placeholder="₦ 0" inputMode="decimal"/>
+   <button className="primary" disabled={busy||loading||!summary?.available_balance||!summary?.usd_to_ngn_rate} onClick={()=>void requestWithdrawal()}>{busy?"Submitting…":"Request withdrawal →"}</button>
    {message&&<div className="successBox" role="status">{message}</div>}
    <h2>Payment history</h2>
    {payments.length?<div className="opps">{payments.map(p=>{const c=Array.isArray(p.campaigns)?p.campaigns[0]:p.campaigns;return <article key={p.id}><b>{(p.status||"pending").toUpperCase()}</b><h3>{c?.name||"Publisher campaign payment"}</h3><p>{(p.type||"payment").replaceAll("_"," ")} · {new Date(p.created_at).toLocaleDateString()}</p><strong>{money(Number(p.amount||0))}</strong></article>})}</div>:<div className="successBox">No publisher payments yet. Verified delivery payments will appear here.</div>}
