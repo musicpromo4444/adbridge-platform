@@ -150,18 +150,29 @@ export default function Studio() {
 
   function chooseVideo(file: File | undefined) {
     if (!file) return;
-    setFileName(file.name);
-    setVideoUrl(URL.createObjectURL(file));
-    setDone(false);
+    setAnalysisError(""); setAnalysis(null); setDone(false);
+    if (!file.type.startsWith("video/")) { setAnalysisError("Choose a video file."); return; }
+    if (file.size > 250 * 1024 * 1024) { setAnalysisError("Video files must be 250 MB or smaller."); return; }
+    if (videoUrl) URL.revokeObjectURL(videoUrl);
+    setVideoFile(file); setFileName(file.name); setVideoUrl(URL.createObjectURL(file)); setCurrentTime(0);
   }
 
-  function analyze() {
-    setAnalyzing(true);
-    setDone(false);
-    window.setTimeout(() => {
-      setAnalyzing(false);
-      setDone(true);
-    }, 1300);
+  async function analyze() {
+    if (!supabase) { setAnalysisError("AdBridge connection is unavailable."); return; }
+    if (!campaignId || !selectedCampaignAsset?.asset_url) { setAnalysisError("Choose an accepted campaign with an image logo or brand asset."); return; }
+    if (!videoFile) { setAnalysisError("Upload your video first."); return; }
+    setAnalyzing(true); setDone(false); setAnalysis(null); setAnalysisError("");
+    try {
+      const captured = await captureFrames(videoFile);
+      const { data, error: invokeError } = await supabase.functions.invoke("analyze-creator-placement", {
+        body: { campaign_id: campaignId, campaign_asset_id: assetId, request_id: crypto.randomUUID(), platform, placement_type: placement, duration_seconds: captured.duration, frame_width: captured.width, frame_height: captured.height, frames: captured.frames }
+      });
+      if (invokeError || data?.error) throw new Error(data?.error || invokeError?.message || "AI placement analysis failed.");
+      setAnalysis(data.result as PlacementResult); setModelName(String(data.model || "")); setDone(true);
+      setCurrentTime(data.result?.placement?.start_seconds || 0);
+    } catch (err) {
+      setAnalysisError(err instanceof Error ? err.message : "AI placement analysis failed. Retry.");
+    } finally { setAnalyzing(false); }
   }
 
   return <main className="formPage studioPage">
@@ -217,7 +228,10 @@ export default function Studio() {
             {campaigns.map(item => <option key={item.id} value={item.id}>{item.name}{item.platform ? " · " + item.platform : ""}</option>)}
           </select>
 
-          <label>Campaign logo / brand image</label>\n          <select value={assetId} onChange={e=>setAssetId(e.target.value)}><option value="">Choose image asset</option>{campaignAssets.map(a=><option key={a.id} value={a.id}>{a.asset_type.replaceAll("_"," ")}</option>)}</select>\n          {campaignId&&!campaignAssets.length&&<div className="successBox">This campaign has no image logo assets. Ask the advertiser to upload a PNG, JPG or WebP image.</div>}\n          <label>Advertiser placement</label>
+          <label>Campaign logo / brand image</label>
+          <select value={assetId} onChange={e=>setAssetId(e.target.value)}><option value="">Choose image asset</option>{campaignAssets.map(a=><option key={a.id} value={a.id}>{a.asset_type.replaceAll("_"," ")}</option>)}</select>
+          {campaignId&&!campaignAssets.length&&<div className="successBox">This campaign has no image logo assets. Ask the advertiser to upload a PNG, JPG or WebP image.</div>}
+          <label>Advertiser placement</label>
           <div className="placementChoices">
             {placements.map(item =>
               <button
@@ -249,28 +263,11 @@ export default function Studio() {
               : <div className="previewPlaceholder"><span>▶</span><b>Upload your content</b><small>AI will choose the placement automatically.</small></div>
             }
 
-            {done && <>
-              <div className="safeZone safeOne">SAFE AREA</div>
-              <div className="safeZone safeTwo">SAFE AREA</div>
-              <div className="blockedZone">KEEP CLEAR</div>
-              <div className="placementMock">
-                <span>AD</span>
-                <b>{placement === "natural" ? "Product placed naturally" : "Advertiser product"}</b>
-                <small>AI selected this position</small>
-              </div>
-            </>}
+            {analysis?.placement && <div style={{position:"absolute",left:analysis.placement.x*100+"%",top:analysis.placement.y*100+"%",width:analysis.placement.width*100+"%",height:analysis.placement.height*100+"%",display:currentTime>=analysis.placement.start_seconds&&currentTime<=analysis.placement.end_seconds?"block":"none",pointerEvents:"none",zIndex:4,boxSizing:"border-box",background:placement==="card"?"rgba(255,255,255,.92)":"transparent",padding:placement==="card"?"2%":"0",borderRadius:placement==="card"?"8px":"0"}}>{selectedCampaignAsset?.asset_url&&<img src={selectedCampaignAsset.asset_url} alt="Campaign logo placement preview" style={{width:"100%",height:"100%",objectFit:"contain"}}/>}</div>}
+            {analysis?.placement && <div style={{position:"absolute",bottom:8,left:8,zIndex:5,background:"#071a11dd",color:"#e7fff0",padding:"5px 9px",borderRadius:8,fontSize:11}}>Placement {analysis.placement.start_seconds.toFixed(1)}–{analysis.placement.end_seconds.toFixed(1)}s · {Math.round(analysis.placement.confidence*100)}%</div>}
           </div>
-
-          {done && <div className="analysisResult">
-            <div className="resultTitle"><span>✓</span><strong>Placement selected automatically</strong></div>
-            <p>{selected.automaticPlacement}</p>
-            <div className="checkList">
-              <div><span>✓</span> Destination format: {selected.ratio}</div>
-              <div><span>✓</span> Safe area detected</div>
-              <div><span>✓</span> Timing selected from your actual video</div>
-              <div><span>✓</span> Platform requirements checked</div>
-            </div>
-          </div>}
+          {analysisError && <div className="successBox" role="alert">{analysisError}</div>}
+          {analysis && <div className="analysisResult"><div className="resultTitle"><span>{analysis.placement?"✓":"!"}</span><strong>{analysis.placement?"AI placement recommendation":"AI declined placement"}</strong></div><p>{analysis.reasoning}</p>{analysis.placement&&<div className="checkList"><div>Position: {analysis.placement.anchor}</div><div>Time window: {analysis.placement.start_seconds.toFixed(2)}–{analysis.placement.end_seconds.toFixed(2)}s</div><div>Confidence: {Math.round(analysis.placement.confidence*100)}%</div><div>Model: {modelName||"configured model"}</div></div>}{analysis.warnings?.length>0&&<div className="infoBox"><b>Warnings</b><ul>{analysis.warnings.map((w,i)=><li key={i}>{w}</li>)}</ul></div>}</div>}
         </section>
       </div>
 
@@ -290,14 +287,7 @@ export default function Studio() {
 
       {saveMessage && <div className="successBox">{saveMessage}</div>}
 
-      {done && <div className="finalCheck">
-        <div>
-          <span className="eyebrow">FINAL CHECK</span>
-          <h2>Everything is ready for your review</h2>
-          <p>AdBridge checks the destination before export. The creator reviews the final result and remains in control of posting.</p>
-        </div>
-        <button className="secondary" type="button" onClick={() => setSaveMessage("Preview approved. Submit the finished post from your campaign workspace.")}>Approve & export →</button>
-      </div>}
+      {done && <div className="finalCheck"><div><span className="eyebrow">AI RESULT</span><h2>{analysis?.placement?"Placement plan ready for review":"No safe placement recommended"}</h2><p>Play or seek the video to preview the logo during the recommended time window. This is an advisory preview, not an exported or modified video file.</p></div><button className="secondary" type="button" onClick={()=>{setAnalysis(null);setDone(false);setSaveMessage("Analysis cleared. You can adjust the placement style and analyze again.");}}>Analyze another →</button></div>}
     </div>
   </main>
 }
