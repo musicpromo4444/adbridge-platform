@@ -26,8 +26,10 @@ Do not consider launch-ready solely from structural checks. The admin Launch Rea
 
 ## Latest production validation
 
-- Structural readiness: 13/13 checks passed.
+- Structural readiness: 18/18 schema/function/trigger checks verified directly against live Supabase after backend synchronization.
 - Data readiness: false; no profiles or campaigns currently exist.
+- Live Supabase migration history now includes the synchronized publisher delivery, fraud hardening, measurement, notification, creator submission, financial reconciliation, earnings/withdrawal, ranking and payout-readiness migrations.
+- Permission hardening applied: public/anonymous direct execution removed from guarded admin/measurement/social RPCs and trigger-only functions; global ranking remains intentionally public.
 - Production route sweep: 12 core routes returned HTTP 200.
 - Runtime error logs: no errors found in the checked deployment window.
 - End-to-end tests with authenticated accounts remain pending.
