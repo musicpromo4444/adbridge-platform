@@ -29,3 +29,10 @@ Paystack live credentials, OAuth provider credentials/callback URLs, and product
 ## Required next real-data test
 
 Create test advertiser and creator accounts, fund a test campaign, connect an eligible social account, submit creator work, verify a publisher property and send signed publisher events. Then test admin approval/rejection, fraud holds, verified metrics, payouts, withdrawals, notifications and rankings before opening to the public.
+
+
+## Ordered feature hardening follow-up (2026-11-27)
+
+- **Task 2 — Atomic creator submission + tracking link: implemented in repository.** Added `submit_creator_campaign_work` RPC/migration: locks creator job and campaign, validates eligibility and URL/platform, creates submission and advertiser-bound tracking link together, and advances job status atomically. The creator submit page now calls this single RPC instead of issuing separate writes.
+- Tracking slug generation is server-side; destination is taken from the advertiser campaign destination table, not client input. Any failure rolls back the submission/link/job-state changes together.
+- **Rollout status:** migration is committed but has not been confirmed applied to the live Supabase database. Deployment and authenticated scenario tests remain pending.
