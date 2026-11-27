@@ -124,10 +124,15 @@ export default function Campaigns() {
         let closeMessage = "Campaign closed. Your refund request has been recorded and is awaiting payment processing.";
         const { data: refundId, error: refundLookupError } = await supabase.rpc("get_my_campaign_pending_refund", { p_campaign_id: id });
         if (!refundLookupError && refundId) {
-          const { error: refundProcessError } = await supabase.functions.invoke("process-campaign-refund", { body: { refund_payment_id: refundId } });
-          closeMessage = refundProcessError
+          const { data: refundResult, error: refundProcessError } = await supabase.functions.invoke("process-campaign-refund", { body: { refund_payment_id: refundId } });
+          const refundStates = (refundResult?.attempts || []).map((attempt: { status?: string }) => attempt.status || "unknown");
+          closeMessage = refundProcessError || !refundResult?.ok
             ? "Campaign closed. Your refund request is saved; automatic Paystack processing could not start, so it remains available for admin settlement."
-            : "Campaign closed. Your Paystack refund has been submitted and will remain pending until Paystack confirms it is processed.";
+            : refundStates.length > 0 && refundStates.every((status: string) => status === "processed")
+              ? "Campaign closed. Paystack confirms the refund is processed. Your bank may take additional time to credit the funds."
+              : refundStates.some((status: string) => ["failed", "manual_review", "needs-attention"].includes(status))
+                ? "Campaign closed. Paystack needs attention on this refund. The request is saved and AdBridge administrators can review the affected allocation."
+                : "Campaign closed. Your Paystack refund has been submitted and is awaiting provider processing.";
         }
         setMessage(closeMessage);
       }
