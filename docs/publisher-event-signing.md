@@ -57,11 +57,12 @@ The signature must be generated on the publisher's server. AdBridge never trusts
 - Reuse the same `event_id` and exact event body when retrying a delivery. Re-sign the body with a fresh timestamp.
 - The database's unique event-ID index makes accepted event IDs idempotent. A repeated event ID returns `duplicate: true` and does not create a second payable event.
 - Signed events without an explicit unique `event_id` are rejected. AdBridge does not generate a new ID for a signed request, because doing so would allow a replay to be counted again.
+- For `install` and `conversion`, use a stable external `receipt_id` for the underlying install/order/conversion. A receipt ID can be used only once per publisher and event type, even if a retry is sent with a different event ID or through another placement.
 - Unsigned browser telemetry may still be recorded for diagnostics, but it is not trusted or payable.
 
 ## 4. What AdBridge enforces
 
-- Duplicate event IDs are rejected.
+- Duplicate event IDs and duplicate publisher install/conversion receipts are rejected.
 - Publisher properties must be verified and belong to the placement owner.
 - Website origins and native app identifiers are checked.
 - IP and visitor velocity are scored; high-volume IP traffic is rate-limited.
