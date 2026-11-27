@@ -1,5 +1,9 @@
 begin;
 
+-- The worldwide top-20 rankings are intentionally public and read-only.
+-- Their query schema-qualifies all relations, so use an empty search path.
+alter function public.get_adbridge_global_rankings() set search_path = '';
+
 -- Admin RPCs remain available to signed-in users because each function verifies
 -- the caller's profile role. Anonymous callers must never reach these routines.
 revoke all on function public.admin_launch_readiness() from public, anon;
@@ -55,6 +59,8 @@ alter function public.notify_publisher_application_decision() set search_path = 
 revoke all on function public.sync_approved_publisher_ad_placement() from public, anon, authenticated, service_role;
 alter function public.sync_approved_publisher_ad_placement() set search_path = '';
 
+comment on function public.get_adbridge_global_rankings() is
+  'Public worldwide top-20 rankings. Read-only query uses an empty search path.';
 comment on function public.admin_launch_readiness() is
   'Admin-only launch readiness RPC. Browser execution is limited to authenticated users and the function verifies the admin profile role.';
 comment on function public.admin_review_creator_verification(uuid, text, text) is
