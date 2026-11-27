@@ -36,7 +36,7 @@ jobs:
       - name: Type-check AI placement analysis Edge Function
         run: deno check --no-lock --config supabase/functions/analyze-creator-placement/deno.json supabase/functions/analyze-creator-placement/index.ts
       - name: Type-check campaign postback Edge Functions
-        run: deno check --no-lock --config deno.json supabase/functions/manage-campaign-postback-secret/index.ts supabase/functions/track-conversion/index.ts
+        run: deno check --no-lock --config deno.json supabase/functions/manage-campaign-postback-secret/index.ts supabase/functions/track-conversion/index.ts supabase/functions/start-campaign-payment/index.ts supabase/functions/verify-campaign-payment/index.ts
       - name: Type-check application
         run: npx tsc --noEmit
       - name: Build production application
