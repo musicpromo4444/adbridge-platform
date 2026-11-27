@@ -55,7 +55,8 @@ Deno.serve(async (req: Request) => {
        outcomes.push({id:a.id,status:"manual_review"});continue;
      }
    }
-   await db.rpc("paystack_update_refund_attempt_internal",{p_attempt_id:a.id,p_status:"submitting"});
+   const {data:claim,error:claimError}=await db.rpc("paystack_update_refund_attempt_internal",{p_attempt_id:a.id,p_status:"submitting"});
+   if(claimError||!claim?.claimed){outcomes.push({id:a.id,status:claim?.status||a.status,claimed:false});continue;}
    let response: Response;
    try{
      response=await fetch("https://api.paystack.co/refund",{method:"POST",headers:{"Authorization":"Bearer "+secret,"Content-Type":"application/json","Cache-Control":"no-cache"},body:JSON.stringify({transaction:funding.provider_reference,amount:Math.round(Number(a.amount)*100),currency:"NGN",reference:a.paystack_reference,merchant_note:"AdBridge campaign closure refund"})});
