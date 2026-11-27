@@ -46,6 +46,7 @@ Configure secrets in the AdBridge Supabase project's Edge Function secrets:
 - `AI_API_KEY` — server-side key for the configured AI-compatible provider.
 - `AI_BASE_URL` — optional AI-compatible API base URL; defaults to the OpenAI API base.
 - `AI_MODEL` — optional model name; defaults to `gpt-4o-mini`.
+- `CPA_POSTBACK_SECRET` — private secret required for advertiser conversion/install postbacks.
 - `TIKTOK_CLIENT_ID`, `TIKTOK_CLIENT_SECRET`.
 - `YOUTUBE_CLIENT_ID`, `YOUTUBE_CLIENT_SECRET`.
 - `META_CLIENT_ID`, `META_CLIENT_SECRET`.
