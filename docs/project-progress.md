@@ -17,7 +17,7 @@
 - Production Next.js builds and TypeScript checks pass.
 - 12 core production routes returned HTTP 200 in the route sweep: Admin Launch, Admin, Notifications, Integrations, Rankings, Advertiser Results, Advertiser Analytics, Creator Analytics, Creator Verification, Admin Verification, Publisher Integration and Advertiser Delivery.
 - Runtime error logs for the latest production deployment showed no errors in the checked window.
-- Supabase launch-readiness RPC reports 13/13 structural checks passing: required tables, publisher tables, verification/notification tables, fraud assessment table, RLS, fraud triggers, payout gates, measurement RPCs, rankings, creator verification review, notification triggers, Realtime publication and secure social disconnect.
+- Supabase launch-readiness RPC reports 18/18 structural checks passing: required tables, publisher tables, verification/notification tables, fraud assessment table, RLS, fraud triggers, payout gates, measurement RPCs, rankings, creator verification review, notification triggers, Realtime publication and secure social disconnect.
 - Supabase Edge Functions are deployed and listed in the project.
 
 ## Data readiness and launch caveats
