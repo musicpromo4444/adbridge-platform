@@ -39,7 +39,9 @@ test("creator submission UI uses only the authenticated RPC for writes", async (
   assert.match(page, /rpc\([\s\S]*"submit_creator_campaign_work"/);
   assert.match(page, /p_job_id: job/);
   assert.match(page, /p_posted_url: posted\.trim\(\)/);
-  assert.match(page, /normalizeSocialPostUrl/);\n  assert.match(page, /p_posted_url: normalizedPostUrl/);\n  assert.match(page, /tracking_slug/);
+  assert.match(page, /normalizeSocialPostUrl/);
+  assert.match(page, /p_posted_url: normalizedPostUrl/);
+  assert.match(page, /tracking_slug/);
   assert.match(page, /Evidence \/ Insights link|Proof \/ evidence/i);
   assert.doesNotMatch(page, /p_creator_id\s*:/);
   assert.doesNotMatch(page, /from\("submissions"\)\s*\.insert/);
