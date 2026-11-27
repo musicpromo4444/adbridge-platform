@@ -2,7 +2,7 @@ name: AdBridge production smoke test
 
 on:
   workflow_run:
-    workflows: ["AdBridge CI"]
+    workflows: ["AdBridge build verification"]
     types: [completed]
     branches: [main]
 
